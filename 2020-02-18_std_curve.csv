@@ -1,0 +1,7 @@
+Bacteria,Media,Media Type,-2,-3,-4,-5,-6,-7,-8,-9,Notes
+P. aeruginosa,TSA,Rich,NA,NA,Too,Mbc,171,13,3,1,Colonies between this and PA on Pseudo agar are very similar
+P. aeruginosa,Pseudomonas agar,Selective,NA,NA,Too,Mbc,195,~78,0,0,
+S. aureus,TSA,Rich,NA,NA,Too,Too,~612,54,2,0,Large colonies
+S. aureus,TSA+salt,Selective,NA,NA,Too,Mbc,~518,54,1,1,Tiny colonies
+E. faecalis,TSA,Rich,~lawn,Too,Mbc,Mbc,38,5,NA,NA,Same colony size as EF on TSA
+E. faecalis,TSA+gentamicin,Selective,~lawn,Too,Mbc,328,21,1,NA,NA,
