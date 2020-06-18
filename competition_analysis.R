@@ -65,7 +65,17 @@ ggplot(data = comp_data_0613,
   theme_bw() +
   scale_color_manual(values = my_cols[c(1, 8)])
 
-ggplot(data = comp_data_0613, 
+ggplot(data = comp_data_0613[comp_data_0613$Timepoint == 1, ], 
+       aes(x = as.factor(Timepoint), y = cfu.pfu.mL, 
+           color = as.factor(Phage.Treat), group = as.factor(Phage.Treat))) +
+  geom_point(size = 2, alpha = 0.7) + 
+  geom_line() +
+  scale_y_continuous(trans = "log10") +
+  facet_grid(Population ~ Bacteria.Treat, scales = "free_y") +
+  theme_bw() +
+  scale_color_manual(values = my_cols[c(1, 8)])
+
+ggplot(data = comp_data_0613[comp_data_0613$Population != "H6", ], 
        aes(x = as.factor(Timepoint), y = freq, 
            color = as.factor(Phage.Treat), group = as.factor(Phage.Treat))) +
   geom_point(size = 2, alpha = 0.7) + 
