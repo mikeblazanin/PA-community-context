@@ -70,22 +70,23 @@ od_2$od_dilution <- sapply(od_2$dilution, function(x) {substr(x, 2, nchar(x))})
 #run calculations
 od_2$OD600_adj <- od_2$OD600 - od_2$Blank_avg
 cfu_2$cfu_ml <- cfu_2$cfu/cfu_2$Dilution
-cfu_2 <- group_by(cfu_2, Bacteria, Rep)
+cfu_2 <- group_by(cfu_2, Date, Bacteria, Rep)
 cfu_2_sum <- summarize(cfu_2,
                        cfu_ml_avg = mean(cfu_ml, na.rm = TRUE))
 
 #Join cfu & od data
-std_curve2 <- left_join(od_2, cfu_2_sum, by = c("Bacteria", "Rep"))
+std_curve2 <- left_join(od_2, cfu_2_sum, 
+                        by = c("Date", "Bacteria", "Rep"))
 #Calculate cfu/ml in dilution series
 std_curve2$cfu_ml_dil <- as.numeric(std_curve2$od_dilution)*std_curve2$cfu_ml_avg
 #Drop unneeded cols & rows
-std_curve2 <- select(std_curve2, Machine, Bacteria, Rep, 
+std_curve2 <- select(std_curve2, Date, Machine, Bacteria, Rep, 
                      OD600_adj, cfu_ml_dil)
 std_curve2 <- std_curve2[complete.cases(std_curve2), ]
 
 #Run linear models
 lm2_plt <- lm(data = std_curve2[std_curve2$Machine == "Plate" &
-                                  std_curve2$OD600_adj <= 1, ],
+                                  std_curve2$OD600_adj <= 0.1, ],
               cfu_ml_dil ~ OD600_adj + OD600_adj:Bacteria + 0)
 lm2_spec <- lm(data = std_curve2[std_curve2$Machine == "Spec" &
                                    std_curve2$OD600_adj <= 1, ],
@@ -99,16 +100,31 @@ std_curve2$pred_cfu[std_curve2$Machine == "Spec"] <-
   predict(lm2_spec, std_curve2)[std_curve2$Machine == "Spec"]
 
 #Plot lines
-ggplot(data = std_curve2, aes(x = cfu_ml_dil, y = OD600_adj)) +
+ggplot(data = std_curve2, aes(x = OD600_adj, y = cfu_ml_dil)) +
   geom_point() +
-  facet_grid(Machine ~ Bacteria, scales = "free") +
-  geom_line(aes(x = pred_cfu))
+  facet_grid(Bacteria ~ Machine, scales = "free") +
+  geom_line(aes(y = pred_cfu)) +
+  # scale_y_continuous(trans = "log10") +
+  # scale_x_continuous(trans = "log10") +
+  NULL
 
 ggplot(data = std_curve2, aes(x = OD600_adj, y = cfu_ml_dil)) +
   geom_point() +
   facet_grid(Bacteria ~ Machine, scales = "free") +
-  geom_line(aes(y = pred_cfu))
+  geom_line(aes(y = pred_cfu)) +
+  scale_y_continuous(trans = "log10") +
+  scale_x_continuous(trans = "log10") +
+  NULL
 
-#Print models
-lm2_plt
-lm2_spec
+#Print model information
+ex_model <- data.frame(expand.grid(
+  c("PA", "SA", "EF"), c("Spec", "Plate")),
+  OD600_adj = 1.0)
+colnames(ex_model)[1:2] <- c("Bacteria", "Machine")
+ex_model$pred_cfu <- NA
+ex_model$pred_cfu[ex_model$Machine == "Spec"] <- 
+  predict(lm2_spec, ex_model[ex_model$Machine == "Spec", ])
+ex_model$pred_cfu[ex_model$Machine == "Plate"] <- 
+  predict(lm2_plt, ex_model[ex_model$Machine == "Plate", ])
+
+ex_model
