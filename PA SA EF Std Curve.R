@@ -117,3 +117,52 @@ ggplot(data = std_curve2,
 
 #Print model information
 lm2
+
+# 2020-07 Standard Curve (static, Bolton Broth) ----
+std_curve3_od <- read.csv("2020-07-12 PA SA EF Std Curve Tidy.csv",
+                       stringsAsFactors = FALSE)
+std_curve3_cfu <- read.csv("2020-07-12 PA SA EF Std Curve CFU.csv",
+                           stringsAsFactors = FALSE)
+
+std_curve3_od <- group_by(std_curve3_od,
+                       Machine, Bacteria, Rep, Dilution)
+std_curve3_od_sum <- summarize(std_curve3_od,
+                            "OD600" = mean(OD600))
+std_curve3_od_sum$OD600_adj <- NA
+std_curve3_od_sum$OD600_adj[std_curve3_od_sum$Machine == "Plate"] <-
+  std_curve3_od_sum$OD600[std_curve3_od_sum$Machine == "Plate"] -
+  std_curve3_od_sum$OD600[std_curve3_od_sum$Machine == "Plate" & 
+                         std_curve3_od_sum$Bacteria == "Blank"]
+std_curve3_od_sum$OD600_adj[std_curve3_od_sum$Machine == "Spec"] <-
+  std_curve3_od_sum$OD600[std_curve3_od_sum$Machine == "Spec"] -
+  std_curve3_od_sum$OD600[std_curve3_od_sum$Machine == "Spec" & 
+                         std_curve3_od_sum$Bacteria == "Blank"]
+std_curve3_od_sum <- std_curve3_od_sum[std_curve3_od_sum$Bacteria != "Blank",]
+
+std_curve3_cfu$cfu_ml <- std_curve3_cfu$cfu/std_curve3_cfu$Dilution
+  
+std_curve3 <- left_join(std_curve3_od_sum, std_curve3_cfu,
+                        by = c("Bacteria", "Rep"))
+std_curve3$cfu_ml_dil <- std_curve3$cfu_ml*std_curve3$Dilution.x
+
+lm3 <- lm(data = std_curve3, 
+                         cfu_ml_dil ~ OD600_adj:Bacteria:Machine + 0)
+std_curve3$pred_cfu <- predict(lm3, std_curve3)
+
+ggplot(data = std_curve3, 
+       aes(x = OD600_adj, y = cfu_ml_dil, color = Rep)) +
+  geom_point() +
+  facet_grid(Bacteria ~ Machine) +
+  geom_line(aes(y = pred_cfu))
+
+ggplot(data = std_curve3, 
+       aes(x = OD600_adj, y = cfu_ml_dil, color = Rep)) +
+  geom_point() +
+  facet_grid(Bacteria ~ Machine) +
+  geom_line(aes(y = pred_cfu)) +
+  scale_y_continuous(trans = "log10") +
+  scale_x_continuous(trans = "log10")
+
+lm3
+
+
