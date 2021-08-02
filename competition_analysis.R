@@ -91,15 +91,6 @@ for (i in 1:length(comp_data)) {
                                           levels = c("P", "S", "E", 
                                                      "PS", "PE", "SE",
                                                      "PSE"))
-  
-  #Calculate total populations
-  if (i == 1) {comp_data_sum <- list()}
-  comp_data[[i]] <- group_by(comp_data[[i]],
-                             Bacteria.Treat, Phage.Treat, Timepoint, 
-                             Population)
-  comp_data_sum[[i]] <- summarize(comp_data[[i]],
-                                  cfu.pfu.mL_avg_all = sum(cfu.pfu.mL_avg),
-                                  Contam = max(Contam))
 }
 
 #Incorporate T0 for 07-2020 competition ----
@@ -122,6 +113,7 @@ t0_data <- data.frame(Bacteria.Treat = c("P", "P", "S", "E",
                       Entero_dens = NA,
                       H6_dens = NA,
                       Contam = 0,
+                      colony_type = "S",
                       stringsAsFactors = F)
 
 for (i in 1:nrow(t0_data)) {
@@ -148,18 +140,28 @@ for (i in 1:nrow(t0_data)) {
 
 #Melt T0 data
 t0_tidy <- pivot_longer(t0_data, cols = ends_with("dens"),
-                        names_to = "Population", values_to = "cfu.pfu.mL_avg_all",
+                        names_to = "Population", values_to = "cfu.pfu.mL_avg",
                         values_drop_na = TRUE)
 
 #Drop _dens from Pop names
 t0_tidy$Population <- gsub(pattern = "_dens", replacement = "", 
                     x = t0_tidy$Population)
 
-#Merge with later data
-comp_data_sum[[2]] <- full_join(t0_tidy, comp_data_sum[[2]])
+#Merge with later timepoints' data
+comp_data[[2]] <- full_join(t0_tidy, comp_data[[2]])
 
-#Calculate frequency ----
-for (i in 1:length(comp_data_sum)) {
+#Calculate total pops & freq ----
+for (i in 1:length(comp_data)) {
+  #Calculate total populations
+  if (i == 1) {comp_data_sum <- list()}
+  comp_data[[i]] <- group_by(comp_data[[i]],
+                             Bacteria.Treat, Phage.Treat, Timepoint, 
+                             Population)
+  comp_data_sum[[i]] <- summarize(comp_data[[i]],
+                                  cfu.pfu.mL_avg_all = sum(cfu.pfu.mL_avg),
+                                  Contam = max(Contam))
+  
+  #Calculate frequency
   comp_data_sum[[i]] <- group_by(comp_data_sum[[i]],
                                  Bacteria.Treat, Phage.Treat, Timepoint)
   comp_data_sum[[i]] <- mutate(comp_data_sum[[i]],
@@ -175,8 +177,8 @@ for (i in 1:length(comp_data_sum)) {
                                      "Staph" = "S. aureus",
                                      "H6" = "Phage H6"))
   comp_data_sum[[i]]$Population <- factor(comp_data_sum[[i]]$Population,
-                          levels = c("P. aeruginosa", "E. faecalis", 
-                                     "S. aureus", "Phage H6"))
+                          levels = c("P. aeruginosa", "S. aureus",
+                                     "E. faecalis", "Phage H6"))
   comp_data_sum[[i]]$Phage.Treat <- factor(comp_data_sum[[i]]$Phage.Treat)
   comp_data_sum[[i]]$Phage.Treat <- plyr::revalue(comp_data_sum[[i]]$Phage.Treat, 
                                   c("1" = "Present",
@@ -217,23 +219,45 @@ ggplot(data = comp_data_sum[[2]],
 #Competition #2, Non-contaminated data
 temp <- comp_data_sum[[2]][comp_data_sum[[2]]$Contam == 0, ]
 
+#Set values below limit at limit
+temp$bd <- 0
+temp$bd[temp$cfu.pfu.mL_avg_all < 10**5 &
+                          temp$Population != "Phage H6"] <- 1
+temp$cfu.pfu.mL_avg_all[temp$cfu.pfu.mL_avg_all < 10**5 &
+                          temp$Population != "Phage H6"] <- 10**5
+
 #Density
+tiff("Density.tiff", width = 8, height = 6, units = "in", res = 150)
 ggplot(data = temp, 
        aes(x = as.factor(Timepoint), 
            y = cfu.pfu.mL_avg_all+1, 
-           color = as.factor(Phage.Treat),
-           group = Phage.Treat)) +
-  geom_point(size = 2, alpha = 0.7) + 
-  geom_line() +
-  scale_y_continuous(trans = "log10") +
-  facet_grid(Population ~ Bacteria.Treat) +
+           color = Population,
+           group = Population,
+           shape = as.factor(bd))) +
+  geom_point(size = 4, alpha = 0.7) + 
+  geom_line(lwd = 1.5, alpha = 0.7) +
+  geom_hline(yintercept = 10**5, lty = 2) +
+  scale_y_continuous(trans = "log10",
+                     breaks = c(10**5, 10**7, 10**9),
+                     labels = scales::trans_format('log10', 
+                                                   scales::math_format(10^.x))) +
+  facet_grid(Phage.Treat ~ Bacteria.Treat) +
   theme_bw() +
-  scale_color_manual(values = my_cols[c(1, 8)]) +
+  scale_color_manual(values = my_cols[c(3, 1, 7, 8)]) +
+  scale_shape_manual(values = c(16, 1)) +
   labs(x = "Timepoint", y = "Density (cfu or pfu/mL)",
-       subtitle = "Bacterial Community Combination",
-       color = "Phage") +
-  theme(plot.subtitle = element_text(hjust = 0.5)) +
+       subtitle = "Bacterial Community Treatment",
+       color = "Species") +
+  theme(plot.subtitle = element_text(hjust = 0.5, size = 24),
+        axis.title = element_text(size = 24),
+        axis.text = element_text(size = 18),
+        legend.title = element_text(size = 24),
+        legend.text = element_text(size = 21),
+        strip.text = element_text(size = 22),
+        legend.position = "bottom") +
+  guides(shape = FALSE, color = guide_legend(nrow = 2)) +
   NULL
+dev.off()
   
 #Frequency (points)
 ggplot(data = temp[temp$Population != "Phage H6", ],
@@ -254,6 +278,7 @@ ggplot(data = temp[temp$Population != "Phage H6", ],
   NULL
 
 #Frequency (stacked bars)
+tiff("Frequency.tiff", width = 8, height = 6, units = "in", res = 150)
 ggplot(data = temp[temp$Population != "Phage H6", ],
        aes(x = as.factor(Timepoint), y = freq)) +
   geom_col(aes(fill = Population)) +
@@ -262,10 +287,98 @@ ggplot(data = temp[temp$Population != "Phage H6", ],
   theme_bw() +
   scale_fill_manual(values = my_cols[c(3, 1, 2)]) +
   labs(x = "Timepoint", y = "Frequency",
-       subtitle = "Bacterial Community Combination",
-       fill = "Bacterial species") +
-  theme(plot.subtitle = element_text(hjust = 0.5)) +
+       subtitle = "Bacterial Community Treatment",
+       fill = "Species") +
+  theme(plot.subtitle = element_text(hjust = 0.5, size = 24),
+        axis.title = element_text(size = 24),
+        axis.text = element_text(size = 22),
+        legend.title = element_text(size = 24),
+        legend.text = element_text(size = 21),
+        strip.text = element_text(size = 22),
+        legend.position = "bottom",
+        legend.justification = "left") +
+  #coord_cartesian(clip = "off") +
+  #annotate(geom = "text", x = 1, y = 1, label = "Phage") +
+  #geom_text(aes(x = 1, y = 1, label = "Phage")) +
+  # annotation_custom(grob = grid::textGrob(label = "Phage"),
+  #   xmin = 1, xmax = 1, ymin = 0, ymax = 1) +
   NULL
+dev.off()
+
+pseudo_col_freq <- comp_data[[2]][comp_data[[2]]$Contam == 0, ]
+pseudo_col_freq <- group_by(pseudo_col_freq,
+                            Bacteria.Treat, Phage.Treat, Timepoint,
+                            Population)
+pseudo_col_freq <- mutate(pseudo_col_freq,
+                                 freq = cfu.pfu.mL_avg/
+                                   sum(cfu.pfu.mL_avg[Population == "Pseudo"]))
+# pseudo_col_freq$colony_type <- factor(pseudo_col_freq$colony_type,
+#                                       levels = c("W", "S", "NA"))
+pseudo_col_freq$Bacteria.Treat <- factor(pseudo_col_freq$Bacteria.Treat,
+                                     levels = c("P", "PS", "PE", "PSE"))
+
+#Colony type frequency (stacked bars)
+tiff("Frequency_colony.tiff", width = 8, height = 6, units = "in", res = 150)
+ggplot(data = pseudo_col_freq[pseudo_col_freq$Population == "Pseudo", ],
+       aes(x = as.factor(Timepoint), y = freq)) +
+  geom_col(aes(fill = colony_type)) +
+  #scale_y_continuous(trans = "log10") +
+  facet_grid(Phage.Treat ~ Bacteria.Treat,
+             labeller = as_labeller(c("1" = "Present", "0" = "Absent",
+                                      "P" = "P", "PS" = "PS", 
+                                      "PE" = "PE", "PSE" = "PSE"))) +
+  theme_bw() +
+  scale_fill_manual(
+    values = c(rgb(red = 0, green = 1.3*158, blue = 1.3*115, maxColorValue = 255),
+               rgb(red = 0, green = .7*158, blue = .7*158, maxColorValue = 255)),
+    breaks = c("S", "W"),
+                    labels = c("Large", "Small")) +
+  labs(x = "Timepoint", y = "Frequency",
+       subtitle = "Phage Community Treatment",
+       fill = "Colony Morphology") +
+  theme(plot.subtitle = element_text(hjust = 0.5, size = 24),
+        axis.title = element_text(size = 24),
+        axis.text = element_text(size = 22),
+        legend.title = element_text(size = 24),
+        legend.text = element_text(size = 22),
+        strip.text = element_text(size = 22),
+        legend.position = "bottom") +
+  #coord_cartesian(clip = "off") +
+  #annotate(geom = "text", x = 1, y = 1, label = "Phage") +
+  #geom_text(aes(x = 1, y = 1, label = "Phage")) +
+  # annotation_custom(grob = grid::textGrob(label = "Phage"),
+  #   xmin = 1, xmax = 1, ymin = 0, ymax = 1) +
+  NULL
+dev.off()
+
+##Cross streak resistance data
+resis_data_0801 <- read.csv("2020-08-01_crossstreak_data.csv",
+                            stringsAsFactors = F)
+
+tiff("Resistance.tiff", width = 8, height = 6, units = "in", res = 150)
+ggplot(data = resis_data_0801[resis_data_0801$Contam == 0, ],
+       aes(x = as.factor(Timepoint), y = 1)) +
+  geom_col(aes(fill = as.factor(Resis_freq))) +
+  geom_text(aes(y = 0.5, label = n_streaks), color = "white", size = 14) +
+  facet_grid(Phage.Treat ~ Bact.Treat,
+             labeller = as_labeller(c("1" = "Present", "0" = "Absent",
+                                      "P" = "P", "PS" = "PS",
+                                      "PE" = "PE", "PSE" = "PSE"))) +
+  theme_bw() +
+  scale_fill_manual(values = c("blue", "navy")) +
+  labs(x = "Timepoint", y = "Frequency",
+       subtitle = "Bacterial Community Treatment",
+       fill = "Resistance") +
+  theme(plot.subtitle = element_text(hjust = 0.5, size = 16),
+        axis.title = element_text(size = 16),
+        axis.text = element_text(size = 12),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 13),
+        strip.text = element_text(size = 12.5),
+        legend.position = "bottom") +
+  NULL
+dev.off()
+
 
 ## Old Plots ----
 ggplot(data = comp_data_0613, 
