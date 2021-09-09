@@ -73,7 +73,8 @@ ggplot(data = evol_dens_sum,
   geom_line(data = evol_dens_sum_sum, lwd = 2) +
   facet_grid(. ~ Treat) +
   scale_y_continuous(trans = "log10") +
-  xlim(0, NA)
+  xlim(0, NA) +
+  labs(y = "Density (cfu/mL pfu/mL)")
 
 ggplot(data = evol_dens_sum[evol_dens_sum$Plating == "PA", ],
        aes(x = Timepoint, y = freq_L)) +
