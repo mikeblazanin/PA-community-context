@@ -61,6 +61,16 @@ for (i in 1:nrow(evol_dens_sum)) {
   }
 }
 
+#Add pseudo-data on initial inoculation densities
+evol_dens_sum <- 
+  full_join(evol_dens_sum,
+            data.frame("dens" = c(rep(10**7, 12), rep(10**5, 6)),
+                       "Timepoint" = rep(0, 18),
+                       "Plating" = c(rep("PA", 12), rep("H6", 6)),
+                       "Treat" = c(rep("-", 6), rep("+", 12)),
+                       "Population" = rep(1:6, 3),
+                       "freq_L" = rep(1, 18)))
+                          
 evol_dens_sum_sum <- 
   summarize(group_by(evol_dens_sum, Timepoint, Plating, Treat),
             dens = 10**mean(log10(dens+1)), freq_L = mean(freq_L))
@@ -71,20 +81,31 @@ ggplot(data = evol_dens_sum,
   #geom_point() + 
   geom_line(aes(group = paste(Population, Plating))) +
   geom_line(data = evol_dens_sum_sum, lwd = 2) +
-  facet_grid(. ~ Treat) +
+  facet_grid(. ~ Treat,
+             labeller = as_labeller(c("+" = "Phage Added",
+                                      "-" = "No Phage"))) +
   scale_y_continuous(trans = "log10") +
   xlim(0, NA) +
-  labs(y = "Density (cfu/mL pfu/mL)")
+  labs(y = "Density (cfu/mL or pfu/mL)") +
+  theme_bw() +
+  NULL
 
 ggplot(data = evol_dens_sum[evol_dens_sum$Plating == "PA", ],
        aes(x = Timepoint, y = freq_L)) +
   geom_line(aes(group = paste(Population, Plating))) +
   geom_line(data = evol_dens_sum_sum[evol_dens_sum_sum$Plating == "PA", ], lwd = 2) +
-  facet_grid(. ~ Treat) +
-  xlim(0, NA)
+  facet_grid(. ~ Treat,
+             labeller = as_labeller(c("+" = "Phage Added",
+                                   "-" = "No Phage"))) +
+  xlim(0, NA) +
+  labs(y = "Frequency of Large Colony Morphology") +
+  theme_bw() +
+  NULL
 
 ggplot(data = evol_dens_sum[evol_dens_sum$Plating == "PA", ],
        aes(x = dens, y = freq_L)) +
   geom_line(aes(group = Population, color = as.factor(Population))) +
   scale_x_continuous(trans = "log10") +
-  facet_grid(. ~ Treat)
+  facet_grid(Treat ~ .) +
+  labs(y = "Frequency of Large Colony Morphology") +
+  NULL
