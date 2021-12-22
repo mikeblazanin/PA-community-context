@@ -8,19 +8,28 @@ H6InSeq <- xlsx::read.xlsx("./Katie_data/2021.12.13-H6DataForMike.xlsx",
 H6EOP <- xlsx::read.xlsx("./Katie_data/2021.12.13-H6DataForMike.xlsx",
                          sheetIndex = 3, startRow = 2, colIndex = 1:3)
 
-#Single step phage growth curve
+#Single step phage growth curve ----
 H6growth <- tidyr::pivot_longer(H6growth, cols = !Time..min.,
                                 names_sep = "_", names_to = c("Treat", "Rep"),
                                 values_to = "pfu_ml")
 H6growth <- H6growth[complete.cases(H6growth), ]
-lm(log10(pfu_ml) ~ Time..min., H6growth[H6growth$Treat %in% c("Filtered") & 
-                                          H6growth$Time..min. %in% c(0, 10), ])
+adsorb_lm <- lm(log10(pfu_ml) ~ Time..min., 
+                H6growth[H6growth$Treat %in% c("Filtered") & 
+                           H6growth$Time..min. %in% c(0, 10), ])
+adsorb_lm
+
+#adsorbtion rate:
+2.3/(4.7*10**7) * adsorb_lm$coefficients[2]/log10(exp(1))
+
+H6growth$predict <- NA
+H6growth$predict[which(H6growth$Treat == "Filtered")[1:6]] <- 10**predict(adsorb_lm)
 
 png("H6_singlestep_growth.png", width = 4, height = 4, units = "in", res = 150)
 ggplot(data = H6growth[H6growth$Treat %in% c("Control.Filtered", "Filtered"), ], 
        aes(x = Time..min., y = pfu_ml,
                             color = Treat, group = paste(Rep, Treat))) +
   geom_line(lwd = 2, alpha = 0.75) +
+  #geom_line(aes(y = predict), color = "black") +
   scale_y_continuous(trans = "log10", 
                      breaks = scales::trans_breaks("log10", function(x) 10^x),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
@@ -38,7 +47,7 @@ ggplot(data = H6growth[H6growth$Treat %in% c("Control.Filtered", "Filtered"), ],
   NULL
 dev.off()
 
-#Inseq results for phage receptor
+#Inseq results for phage receptor ----
 H6InSeq$plot_color <- ifelse(H6InSeq$Pval < 0.05, "sig", "nonsig")
 H6InSeq$plot_color[H6InSeq$Pval < 0.05 & 
                      grepl("pil*", H6InSeq$Gene.Name)] <- "pilus"
@@ -56,11 +65,11 @@ ggplot(data = H6InSeq,
   labs(x = "Gene input frequency", y = "Gene output frequency") +
   scale_color_manual(breaks = c("pilus", "sig", "nonsig"),
                      values = c("red", "black", "gray"),
-                     labels = c("Pilus significant hit", 
-                                "Non-pilus\nsignificant hit",
-                                "Non-significant hit")) +
+                     labels = c("Sig. hit in\npilus gene", 
+                                "Sig. hit in\nnon-pilus gene",
+                                "Non-sig. hit")) +
   theme_bw() +
-  theme(legend.position = c(0.275, 0.85),
+  theme(legend.position = c(0.225, 0.85),
         axis.title = element_text(size = 16),
         axis.text = element_text(size = 14),
         legend.title = element_blank(),
@@ -72,7 +81,7 @@ ggplot(data = H6InSeq,
   NULL
 dev.off()
 
-#EOP results
+#EOP results ----
 H6EOP_sum <- dplyr::summarize(dplyr::group_by(H6EOP, Bacteria),
                    mean_titer = mean(H6.Titer))
 png("H6_EOP.png", width = 2, height = 4, units = "in", res = 150)
@@ -81,7 +90,8 @@ ggplot(data = H6EOP_sum[H6EOP_sum$Bacteria %in% c("PA14", "PA14^pilA"), ],
   geom_col() +
   scale_y_continuous(trans = "log10",
                      breaks = scales::trans_breaks("log10", function(x) 10^x),
-                     labels = scales::trans_format("log10", scales::math_format(10^.x))) +  labs(y = "Phage plaquing (pfu/mL)") +
+                     labels = scales::trans_format("log10", scales::math_format(10^.x))) +  
+  labs(y = "Phage plaquing (pfu/mL)") +
   scale_x_discrete(breaks = c("PA14", "PA14^pilA"),
                    labels = c("PA14", "PA14 \u0394pilA")) +
   theme_bw() +
@@ -90,3 +100,5 @@ ggplot(data = H6EOP_sum[H6EOP_sum$Bacteria %in% c("PA14", "PA14^pilA"), ],
         axis.text.x = element_text(size = 14, angle = 45, vjust = 1, hjust = 1)) +
   NULL
 dev.off()
+
+
