@@ -2,6 +2,12 @@ library(ggplot2)
 library(tidyr)
 library(dplyr)
 
+#Okabe and Ito 2008 colorblind-safe qualitative color scale
+my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
+             "#D55E00", "#CC79A7", "#000000")
+scales::show_col(my_cols)
+
+#PA14 H6 coevol ----
 evol_dens <- read.csv("2021-07-28_PA14H6_Coevol.csv", stringsAsFactors = F)
 colnames(evol_dens)[5:13] <- paste("-", 0:8, sep = "")
 
@@ -71,41 +77,101 @@ evol_dens_sum <-
                        "Population" = rep(1:6, 3),
                        "freq_L" = rep(1, 18)))
                           
-evol_dens_sum_sum <- 
-  summarize(group_by(evol_dens_sum, Timepoint, Plating, Treat),
-            dens = 10**mean(log10(dens+1)), freq_L = mean(freq_L))
+
                                
 
-ggplot(data = evol_dens_sum,
-       aes(x = Timepoint, y = dens+1, color = Plating)) +
+
+
+
+#Community co-passaging ----
+comm_data <- read.csv("2021-12-17_community_experiment.csv",
+                      stringsAsFactors = FALSE)
+#Calculate density
+comm_data$dens_ml <- (1000/2.5) * comm_data$Count/(10**comm_data$Dilution)
+
+#Fix T0 data by pseudo-replicating for plotting
+comm_data <- 
+  rbind(
+    do.call("rbind", replicate(12, comm_data[comm_data$Timepoint == 0, ],
+                               simplify = FALSE)),
+    comm_data[comm_data$Timepoint != 0, ])
+comm_data$Phage_treat[1:(12*5)] <- rep(c("+", "-"), each = 6*5)
+comm_data$Pop[1:(12*5)] <- rep(rep(1:6, each = 5), 2)
+comm_data$Count[comm_data$Timepoint == 0 & comm_data$Strain == "H6" &
+                  comm_data$Phage_treat == "-"] <- 0
+comm_data$dens_ml[comm_data$Timepoint == 0 & comm_data$Strain == "H6" &
+                    comm_data$Phage_treat == "-"] <- 0
+
+#Merge datasets ----
+evol_dens_sum <- rename(evol_dens_sum,
+                        Strain = Plating,
+                        Phage_treat = Treat,
+                        dens_ml = dens)
+evol_dens_sum <- evol_dens_sum[, !names(evol_dens_sum) %in% 
+                                 c("dens_dil", "freq_dil", "dens_val", "freq_val")]
+comm_data <- rename(comm_data,
+                    Population = Pop)
+comm_data <- comm_data[, !names(comm_data) %in% 
+                                 c("Count", "Dilution")]
+evol_dens_sum <- cbind(data.frame(Comm_treat = "-"),
+                       evol_dens_sum)
+comm_data <- cbind(data.frame(Comm_treat = "+"),
+                   comm_data)
+dens_data <- full_join(evol_dens_sum, comm_data)
+
+#Summarize pops for treat-level means
+dens_data_sum <- 
+  summarize(group_by(dens_data, Comm_treat, Phage_treat, 
+                     Timepoint, Strain),
+            dens_ml = 10**mean(log10(dens_ml+1)), freq_L = mean(freq_L))
+
+
+#Plots ----
+png("dens_copassaging.png", width = 5, height = 5, units = "in", res = 150)
+ggplot(data = dens_data,
+       aes(x = Timepoint, y = dens_ml+1, color = Strain)) +
   #geom_point() + 
-  geom_line(aes(group = paste(Population, Plating))) +
-  geom_line(data = evol_dens_sum_sum, lwd = 2) +
-  facet_grid(. ~ Treat,
-             labeller = as_labeller(c("+" = "Phage Added",
-                                      "-" = "No Phage"))) +
-  scale_y_continuous(trans = "log10") +
+  geom_line(aes(group = paste(Population, Strain)), alpha = 0.5) +
+  geom_line(data = dens_data_sum, lwd = 2, alpha = 0.8) +
+  facet_grid(Comm_treat ~ Phage_treat,
+             labeller = labeller(Phage_treat = c("+" = "Phage Added",
+                                                 "-" = "No Phage"),
+                                 Comm_treat = c("+" = "Competitors Added",
+                                                "-" = "No Competitors"))) +
+  scale_y_continuous(trans = "log10",
+                     breaks = 10**c(2, 6, 10),
+                     labels = scales::trans_format("log10", scales::math_format(10^.x))) +
   xlim(0, NA) +
   labs(y = "Density (cfu/mL or pfu/mL)") +
+  scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                       labels = c("P. aeruginosa", "S. aureus",
+                                  "E. faecalis", "A. xylosoxidans",
+                                  "Phage H6"),
+                       values = my_cols[c(3, 1, 2, 7, 8)]) +
   theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 10),
+        strip.text =  element_text(size = 12.5),
+        #legend.position = c(0.3, 0.6),
+        legend.background = element_rect(color = "black"),
+        legend.position = "top") +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE)) +
   NULL
+dev.off()
 
-ggplot(data = evol_dens_sum[evol_dens_sum$Plating == "PA", ],
+
+ggplot(data = dens_data[dens_data$Strain == "PA" &
+                          dens_data$Comm_treat == "-", ],
        aes(x = Timepoint, y = freq_L)) +
-  geom_line(aes(group = paste(Population, Plating))) +
-  geom_line(data = evol_dens_sum_sum[evol_dens_sum_sum$Plating == "PA", ], lwd = 2) +
-  facet_grid(. ~ Treat,
+  geom_line(aes(group = paste(Population, Strain))) +
+  geom_line(data = dens_data_sum[dens_data_sum$Strain == "PA" &
+                                   dens_data_sum$Comm_treat == "-", ], lwd = 2) +
+  facet_grid(. ~ Phage_treat,
              labeller = as_labeller(c("+" = "Phage Added",
-                                   "-" = "No Phage"))) +
+                                      "-" = "No Phage"))) +
   xlim(0, NA) +
   labs(y = "Frequency of Large Colony Morphology") +
   theme_bw() +
-  NULL
-
-ggplot(data = evol_dens_sum[evol_dens_sum$Plating == "PA", ],
-       aes(x = dens, y = freq_L)) +
-  geom_line(aes(group = Population, color = as.factor(Population))) +
-  scale_x_continuous(trans = "log10") +
-  facet_grid(Treat ~ .) +
-  labs(y = "Frequency of Large Colony Morphology") +
   NULL
