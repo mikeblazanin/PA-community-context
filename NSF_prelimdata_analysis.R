@@ -101,4 +101,27 @@ ggplot(data = H6EOP_sum[H6EOP_sum$Bacteria %in% c("PA14", "PA14^pilA"), ],
   NULL
 dev.off()
 
-
+#pyocyanin data (visually estimated from Gail's plots since
+# I don't have the data itself)
+pyo_data_mock <- data.frame(Treat = c("Ctrl", "H6_heat_inac", "H6"),
+                            pyocyanin = c(1, 0.98, 0.1),
+                            pyocyanin_err = c(NA, 0.02, 0.015))
+png("H6_pyocyanin.png", width = 3, height = 4, units = "in", res = 150)
+ggplot(data = pyo_data_mock,
+       aes(x = Treat, y = pyocyanin)) +
+  scale_x_discrete(limits = c("Ctrl", "H6_heat_inac", "H6"),
+                   labels = c("Control\n(no phage)", "Heat-\ninactivated\nH6",
+                              "H6")) +
+  geom_col() +
+  geom_errorbar(aes(x = Treat, ymin = pyocyanin - pyocyanin_err,
+                    ymax = pyocyanin + pyocyanin_err),
+                width = 0.2) +
+  geom_hline(yintercept = 1, lty = 2) +
+  labs(y = "Pyocyanin Production\nRelative to Control") +
+  theme_bw() +
+  theme(axis.title.y = element_text(size = 16),
+        axis.title.x = element_blank(),
+        axis.text.y = element_text(size = 14),
+        axis.text.x = element_text(size = 14, angle = 45, vjust = 1, hjust = 1)) +
+  NULL
+dev.off()
