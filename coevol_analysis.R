@@ -86,8 +86,37 @@ evol_dens_sum <-
 #Community co-passaging ----
 comm_data <- read.csv("2021-12-17_community_experiment.csv",
                       stringsAsFactors = FALSE)
+
+#Split PA data to calculate freq_L and total count
+# (note that for now we've summed in when we counted frequency from
+# a lower dilution because it only throws off the density by 1 or 2 cfu
+# but not accurate)
+comm_data$freq_L <- NA
+for (i in which(comm_data$Strain == "PA")) {
+  #Check if there are small/large freq's
+  if(grepl("[,LS]", comm_data$Count[i])) {
+    temp_d <- strsplit(comm_data$Count[i], split = ",")[[1]]
+    temp_e <- as.numeric(gsub("[SL]", "", temp_d))
+    names(temp_e) <- substr(temp_d, nchar(temp_d), nchar(temp_d))
+    
+    comm_data$Count[i] <- sum(temp_e)
+    if (length(temp_e) > 1) {
+      comm_data$freq_L[i] <- temp_e["L"]/sum(temp_e)
+    } else {
+      if(names(temp_e) == "L") {
+        comm_data$freq_L[i] <- 1
+      } else if (names(temp_e) == "S") {
+        comm_data$freq_L[i] <- 0
+      }
+    }
+  } else {
+    comm_data$freq_L[i] <- 1
+  }
+}
+
 #Calculate density
-comm_data$dens_ml <- (1000/2.5) * comm_data$Count/(10**comm_data$Dilution)
+comm_data$dens_ml <- (1000/2.5) * 
+  as.numeric(comm_data$Count)/(10**as.numeric(comm_data$Dilution))
 
 #Fix T0 data by pseudo-replicating for plotting
 comm_data <- 
@@ -98,9 +127,9 @@ comm_data <-
 comm_data$Phage_treat[1:(12*5)] <- rep(c("+", "-"), each = 6*5)
 comm_data$Pop[1:(12*5)] <- rep(rep(1:6, each = 5), 2)
 comm_data$Count[comm_data$Timepoint == 0 & comm_data$Strain == "H6" &
-                  comm_data$Phage_treat == "-"] <- 0
+                  comm_data$Phage_treat == "-"] <- NA
 comm_data$dens_ml[comm_data$Timepoint == 0 & comm_data$Strain == "H6" &
-                    comm_data$Phage_treat == "-"] <- 0
+                    comm_data$Phage_treat == "-"] <- NA
 
 #Merge datasets ----
 evol_dens_sum <- rename(evol_dens_sum,
@@ -119,6 +148,18 @@ comm_data <- cbind(data.frame(Comm_treat = "+"),
                    comm_data)
 dens_data <- full_join(evol_dens_sum, comm_data)
 
+#Set counts below detection to limit of detection
+dens_data$bd <- ifelse(dens_data$dens_ml == 0, TRUE, FALSE)
+for (i in 1:nrow(dens_data)) {
+  if (dens_data$dens_ml[i] == 0) {
+    if(dens_data$Comm_treat[i] == "+") {
+      dens_data$dens_ml[i] <- 1000/2.5
+    } else if (dens_data$Comm_treat[i] == "-") {
+      dens_data$dens_ml[i] <- 1000/5
+    }
+  }
+}
+
 #Summarize pops for treat-level means
 dens_data_sum <- 
   summarize(group_by(dens_data, Comm_treat, Phage_treat, 
@@ -133,6 +174,10 @@ ggplot(data = dens_data,
   #geom_point() + 
   geom_line(aes(group = paste(Population, Strain)), alpha = 0.5) +
   geom_line(data = dens_data_sum, lwd = 2, alpha = 0.8) +
+  geom_hline(data = data.frame(Comm_treat = c("+", "+", "-", "-"),
+                               Phage_treat = c("+", "-", "+", "-"),
+                               limit = c(1000/2.5, 1000/2.5, 1000/5, 1000/5)),
+             aes(yintercept = limit), lty = 2) +
   facet_grid(Comm_treat ~ Phage_treat,
              labeller = labeller(Phage_treat = c("+" = "Phage Added",
                                                  "-" = "No Phage"),
@@ -162,15 +207,15 @@ ggplot(data = dens_data,
 dev.off()
 
 
-ggplot(data = dens_data[dens_data$Strain == "PA" &
-                          dens_data$Comm_treat == "-", ],
+ggplot(data = dens_data[dens_data$Strain == "PA", ],
        aes(x = Timepoint, y = freq_L)) +
   geom_line(aes(group = paste(Population, Strain))) +
-  geom_line(data = dens_data_sum[dens_data_sum$Strain == "PA" &
-                                   dens_data_sum$Comm_treat == "-", ], lwd = 2) +
-  facet_grid(. ~ Phage_treat,
-             labeller = as_labeller(c("+" = "Phage Added",
-                                      "-" = "No Phage"))) +
+  geom_line(data = dens_data_sum[dens_data_sum$Strain == "PA", ], lwd = 2) +
+  facet_grid(Comm_treat ~ Phage_treat,
+             labeller = labeller(Phage_treat = c("+" = "Phage Added",
+                                                 "-" = "No Phage"),
+                                 Comm_treat = c("+" = "Competitors Added",
+                                                "-" = "No Competitors"))) +
   xlim(0, NA) +
   labs(y = "Frequency of Large Colony Morphology") +
   theme_bw() +
