@@ -88,11 +88,20 @@ dev.off()
 
 #EOP results ----
 H6EOP_sum <- dplyr::summarize(dplyr::group_by(H6EOP, Bacteria),
-                   mean_titer = mean(H6.Titer))
+                   mean_titer = mean(H6.Titer),
+                   std_err = sd(H6.Titer)/sqrt(n()),
+                   n = n())
 png("H6_EOP.png", width = 2, height = 4, units = "in", res = 150)
 ggplot(data = H6EOP_sum[H6EOP_sum$Bacteria %in% c("PA14", "PA14^pilA"), ], 
                     aes(x = Bacteria, y = mean_titer+1)) +
   geom_col() +
+  geom_hline(yintercept = 1, lty = 2) +
+  geom_text(
+    data = data.frame(Bacteria = "PA14^pilA", mean_titer = 5, label = "bd"),
+            aes(label = label), size = 6) +
+  geom_errorbar(aes(ymin = mean_titer - std_err,
+                    ymax = mean_titer + std_err),
+                width = 0.4) +
   scale_y_continuous(trans = "log10",
                      breaks = scales::trans_breaks("log10", function(x) 10^x),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +  
