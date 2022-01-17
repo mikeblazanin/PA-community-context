@@ -114,6 +114,13 @@ for (i in which(comm_data$Strain == "PA")) {
   }
 }
 
+#Because I think the small colony morphs that appeared in the
+# +phage +competitors on Day 6 were probably mis-counts, set
+# those frequencies to 1
+comm_data$freq_L[comm_data$Phage_treat == "+" & 
+                   comm_data$Timepoint == 6 &
+                   comm_data$Strain == "PA"] <- 1
+
 #Calculate density
 comm_data$dens_ml <- (1000/2.5) * 
   as.numeric(comm_data$Count)/(10**as.numeric(comm_data$Dilution))
@@ -130,6 +137,7 @@ comm_data$Count[comm_data$Timepoint == 0 & comm_data$Strain == "H6" &
                   comm_data$Phage_treat == "-"] <- NA
 comm_data$dens_ml[comm_data$Timepoint == 0 & comm_data$Strain == "H6" &
                     comm_data$Phage_treat == "-"] <- NA
+comm_data <- comm_data[!is.na(comm_data$dens_ml), ]
 
 #Merge datasets ----
 evol_dens_sum <- rename(evol_dens_sum,
@@ -206,7 +214,7 @@ ggplot(data = dens_data,
   NULL
 dev.off()
 
-
+png("colony_morph_freq.png", width = 5, height = 4, units = "in", res = 150)
 ggplot(data = dens_data[dens_data$Strain == "PA", ],
        aes(x = Timepoint, y = freq_L)) +
   geom_line(aes(group = paste(Population, Strain))) +
@@ -217,6 +225,11 @@ ggplot(data = dens_data[dens_data$Strain == "PA", ],
                                  Comm_treat = c("+" = "Competitors Added",
                                                 "-" = "No Competitors"))) +
   xlim(0, NA) +
+  scale_y_continuous(breaks = c(0, 0.5, 1)) +
   labs(y = "Frequency of Large Colony Morphology") +
   theme_bw() +
+  theme(axis.title = element_text(size = 15),
+        axis.text = element_text(size = 14),
+        strip.text =  element_text(size = 12.5)) +
   NULL
+dev.off()
