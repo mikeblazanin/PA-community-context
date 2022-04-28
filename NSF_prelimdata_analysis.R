@@ -1,4 +1,5 @@
 library(ggplot2)
+library(dplyr)
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -270,8 +271,95 @@ ggplot(data = gc_data, aes(x = time, y = dens)) +
   NULL
 dev.off()
   
+#Genome sequencing results ----
+resis_muts <- read.table("./Ben_data/rTIVPH6_only_relevantSigHits.txt",
+                         sep = "\t", header = TRUE)
+geneprod_lookup <- read.csv("./Ben_data/gene.product_lookup.csv",
+                            na.strings = c(""))
+genome_length <- 6537648
 
+resis_muts_lng <- 
+  tidyr::pivot_longer(resis_muts,
+                      cols = -gene.product,
+                      names_to = c("strain", "mutant", NA),
+                      names_sep = "_")
+resis_muts_lng$strain <- gsub(resis_muts_lng$strain,
+                              pattern = "X", replacement = "")
+resis_muts_lng <- full_join(resis_muts_lng, geneprod_lookup)
+resis_muts_lng <- tidyr::separate(resis_muts_lng, col = Coordinates,
+                  into = c("coord_start", "coord_end", "coord_strand"),
+                  sep = "[\\. \\(\\)]+",
+                  remove = FALSE)
+                  
+resis_muts_lng$qntl <-
+  ecdf(resis_muts_lng$value)(resis_muts_lng$value)
 
+resis_muts_lng$coord_middle <-
+  (as.numeric(resis_muts_lng$coord_start) + as.numeric(resis_muts_lng$coord_end))/2
 
+resis_muts_sum <-
+  summarize(group_by(resis_muts_lng, 
+                     strain, gene.product, Locus.Tag, Feature.Type, 
+                     coord_start, coord_middle, coord_end, 
+                     coord_strand, Gene.Name, Product.Description),
+            val_mean = mean(value),
+            val_logmean = 10**mean(log10(value)),
+            val_sd = sd(value),
+            val_logsd = 10**sd(log10(value)),
+            frac_signif = sum(value < 0.05)/n(),
+            n = n())
 
+temp <- group_by(resis_muts_sum, 
+                 gene.product, Locus.Tag, Feature.Type, 
+                 coord_start, coord_middle, coord_end, 
+                 coord_strand, Gene.Name, Product.Description)
+resis_muts_sum_sum <-
+  summarize(temp,
+            frac_frac_signif = mean(frac_signif),
+            frac_signif_se = sd(frac_signif)/sqrt(n()))
 
+#Also why are we missing 2 of them?
+
+ggplot(data = resis_muts_lng,
+       aes(x = gene.product, y = paste(strain, mutant), 
+           color = -qntl)) +
+  geom_point() +
+  theme(axis.text = element_blank())
+
+ggplot(data = resis_muts_lng,
+       aes(x = gene.product, y = qntl, color = strain)) +
+  geom_point(alpha = 0.5) +
+  theme(axis.text.x = element_blank())
+
+ggplot(data = resis_muts_lng,
+       aes(x = gene.product, y = value, color = strain)) +
+  geom_point(alpha = 0.5) +
+  theme(axis.text.x = element_blank())
+
+ggplot(data = resis_muts_lng[resis_muts_lng$value < 0.05, ],
+       aes(x = gene.product, y = value, color = strain)) +
+  geom_point(alpha = 0.5) +
+  theme(axis.text.x = element_blank())
+
+ggplot(data = resis_muts_sum,
+       aes(x = gene.product, y = frac_signif)) +
+  geom_point(alpha = 0.5) +
+  theme(axis.text.x = element_blank())
+
+png("./Ben_data/frac_signif.png", height = 6, width = 3, units = "in", res = 300)
+ggplot(data = resis_muts_sum_sum,
+       aes(x = reorder(gene.product, -frac_frac_signif), y = frac_frac_signif)) +
+  geom_point(alpha = 0.5) +
+  geom_errorbar(aes(ymin = frac_frac_signif - 1.96*frac_signif_se,
+                    ymax = frac_frac_signif + 1.96*frac_signif_se)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0,
+                                   size = 5))
+dev.off()
+
+ggplot(data = resis_muts_sum_sum,
+       aes(x = coord_middle/genome_length, y = 1)) +
+  coord_polar(theta = "x") +
+  geom_point(alpha = 0.5, size = 1) +
+  theme_bw()
+
+hist(log10(resis_muts_lng$value))
