@@ -1,0 +1,41 @@
+gene.product,Locus Tag,Feature Type,Coordinates,Gene Length,Gene Name,Product Description,Notes
+bacteriophage integrase,,,,,,,Multiple
+bacteriophage protein,,,,,,,Multiple
+ChpA,PA14_05390,CDS,468864..476294 (+),7431,chpA,ChpA,
+coat protein A of bacteriophage Pf1,PA14_48930,CDS,4349378..4350664 (-),1287,,coat protein A of bacteriophage Pf1,
+ferripyoverdine receptor,PA14_33680,CDS,2986159..2988606 (-),2448,fpvA,ferripyoverdine receptor,
+helix destabilizing protein of bacteriophage Pf1,PA14_48970,CDS,4351485..4351919 (-),435,,helix destabilizing protein of bacteriophage Pf1,
+hydroxamate-type ferrisiderophore receptor,PA14_06160,CDS,542843..545236 (-),2394,,hydroxamate-type ferrisiderophore receptor,
+O-antigen acetylase,PA14_69170,CDS,6169019..6171007 (-),1989,,O-antigen acetylase,
+outer membrane ferric siderophore receptor,PA14_58570,CDS,5217322..5219583 (-),2262,,outer membrane ferric siderophore receptor,
+periplasmic tail-specific protease,PA14_21880,CDS,1902163..1904259 (-),2097,tsp,periplasmic tail-specific protease,
+"phage-related protein, tail component",PA14_08300,CDS,707772..711431 (+),3660,,"phage-related protein, tail component",
+phenazine biosynthesis protein,,,,,,,Multiple
+phenazine biosynthesis protein PhzC,,,,,,,Multiple
+phenazine biosynthesis protein PhzD,,,,,,,Multiple
+phenazine biosynthesis protein PhzE,,,,,,,Multiple
+pilus assembly protein,,,,,,,Multiple
+potential phenazine-modifying enzyme,PA14_00640,CDS,64665..66497 (+),1833,phzH,potential phenazine-modifying enzyme,
+protein PvdJ,PA14_33630,CDS,2972068..2978637 (+),6570,pvdJ,protein PvdJ,
+protein PvdN,PA14_33720,CDS,2992515..2993798 (-),1284,pvdN,protein PvdN,
+protein PvdO,PA14_33710,CDS,2991632..2992486 (-),855,pvdO,protein PvdO,
+protein PvdP,PA14_33740,CDS,2995383..2997017 (+),1635,pvdP,protein PvdP,
+"Pvds-regulated endoprotease, lysyl class",PA14_09900,CDS,849992..851380 (-),1389,prpL,"Pvds-regulated endoprotease, lysyl class",
+pyoverdine biosynthesis protein PvcC,PA14_35400,CDS,3147362..3148864 (-),1503,pvcC,pyoverdine biosynthesis protein PvcC,
+pyoverdine biosynthesis protein PvdE,PA14_33690,CDS,2988709..2990358 (-),1650,pvdE,pyoverdine biosynthesis protein PvdE,
+pyoverdine synthetase D,PA14_33650,CDS,2978649..2985995 (+),7347,pvdD,pyoverdine synthetase D,
+siderophore receptor,PA14_46640,CDS,4155789..4158230 (-),2442,,siderophore receptor,
+tail fiber protein,PA14_08050,CDS,691511..693586 (+),2076,,tail fiber protein,
+tail length determinator protein,PA14_08120,CDS,696289..698526 (+),2238,,tail length determinator protein,
+Tfp pilus assembly protein FimV,PA14_20860,CDS,1795468..1797513 (+),2046,,Tfp pilus assembly protein FimV,
+type 4 fimbrial biogenesis outer membrane protein PilQ precursor,PA14_66620,CDS,5947116..5949248 (-),2133,pilQ,type 4 fimbrial biogenesis outer membrane protein PilQ precursor,
+type 4 fimbrial biogenesis protein PilB,PA14_58750,CDS,5234279..5235982 (+),1704,pilB,type 4 fimbrial biogenesis protein PilB,
+type 4 fimbrial biogenesis protein PilE,PA14_60320,CDS,5376956..5377381 (+),426,pilE,type 4 fimbrial biogenesis protein PilE,
+type 4 fimbrial biogenesis protein PilN,PA14_66650,CDS,5950443..5951039 (-),597,pilN,type 4 fimbrial biogenesis protein PilN,
+type 4 fimbrial biogenesis protein PilO,PA14_66640,CDS,5949823..5950446 (-),624,pilO,type 4 fimbrial biogenesis protein PilO,
+type 4 fimbrial biogenesis protein PilP,PA14_66630,CDS,5949302..5949826 (-),525,pilP,type 4 fimbrial biogenesis protein PilP,
+type 4 fimbrial biogenesis protein PilW,PA14_60290,CDS,5371711..5372538 (+),828,pilW,type 4 fimbrial biogenesis protein PilW,
+type 4 fimbrial biogenesis protein PilX,PA14_60300,CDS,5372541..5373140 (+),600,pilX,type 4 fimbrial biogenesis protein PilX,
+type 4 fimbrial biogenesis protein PilY1,PA14_60310,CDS,5373154..5376630 (+),3477,pilY1,type 4 fimbrial biogenesis protein PilY1,
+"type I ferripyoverdine receptor, FpvB",PA14_09970,CDS,856435..858843 (-),2409,fpvB,"type I ferripyoverdine receptor, FpvB",
+type IV B pilus protein,,,,,,,Multiple
