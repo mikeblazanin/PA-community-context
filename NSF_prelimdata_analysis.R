@@ -276,8 +276,12 @@ resis_muts <- read.table("./Ben_data/rTIVPH6_only_relevantSigHits.txt",
                          sep = "\t", header = TRUE)
 geneprod_lookup <- read.csv("./Ben_data/gene.product_lookup.csv",
                             na.strings = c(""))
+#This info on geneprod taken from the Pseudomonas database
+#at pseudomonas.com, tho I'm sure other sites have the same info
 genome_length <- 6537648
 
+#note that this pivot loses info bc there are some rows with the same
+#gene.product name (but obvi dift mutations)
 resis_muts_lng <- 
   tidyr::pivot_longer(resis_muts,
                       cols = -gene.product,
@@ -317,8 +321,7 @@ resis_muts_sum_sum <-
             frac_signif_avg = mean(frac_signif),
             frac_signif_se = sd(frac_signif)/sqrt(n()))
 
-#Also why are we missing 2 of them?
-
+#Plots
 ggplot(data = resis_muts_lng,
        aes(x = gene.product, y = paste(strain, mutant), 
            color = -qntl)) +
