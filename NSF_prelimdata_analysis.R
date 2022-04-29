@@ -412,4 +412,19 @@ ggplot(data = resis_muts_ss_dotplot,
   NULL
 dev.off()
 
-hist(log10(resis_muts_lng$value))
+png("./Ben_data/mutation_locations_forscale.png", width = 7, height = 5, 
+    units = "in", res = 300)
+ggplot(data = resis_muts_ss_dotplot,
+       aes(x = bin_cntr, y = height, color = frac_signif_avg)) +
+  coord_polar(theta = "x") +
+  scale_color_gradient(low = "#56B1F7", high = "#132B43",
+                       name = "Frequency of\nResistance\nMutation") +
+  geom_point(size = 1.5) +
+  theme_bw() +
+  theme(axis.text = element_blank(),
+        axis.title = element_blank(),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.ticks = element_blank()) +
+  NULL
+dev.off()
