@@ -309,13 +309,12 @@ resis_muts_sum <-
             frac_signif = sum(value < 0.05)/n(),
             n = n())
 
-temp <- group_by(resis_muts_sum, 
-                 gene.product, Locus.Tag, Feature.Type, 
-                 coord_start, coord_middle, coord_end, 
-                 coord_strand, Gene.Name, Product.Description)
 resis_muts_sum_sum <-
-  summarize(temp,
-            frac_frac_signif = mean(frac_signif),
+  summarize(group_by(resis_muts_sum, 
+                     gene.product, Locus.Tag, Feature.Type, 
+                     coord_start, coord_middle, coord_end, 
+                     coord_strand, Gene.Name, Product.Description),
+            frac_signif_avg = mean(frac_signif),
             frac_signif_se = sd(frac_signif)/sqrt(n()))
 
 #Also why are we missing 2 of them?
@@ -348,18 +347,66 @@ ggplot(data = resis_muts_sum,
 
 png("./Ben_data/frac_signif.png", height = 6, width = 3, units = "in", res = 300)
 ggplot(data = resis_muts_sum_sum,
-       aes(x = reorder(gene.product, -frac_frac_signif), y = frac_frac_signif)) +
+       aes(x = reorder(gene.product, -frac_signif_avg), y = frac_signif_avg)) +
   geom_point(alpha = 0.5) +
-  geom_errorbar(aes(ymin = frac_frac_signif - 1.96*frac_signif_se,
-                    ymax = frac_frac_signif + 1.96*frac_signif_se)) +
+  geom_errorbar(aes(ymin = frac_signif_avg - 1.96*frac_signif_se,
+                    ymax = frac_signif_avg + 1.96*frac_signif_se)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0,
                                    size = 5))
 dev.off()
 
 ggplot(data = resis_muts_sum_sum,
-       aes(x = coord_middle/genome_length, y = 1)) +
-  coord_polar(theta = "x") +
-  geom_point(alpha = 0.5, size = 1) +
+       aes(x = coord_middle/genome_length)) +
+  #coord_polar(theta = "x") +
+  geom_dotplot(binwidth = 1/65) +
   theme_bw()
+
+#To make polar dotplot (binned dots), need to do it manually
+#So define the bins, then run through & add rows to a data.frame
+# for each dot we need (iterating height so dots stack)
+nbins <- 120
+bins <- data.frame(
+  bin_starts <- genome_length * seq(from = 0, to = 1-1/nbins, length.out = nbins),
+  bin_cntrs <- 
+  genome_length*(seq(from = 0, to = 1-1/nbins, length.out = nbins) + 1/(2*nbins)),
+  bin_ends <- genome_length * seq(from = 1/nbins, to = 1, length.out = nbins))
+y_start <- 1
+y_incr <- 0.04
+resis_muts_ss_dotplot <- 
+  data.frame(bin_cntr =  0, height = 0, frac_signif_avg = 1)
+for (i in 1:nrow(bins)) {
+  rows = which(!is.na(resis_muts_sum_sum$coord_middle) &
+                 resis_muts_sum_sum$coord_middle >= bins$bin_starts[i] &
+                 resis_muts_sum_sum$coord_middle < bins$bin_ends[i])
+  rows <- rows[order(-resis_muts_sum_sum$frac_signif_avg[rows])]
+  if(length(rows) > 0) {
+    heights <- seq(from = y_start, by = y_incr, length.out = length(rows))
+    for (j in 1:length(rows)) {
+      row <- rows[j]
+      resis_muts_ss_dotplot <- 
+        rbind(resis_muts_ss_dotplot,
+              data.frame(bin_cntr = bins$bin_cntrs[i],
+                         height = heights[j],
+                         frac_signif_avg = resis_muts_sum_sum$frac_signif_avg[row]))
+    }
+  }
+}
+
+png("./Ben_data/mutation_locations.png", width = 5, height = 5, 
+    units = "in", res = 300)
+ggplot(data = resis_muts_ss_dotplot,
+       aes(x = bin_cntr, y = height, color = -frac_signif_avg)) +
+  coord_polar(theta = "x") +
+  #scale_color_manual(values = c("black", "white")) +
+  geom_point(size = 1.5) +
+  theme_bw() +
+  theme(axis.text = element_blank(),
+        axis.title = element_blank(),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        axis.ticks = element_blank()) +
+  guides(color = FALSE) +
+  NULL
+dev.off()
 
 hist(log10(resis_muts_lng$value))
