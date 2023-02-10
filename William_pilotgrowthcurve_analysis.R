@@ -88,7 +88,7 @@ ggplot(data = dat, aes(x = Time, y = deriv,
 ggplot(data = dat, aes(x = Time, y = deriv_percap, 
                        color = start_od, group = Well)) +
   geom_line() +
-  facehttp://127.0.0.1:45747/graphics/plot_zoom_png?width=1280&height=680t_wrap(~ Bacteria)
+  facet_wrap(~ Bacteria)
 
 dat_sum <- summarize(group_by(dat, Well, Bacteria, start_od),
                      max_percap = max(deriv_percap, na.rm = TRUE),
