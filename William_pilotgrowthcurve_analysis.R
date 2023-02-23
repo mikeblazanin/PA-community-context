@@ -2,47 +2,16 @@ library(gcplyr)
 library(ggplot2)
 library(dplyr)
 
-lag_time <- function(rate, y0, x1, y1, trans_y = "log") {
-  if(!canbe.numeric(rate)) {stop("rate must be numeric")}
-  if(!canbe.numeric(x1)) {stop("x1 must be numeric")}
-  if(!canbe.numeric(y1)) {stop("y1 must be numeric")}
-  if(!canbe.numeric(y0)) {stop("y0 must be numeric")}
-  rate <- as.numeric(rate)
-  y0 <- as.numeric(y0)
-  x1 <- as.numeric(x1)
-  y1 <- as.numeric(y1)
-  if(length(unique(sapply(list(rate, y0, x1, y1), length))) != 1) {
-    stop("rate, y0, x1, y1 must all be the same length")}
-  
-  if(!trans_y %in% c("linear", "log")) {
-    stop("trans_y must be one of c('linear', 'log')")}
-  if(trans_y == "log") {y0 <- log(y0); y1 <- log(y1)}
-  
-  return((y0-y1)/rate + x1)
-}
-
-canbe.numeric <- function(x) {
-  if(is.numeric(x) | 
-     tryCatch(
-       {
-         as.numeric(x)
-         #This only gets executed if the line above doesn't warn or error
-         TRUE 
-       }, 
-       warning = function(w) {FALSE},
-       error = function(e) {stop(e)}
-     )) {
-    return(TRUE) 
-  } else {
-    return(FALSE)
-  }
-}
-
-dat <- read_wides(files = "William growth curves pilot 2023-02-08.csv",
-                  startrow = 41, endrow = 128,
-                  startcol = "B")
+dat <- read_wides(files = c("William growth curves pilot 2023-02-08.csv",
+                            "2023-02-18 William growth curve.csv"),
+                  startrow = c(41, 35), endrow = c(128, 180),
+                  startcol = c("B", "A"))
 
 dat <- trans_wide_to_tidy(dat, id_cols = c("file", "Time", "T 600"))
+
+dat <- merge_dfs(dat, collapse = TRUE)
+dat2 <- filter(dat, file == "2023-02-18 William growth curve")
+dat <- filter(dat, file == "William growth curves pilot 2023-02-08")
 
 designs <- make_design(nrows = 8, ncols = 12,
                        output_format = "tidy",
@@ -58,6 +27,28 @@ designs <- make_design(nrows = 8, ncols = 12,
                        start_od = list(0, 7, 11, "1"))
 
 dat <- merge_dfs(dat, designs)
+
+design2 <- make_design(nrows = 8, ncols = 12,
+                       output_format = "tidy",
+                       timepoint = make_designpattern(c(1, 2, 4),
+                                                      3:5, 2:11,
+                                                      "123", FALSE),
+                       timepoint = make_designpattern(0, 2, 2:4, "1"),
+                       timepoint = list(c(1, 2, 4), "G", 3:10,
+                                        "12300123"),
+                       pop = make_designpattern(c(3, 4, 5), 3:5, 2:11, 
+                                                "1231231231"),
+                       pop = list(4, "G", 3:6, "1"),
+                       pop = list(5, "G", 8:11, "1"),
+                       treat = list(c("CP", "CNP", "NCP", "NN"), c("C", "D", "E"),
+                                    2:11, "1112223334"),
+                       treat = list("Anc", "B", 2:4, "1"),
+                       treat = list("NN", "G", 3:10, "11100111"),
+                       treat = list("Ctrl", "B", 11, "1"))
+
+dat2 <- merge_dfs(dat2, design2)
+dat2 <- filter(dat2, treat != "NA")
+
 
 dat <- dplyr::filter(dat, start_od != "NA")
 
@@ -106,3 +97,48 @@ ggplot(dat_sum, aes(x = Bacteria, y = max_dens, color = start_od)) +
                      
 ggplot(dat_sum, aes(x = Bacteria, y = lag/3600, color = start_od)) +
   geom_point(size = 2, position = position_dodge(width = 0.4))
+
+# dat2 analysis ----
+dat2$Time <- lubridate::time_length(lubridate::hms(dat2$Time))
+dat2 <- 
+  mutate(group_by(dat2, Well, timepoint, pop, treat),
+         deriv = calc_deriv(y = Measurements, x = Time, x_scale = 3600,
+                            window_width_n = 9),
+         deriv_percap = 
+           calc_deriv(y = Measurements, x = Time, 
+                      x_scale = 3600, window_width_n = 9,
+                      percapita = TRUE,
+                      blank = 
+                        min(filter(dat2, treat == "Ctrl")$Measurements, 
+                            na.rm = TRUE)))
+
+ggplot(data = dat2, aes(x = Time, y = Measurements)) +
+  geom_line() +
+  facet_wrap(~Well)
+
+ggplot(data = dat2, aes(x = Time, y = deriv)) +
+  geom_line() +
+  facet_wrap(~Well)
+
+ggplot(data = dat2, aes(x = Time, y = deriv_percap)) +
+  geom_line() +
+  facet_wrap(~Well)
+
+dat2_sum <- summarize(group_by(dat2, Well, timepoint, pop, treat),
+                     max_percap = max(deriv_percap, na.rm = TRUE),
+                     max_dens = max(Measurements, na.rm = TRUE),
+                     lag = lag_time(x = Time, y = Measurements,
+                                    deriv = deriv_percap))
+
+ggplot(filter(dat2_sum, treat != "Ctrl"), aes(x = pop, y = lag, color = pop)) +
+  geom_point(size = 3) +
+  facet_grid(timepoint ~ treat)
+
+ggplot(dat2_sum, aes(x = pop, y = lag, color = pop)) +
+  geom_point(size = 2) +
+  facet_grid(treat ~ timepoint)
+
+ggplot(data = filter(dat2, treat != "Ctrl"), 
+       aes(x = Time, y = deriv_percap, color = pop)) +
+  geom_line(lwd = 1.5, alpha = 0.8) +
+  facet_grid(timepoint ~ treat)
