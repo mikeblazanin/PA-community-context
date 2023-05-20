@@ -2,6 +2,8 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 
+dir.create("plots", showWarnings = FALSE)
+
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
              "#D55E00", "#CC79A7", "#000000")
@@ -106,7 +108,7 @@ prelimdens_NC_sum_sum <-
             dens_ml = 10**mean(log10(dens_ml+1)), freq_L = mean(freq_L))
 
 #Plots
-png("prelimdens_NC.png", width = 5, height = 3.5, units = "in", res = 150)
+png("plots/prelimdens_NC.png", width = 5, height = 3.5, units = "in", res = 150)
 ggplot(data = prelimdens_NC_sum,
        aes(x = Timepoint, y = dens_ml+1, color = Strain)) +
   #geom_point() + 
@@ -141,7 +143,7 @@ ggplot(data = prelimdens_NC_sum,
   NULL
 dev.off()
 
-png("prelimdens_NC_cfumorphfreq.png", width = 5, height = 2.5, units = "in", res = 150)
+png("plots/prelimdens_NC_cfumorphfreq.png", width = 5, height = 2.5, units = "in", res = 150)
 ggplot(data = prelimdens_NC_sum[prelimdens_NC_sum$Strain == "PA", ],
        aes(x = Timepoint, y = freq_L)) +
   geom_line(aes(group = paste(Population, Strain))) +
@@ -246,7 +248,7 @@ prelimdens_C_sum <-
             dens_ml = 10**mean(log10(dens_ml+1)), freq_L = mean(freq_L))
 
 #Plots
-png("prelimdens_C.png", width = 5, height = 3.5, units = "in", res = 150)
+png("plots/prelimdens_C.png", width = 5, height = 3.5, units = "in", res = 150)
 ggplot(data = prelimdens_C,
        aes(x = Timepoint, y = dens_ml+1, color = Strain)) +
   #geom_point() + 
@@ -283,7 +285,7 @@ ggplot(data = prelimdens_C,
   NULL
 dev.off()
 
-png("prelimdens_C_cfumorphfreq.png", width = 5, height = 2.5, units = "in", res = 150)
+png("plots/prelimdens_C_cfumorphfreq.png", width = 5, height = 2.5, units = "in", res = 150)
 ggplot(data = prelimdens_C[prelimdens_C$Strain == "PA", ],
        aes(x = Timepoint, y = freq_L)) +
   geom_line(aes(group = paste(Population, Strain))) +
@@ -345,7 +347,7 @@ density_sum <- summarize(group_by(density,
                      cfu_ml = 10**mean(log10(cfu_ml), na.rm = TRUE),
                      L_freq = mean(L_freq, na.rm = TRUE))
 
-png("density.png", width = 5, height = 5, units = "in",
+png("plots/density.png", width = 5, height = 5, units = "in",
     res = 150)
 ggplot(data = density[density$Pop %in% 3:10 & !is.na(density$cfu_ml), ],
        aes(x = Timepoint, y = cfu_ml, color = Strain)) +
@@ -381,7 +383,7 @@ ggplot(data = density[density$Pop %in% 3:10 & !is.na(density$cfu_ml), ],
   NULL
 dev.off()
 
-png("cfumorphfreq.png", width = 5, height = 4, units = "in", res = 150)
+png("plots/cfumorphfreq.png", width = 5, height = 4, units = "in", res = 150)
 ggplot(data = density[density$Strain == "PA", ],
        aes(x = Timepoint, y = L_freq)) +
   geom_line(aes(group = paste(Pop, Strain))) +
@@ -459,6 +461,7 @@ EOP_isols <- mutate(group_by(EOP_isols, Phage_pop, Phage_treat, Phage_timepoint)
               EOP = pfu_ml/max(pfu_ml))
 
 #Plot
+png("plots/EOP_time.png", width = 5, height = 3, units = "in", res = 150)
 ggplot(data = filter(EOP_isols, Phage_pop == 5),
        aes(x = Bact_timepoint, y = EOP, color = as.factor(Phage_timepoint))) +
   geom_point(aes(shape = bd)) + 
@@ -467,13 +470,15 @@ ggplot(data = filter(EOP_isols, Phage_pop == 5),
   scale_y_log10() +
   scale_shape_manual(values = c(16, 4), breaks = c(FALSE, TRUE)) +
   guides(shape = "none")
+dev.off()
 
+png("plots/EOP_grid.png", width = 5, height = 5, units = "in", res = 150)
 ggplot(data = EOP_isols,
        aes(x = as.factor(Bact_timepoint), 
            y = as.factor(Phage_timepoint))) +
   geom_tile(aes(fill = log10(EOP))) +
   facet_grid(Phage_treat ~ Phage_pop) +
   labs(x = "Bacterial timepoint", y = "Phage timepoint")
-
+dev.off()
 
        
