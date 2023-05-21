@@ -9,6 +9,29 @@ my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
              "#D55E00", "#CC79A7", "#000000")
 scales::show_col(my_cols)
 
+dup_rows <- function(mydf, mut_col, from_vals, to_vals) {
+  #this function takes in a data.frame
+  #finds all rows where df[, mut_col] == from_vals
+  #deletes those rows
+  #and adds rows that replicate the original but with to_vals in the
+  # mut_col instead
+  
+  mydf <- as.data.frame(mydf)
+  
+  #Generate vector of rows to duplicate
+  rowsrep <- ifelse(mydf[, mut_col] %in% from_vals,
+                    length(to_vals), 1)
+  idx <- rep(1:nrow(mydf), rowsrep)
+  
+  #Duplicate rows
+  newdf <- mydf[idx, ]
+  
+  #replace from_vals with to_vals in duplicated rows
+  newdf[which(idx %in% which(rowsrep > 1)), mut_col] <- to_vals
+  
+  return(newdf)
+}
+
 ## Prelim experiment: population data from run without competitors ----
 prelimdens_NC <- read.csv("2021-07-28_PA14H6_Coevol.csv", stringsAsFactors = F)
 colnames(prelimdens_NC)[5:13] <- paste("-", 0:8, sep = "")
@@ -310,7 +333,8 @@ dev.off()
 #       and not mis-platings
 
 #Read file
-density <- read.csv("2022-09-19_community_experiment_2.csv")
+density <- read.csv("2022-09-19_community_experiment_2.csv",
+                    stringsAsFactors = FALSE, na.strings = "")
 density <- filter(density, !is.na(Timepoint))
 
 #Calculate total density, large freq
@@ -321,6 +345,15 @@ density <- mutate(group_by(density, Timepoint, Phage_treat, Comm_treat, Pop, Str
                               400*sum(Small_count/10**Small_dilution, 
                                       Large_count/10**Large_dilution, 
                                       na.rm = TRUE)),
+              #Initial densities were estimated for the inoculation
+              # source, which was diluted 10:10000 for phage or
+              # 100:10000 for bacteria into the actual flask
+              cfu_ml = ifelse(Timepoint == 0 & Pop == "H6",
+                              10/10000 * Count/10**Dilution,
+                              cfu_ml),
+              cfu_ml = ifelse(Timepoint == 0 & Pop != "H6",
+                              100/10000 * Count/10**Dilution,
+                              cfu_ml),
               S_cfu_ml = ifelse(!is.na(Small_count),
                                 400*Small_count/10**Small_dilution,
                                 0),
@@ -341,6 +374,12 @@ density <- mutate(density,
                               400 * 1/10**Dilution,
                               cfu_ml))
 density <- as.data.frame(density)
+
+density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("+", "-"),
+                    mut_col = "Phage_treat")
+density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("+", "-"),
+                    mut_col = "Comm_treat")
+                    
 
 density_sum <- summarize(group_by(density,
                               Timepoint, Phage_treat, Comm_treat, Strain),
@@ -424,28 +463,6 @@ EOP <- mutate(EOP,
                                   Phage_treat, Bact_treat),
               Phage_treat = ifelse(Phage_treat == "Anc" & Bact_treat != "Anc",
                                    Bact_treat, Phage_treat))
-dup_rows <- function(mydf, mut_col, from_vals, to_vals) {
-  #this function takes in a data.frame
-  #finds all rows where df[, mut_col] == from_vals
-  #deletes those rows
-  #and adds rows that replicate the original but with to_vals in the
-  # mut_col instead
-  
-  mydf <- as.data.frame(mydf)
-  
-  #Generate vector of rows to duplicate
-  rowsrep <- ifelse(mydf[, mut_col] %in% from_vals,
-                    length(to_vals), 1)
-  idx <- rep(1:nrow(mydf), rowsrep)
-  
-  #Duplicate rows
-  newdf <- mydf[idx, ]
-  
-  #replace from_vals with to_vals in duplicated rows
-  newdf[which(idx %in% which(rowsrep > 1)), mut_col] <- to_vals
-  
-  return(newdf)
-}
 EOP <- dup_rows(EOP, "Bact_treat", "Anc", c("CP", "NCP", "CNP", "NCNP"))
 EOP <- mutate(EOP,
               Phage_treat = ifelse(Phage_treat == "Anc", Bact_treat, Phage_treat))
