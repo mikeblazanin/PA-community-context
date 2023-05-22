@@ -482,6 +482,12 @@ EOP_isols <- mutate(group_by(EOP_isols,
                              Phage_timepoint, Phage_isol),
               EOP = pfu_ml/max(pfu_ml))
 
+#Calculate average across pops
+EOP_sum <- summarize(group_by(EOP_isols,
+                              Bact_treat, Bact_timepoint,
+                              Phage_treat, Phage_timepoint),
+                     EOP_avg = 10**mean(log10(EOP), na.rm = TRUE))
+
 #Plot
 png("plots/EOP_time.png", width = 5, height = 3, units = "in", res = 150)
 ggplot(data = filter(EOP_isols, Phage_pop == 5),
@@ -503,4 +509,17 @@ ggplot(data = EOP_isols,
   labs(x = "Bacterial timepoint", y = "Phage timepoint")
 dev.off()
 
-       
+ggplot(data = filter(density, Pop != 1, Pop != 2, Strain == "H6", 
+                    Phage_treat == "+"),
+       aes(x = Timepoint, y = cfu_ml, color = as.factor(Pop))) +
+  geom_line(lwd = 2, alpha = 0.5) +
+  scale_y_log10() +
+  facet_grid(Comm_treat ~ .) +
+  scale_color_manual(values = my_cols)
+
+ggplot(data = EOP_sum,
+       aes(x = as.factor(Bact_timepoint), 
+           y = as.factor(Phage_timepoint))) +
+  geom_tile(aes(fill = log10(EOP_avg))) +
+  facet_grid(Phage_treat ~ .) +
+  labs(x = "Bacterial timepoint", y = "Phage timepoint")
