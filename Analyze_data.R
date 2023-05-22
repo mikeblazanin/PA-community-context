@@ -468,13 +468,18 @@ EOP <- mutate(EOP,
               Phage_treat = ifelse(Phage_treat == "Anc", Bact_treat, Phage_treat))
 
 #average technical replicates together (should just be Ancestors)
-EOP_isols <- summarize(group_by(EOP, Bact_pop, Bact_treat, Bact_timepoint,
-                                Phage_pop, Phage_treat, Phage_timepoint),
+EOP_isols <- summarize(group_by(EOP, 
+                                Date,
+                                Bact_pop, Bact_treat, Bact_timepoint, Bact_isol,
+                                Phage_pop, Phage_treat, 
+                                Phage_timepoint, Phage_isol),
                        bd = any(bd == TRUE),
                        pfu_ml = 10**(mean(log10(pfu_ml))))
 
 #Calculate EOP (relative to highest pfu/mL for ea phage stock)
-EOP_isols <- mutate(group_by(EOP_isols, Phage_pop, Phage_treat, Phage_timepoint),
+EOP_isols <- mutate(group_by(EOP_isols, 
+                             Date, Phage_pop, Phage_treat, 
+                             Phage_timepoint, Phage_isol),
               EOP = pfu_ml/max(pfu_ml))
 
 #Plot
