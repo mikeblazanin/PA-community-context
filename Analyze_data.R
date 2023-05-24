@@ -481,6 +481,11 @@ EOP <- separate_wider_regex(EOP,
 EOP$Bact_treat_C <- relevel(as.factor(EOP$Bact_treat_C), ref = "NC")
 EOP$Bact_treat_P <- relevel(as.factor(EOP$Bact_treat_P), ref = "NP")
 
+#Based on contamination, exclude NCNP Pop 9 T4 and later, CNP Pop 9 T2 and later
+EOP <- filter(EOP, 
+              !((Bact_pop == 9 & Bact_treat == "NCNP" & Bact_timepoint >= 4) |
+                  (Bact_pop == 9 & Bact_treat == "CNP" & Bact_timepoint >= 2)))
+
 #average technical replicates together (should just be Ancestors)
 EOP_isols <- summarize(group_by(EOP, 
                                 Date,
