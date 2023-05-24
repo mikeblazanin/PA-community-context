@@ -1,3 +1,5 @@
+## Setup ----
+
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -466,13 +468,26 @@ EOP <- mutate(EOP,
 EOP <- dup_rows(EOP, "Bact_treat", "Anc", c("CP", "NCP", "CNP", "NCNP"))
 EOP <- mutate(EOP,
               Phage_treat = ifelse(Phage_treat == "Anc", Bact_treat, Phage_treat))
+EOP <- separate_wider_regex(EOP,
+                            cols = "Bact_treat",
+                            patterns = c("Bact_treat_C" = "^N?C", 
+                                         "Bact_treat_P" = "N?P$"),
+                            cols_remove = FALSE)
+EOP <- separate_wider_regex(EOP,
+                            cols = "Phage_treat",
+                            patterns = c("Phage_treat_C" = "^N?C", 
+                                         "Phage_treat_P" = "N?P$"),
+                            cols_remove = FALSE)
+EOP$Bact_treat_C <- relevel(as.factor(EOP$Bact_treat_C), ref = "NC")
+EOP$Bact_treat_P <- relevel(as.factor(EOP$Bact_treat_P), ref = "NP")
 
 #average technical replicates together (should just be Ancestors)
 EOP_isols <- summarize(group_by(EOP, 
                                 Date,
-                                Bact_pop, Bact_treat, Bact_timepoint, Bact_isol,
-                                Phage_pop, Phage_treat, 
-                                Phage_timepoint, Phage_isol),
+                                Bact_pop, Bact_treat, Bact_treat_C,
+                                Bact_treat_P, Bact_timepoint, Bact_isol,
+                                Phage_pop, Phage_treat, Phage_treat_C,
+                                Phage_treat_P, Phage_timepoint, Phage_isol),
                        bd = any(bd == TRUE),
                        pfu_ml = 10**(mean(log10(pfu_ml))))
 
@@ -480,13 +495,19 @@ EOP_isols <- summarize(group_by(EOP,
 EOP_isols <- mutate(group_by(EOP_isols, 
                              Date, Phage_pop, Phage_treat, 
                              Phage_timepoint, Phage_isol),
-              EOP = pfu_ml/max(pfu_ml))
+              EOP = pfu_ml/max(pfu_ml),
+              EOP_plot = EOP)
+EOP_isols$EOP_plot[EOP_isols$bd == TRUE] <- 
+  max(EOP_isols$EOP[EOP_isols$bd == TRUE], na.rm = TRUE)
 
 #Calculate average across pops
 EOP_sum <- summarize(group_by(EOP_isols,
-                              Bact_treat, Bact_timepoint,
-                              Phage_treat, Phage_timepoint),
-                     EOP_avg = 10**mean(log10(EOP), na.rm = TRUE))
+                              Bact_treat, Bact_treat_C,
+                              Bact_treat_P, Bact_timepoint,
+                              Phage_treat, Phage_treat_C,
+                              Phage_treat_P, Phage_timepoint),
+                     EOP_avg = 10**mean(log10(EOP), na.rm = TRUE),
+                     EOP_plot_avg = 10**mean(log10(EOP_plot), na.rm = TRUE))
 
 #Plot
 png("plots/EOP_time.png", width = 5, height = 3, units = "in", res = 150)
@@ -500,13 +521,18 @@ ggplot(data = filter(EOP_isols, Phage_pop == 5),
   guides(shape = "none")
 dev.off()
 
-png("plots/EOP_grid.png", width = 5, height = 5, units = "in", res = 150)
+png("plots/EOP_grid.png", width = 9, height = 4, units = "in", res = 150)
 ggplot(data = EOP_isols,
        aes(x = as.factor(Bact_timepoint), 
            y = as.factor(Phage_timepoint))) +
-  geom_tile(aes(fill = log10(EOP))) +
-  facet_grid(Phage_treat ~ Phage_pop) +
-  labs(x = "Bacterial timepoint", y = "Phage timepoint")
+  geom_tile(aes(fill = log10(EOP_plot))) +
+  ggh4x::facet_nested(Bact_treat_C * Bact_treat_P ~ Phage_pop,
+             labeller = labeller(
+               Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+               Bact_treat_C = c(NC = "No Competitors", C = "Competitors Added"))) +
+  labs(x = "Bacterial timepoint", y = "Phage timepoint",
+       subtitle = "Population") +
+  theme(strip.text = element_text(size = 8))
 dev.off()
 
 ggplot(data = filter(density, Pop != 1, Pop != 2, Strain == "H6", 
@@ -517,9 +543,21 @@ ggplot(data = filter(density, Pop != 1, Pop != 2, Strain == "H6",
   facet_grid(Comm_treat ~ .) +
   scale_color_manual(values = my_cols)
 
+png("plots/EOP_grid_avg.png", width = 5, height = 4, units = "in", res = 150)
 ggplot(data = EOP_sum,
        aes(x = as.factor(Bact_timepoint), 
            y = as.factor(Phage_timepoint))) +
-  geom_tile(aes(fill = log10(EOP_avg))) +
-  facet_grid(Phage_treat ~ .) +
-  labs(x = "Bacterial timepoint", y = "Phage timepoint")
+  geom_tile(aes(fill = log10(EOP_plot_avg))) +
+  facet_grid(Bact_treat_C ~ Bact_treat_P,
+             labeller = labeller(
+               Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+               Bact_treat_C = c(NC = "No Competitors", C = "Competitors Added"))) +
+  labs(x = "Bacterial timepoint", y = "Phage timepoint") +
+  scale_fill_continuous(name = "log10(EOP)") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 10),
+        strip.text =  element_text(size = 12.5))
+dev.off()
