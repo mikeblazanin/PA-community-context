@@ -558,6 +558,11 @@ spots <- separate_wider_regex(spots,
 spots$Bact_treat_C <- relevel(as.factor(spots$Bact_treat_C), ref = "NC")
 spots$Bact_treat_P <- relevel(as.factor(spots$Bact_treat_P), ref = "NP")
 
+#Based on contamination, exclude NCNP Pop 9 T4 and later, CNP Pop 9 T2 and later
+spots <- filter(spots, 
+              !((Bact_pop == 9 & Bact_treat == "NCNP" & Bact_timepoint >= 4) |
+                  (Bact_pop == 9 & Bact_treat == "CNP" & Bact_timepoint >= 2)))
+
 #average technical replicates together (should just be Ancestors)
 spots_isols <- summarize(group_by(spots, 
                                 Date,
