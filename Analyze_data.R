@@ -514,55 +514,106 @@ EOP_sum <- summarize(group_by(EOP_isols,
                      EOP_avg = 10**mean(log10(EOP), na.rm = TRUE),
                      EOP_plot_avg = 10**mean(log10(EOP_plot), na.rm = TRUE))
 
-#Plot
-png("plots/EOP_time.png", width = 5, height = 3, units = "in", res = 150)
-ggplot(data = filter(EOP_isols, Phage_pop == 5),
-       aes(x = Bact_timepoint, y = EOP, color = as.factor(Phage_timepoint))) +
-  geom_point(aes(shape = bd)) + 
-  geom_line(aes(group = paste(Phage_timepoint, Phage_pop))) +
-  facet_wrap(~Bact_treat) +
-  scale_y_log10() +
-  scale_shape_manual(values = c(16, 4), breaks = c(FALSE, TRUE)) +
-  guides(shape = "none")
-dev.off()
+#Spot test data ----
+spots <- read.csv("2023-05-24 Spot Timeshift data.csv", stringsAsFactors = F)
 
-png("plots/EOP_grid.png", width = 9, height = 4, units = "in", res = 150)
-ggplot(data = EOP_isols,
+if(any(spots$Bact_treat != spots$Phage_treat &
+       spots$Bact_treat != "Anc" &
+       spots$Phage_treat != "Anc")) {
+  stop("treatment columns are not identical")}
+
+#Test plot before manipulation
+ggplot(data = spots,
        aes(x = as.factor(Bact_timepoint), 
-           y = as.factor(Phage_timepoint))) +
-  geom_tile(aes(fill = log10(EOP_plot))) +
+           y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+  geom_tile(aes(fill = clearing)) +
+  facet_grid(Bact_treat * Phage_treat ~ Bact_pop) +
+  # labs(x = "Bacterial timepoint", y = "Phage timepoint",
+  #      subtitle = "Population") +
+  theme(strip.text = element_text(size = 8))
+
+#Deal with T0 labels
+# When it's T0 with a specific treat, the T0 should be matched
+#  to that treat name
+# When it's T0 with T0, those rows need to be duplicated across all
+#  the treats so they plot for all four treats 
+spots <- mutate(spots,
+              Bact_treat = ifelse(Bact_treat == "Anc" & Phage_treat != "Anc",
+                                  Phage_treat, Bact_treat),
+              Phage_treat = ifelse(Phage_treat == "Anc" & Bact_treat != "Anc",
+                                   Bact_treat, Phage_treat))
+spots <- dup_rows(spots, "Bact_treat", "Anc", c("CP", "NCP", "CNP", "NCNP"))
+spots <- mutate(spots,
+              Phage_treat = ifelse(Phage_treat == "Anc", Bact_treat, Phage_treat))
+spots <- separate_wider_regex(spots,
+                            cols = "Bact_treat",
+                            patterns = c("Bact_treat_C" = "^N?C", 
+                                         "Bact_treat_P" = "N?P$"),
+                            cols_remove = FALSE)
+spots <- separate_wider_regex(spots,
+                            cols = "Phage_treat",
+                            patterns = c("Phage_treat_C" = "^N?C", 
+                                         "Phage_treat_P" = "N?P$"),
+                            cols_remove = FALSE)
+spots$Bact_treat_C <- relevel(as.factor(spots$Bact_treat_C), ref = "NC")
+spots$Bact_treat_P <- relevel(as.factor(spots$Bact_treat_P), ref = "NP")
+
+#average technical replicates together (should just be Ancestors)
+spots_isols <- summarize(group_by(spots, 
+                                Date,
+                                Bact_pop, Bact_treat, Bact_treat_C,
+                                Bact_treat_P, Bact_timepoint, Bact_isol,
+                                Phage_pop, Phage_treat, Phage_treat_C,
+                                Phage_treat_P, Phage_timepoint, Phage_isol),
+                       clearing = mean(clearing))
+
+#Merge in EOP data
+EOP_isols <- mutate(EOP_isols, clearing = ifelse(bd == TRUE, 0, 1))
+
+resis_isols <- full_join(spots_isols, EOP_isols)
+
+#Calculate average across pops
+resis_sum <- summarize(group_by(resis_isols,
+                                Bact_treat, Bact_treat_C,
+                                Bact_treat_P, Bact_timepoint,
+                                Phage_treat, Phage_treat_C,
+                                Phage_treat_P, Phage_timepoint),
+                       clearing_avg = mean(clearing, na.rm = TRUE))
+
+png("plots/resis_grid.png", width = 6, height = 4, units = "in", res = 150)
+ggplot(data = resis_isols,
+       aes(x = as.factor(Bact_timepoint), 
+           y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+  geom_tile(aes(fill = clearing)) +
   ggh4x::facet_nested(Bact_treat_C * Bact_treat_P ~ Phage_pop,
-             labeller = labeller(
-               Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
-               Bact_treat_C = c(NC = "No Competitors", C = "Competitors Added"))) +
+                      labeller = labeller(
+                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                        Bact_treat_C = c(NC = "No Competitors", C = "Competitors Added"))) +
   labs(x = "Bacterial timepoint", y = "Phage timepoint",
        subtitle = "Population") +
-  theme(strip.text = element_text(size = 8))
+  scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  theme_bw() +
+  theme(strip.text = element_text(size = 8),
+        axis.text.y = element_text(vjust = -0.1)) +
+  scale_fill_continuous(high = "#132B43", low = "#56B1F7",
+                        name = "Frequency of\nsusceptibility")
 dev.off()
 
-ggplot(data = filter(density, Pop != 1, Pop != 2, Strain == "H6", 
-                    Phage_treat == "+"),
-       aes(x = Timepoint, y = cfu_ml, color = as.factor(Pop))) +
-  geom_line(lwd = 2, alpha = 0.5) +
-  scale_y_log10() +
-  facet_grid(Comm_treat ~ .) +
-  scale_color_manual(values = my_cols)
-
-png("plots/EOP_grid_avg.png", width = 5, height = 4, units = "in", res = 150)
-ggplot(data = EOP_sum,
+png("plots/resis_grid_avg.png", width = 5.5, height = 4, units = "in", res = 150)
+ggplot(data = resis_sum,
        aes(x = as.factor(Bact_timepoint), 
            y = as.factor(Phage_timepoint))) +
-  geom_tile(aes(fill = log10(EOP_plot_avg))) +
+  geom_tile(aes(fill = clearing_avg)) +
   facet_grid(Bact_treat_C ~ Bact_treat_P,
-             labeller = labeller(
-               Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
-               Bact_treat_C = c(NC = "No Competitors", C = "Competitors Added"))) +
+                      labeller = labeller(
+                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                        Bact_treat_C = c(NC = "No Competitors", C = "Competitors Added"))) +
   labs(x = "Bacterial timepoint", y = "Phage timepoint") +
-  scale_fill_continuous(name = "log10(EOP)") +
   theme_bw() +
-  theme(axis.title = element_text(size = 16),
-        axis.text = element_text(size = 14),
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 10),
-        strip.text =  element_text(size = 12.5))
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 16),
+        strip.text = element_text(size = 11.5),
+        legend.title = element_text(size = 16)) +
+  scale_fill_continuous(high = "#132B43", low = "#56B1F7",
+                         name = "Frequency of\nsusceptibility")
 dev.off()
