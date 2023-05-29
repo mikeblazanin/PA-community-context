@@ -388,9 +388,7 @@ density_sum <- summarize(group_by(density,
                      cfu_ml = 10**mean(log10(cfu_ml), na.rm = TRUE),
                      L_freq = mean(L_freq, na.rm = TRUE))
 
-png("plots/density.png", width = 5, height = 5, units = "in",
-    res = 150)
-ggplot(data = density[density$Pop %in% 3:10 & !is.na(density$cfu_ml), ],
+p1 <- ggplot(data = density[density$Pop %in% 3:10 & !is.na(density$cfu_ml), ],
        aes(x = Timepoint, y = cfu_ml, color = Strain)) +
   #geom_point(aes(shape = bd)) + 
   geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
@@ -405,7 +403,7 @@ ggplot(data = density[density$Pop %in% 3:10 & !is.na(density$cfu_ml), ],
   scale_y_continuous(trans = "log10",
                      breaks = 10**c(2, 6, 10),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
-  labs(y = "Density (cfu/mL or pfu/mL)") +
+  labs(y = "Density (cfu/mL or pfu/mL)", x = "Timepoint (days)") +
   scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
                      labels = c("P. aeruginosa", "S. aureus",
                                 "E. faecalis", "A. xylosoxidans",
@@ -418,10 +416,18 @@ ggplot(data = density[density$Pop %in% 3:10 & !is.na(density$cfu_ml), ],
         legend.text = element_text(size = 10),
         strip.text =  element_text(size = 12.5),
         #legend.position = c(0.3, 0.6),
-        legend.background = element_rect(color = "black"),
-        legend.position = "top") +
-  guides(color = guide_legend(nrow = 2, byrow = TRUE)) +
-  NULL
+        legend.background = element_rect(color = "black"))
+
+png("plots/density_legendside.png", width = 7, height = 5, units = "in",
+    res = 150)
+p1
+dev.off()
+
+png("plots/density.png", width = 5, height = 5, units = "in",
+    res = 150)
+p1 +
+  theme(legend.position = "top") +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE))
 dev.off()
 
 png("plots/cfumorphfreq.png", width = 5, height = 4, units = "in", res = 150)
