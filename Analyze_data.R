@@ -138,7 +138,7 @@ ggplot(data = prelimdens_NC_sum,
        aes(x = Timepoint, y = dens_ml+1, color = Strain)) +
   #geom_point() + 
   geom_line(aes(group = paste(Population, Strain)), alpha = 0.5) +
-  geom_line(data = prelimdens_NC_sum_sum, lwd = 2, alpha = 0.8) +
+  #geom_line(data = prelimdens_NC_sum_sum, lwd = 2, alpha = 0.8) +
   geom_hline(data = data.frame(Comm_treat = c("-", "-"),
                                Phage_treat = c("+", "-", "+", "-"),
                                limit = c(1000/5, 1000/5)),
@@ -171,8 +171,8 @@ dev.off()
 png("plots/prelimdens_NC_cfumorphfreq.png", width = 5, height = 2.5, units = "in", res = 150)
 ggplot(data = prelimdens_NC_sum[prelimdens_NC_sum$Strain == "PA", ],
        aes(x = Timepoint, y = freq_L)) +
-  geom_line(aes(group = paste(Population, Strain))) +
-  geom_line(data = prelimdens_NC_sum_sum[prelimdens_NC_sum_sum$Strain == "PA", ], lwd = 2) +
+  geom_line(aes(group = paste(Population, Strain)), alpha = 0.5, lwd = 0.8) +
+  #geom_line(data = prelimdens_NC_sum_sum[prelimdens_NC_sum_sum$Strain == "PA", ], lwd = 2) +
   facet_grid(Comm_treat ~ Phage_treat,
              labeller = labeller(Phage_treat = c("+" = "Phage Added",
                                                  "-" = "No Phage"),
@@ -278,7 +278,7 @@ ggplot(data = prelimdens_C,
        aes(x = Timepoint, y = dens_ml+1, color = Strain)) +
   #geom_point() + 
   geom_line(aes(group = paste(Population, Strain)), alpha = 0.5) +
-  geom_line(data = prelimdens_C_sum, lwd = 2, alpha = 0.8) +
+  #geom_line(data = prelimdens_C_sum, lwd = 2, alpha = 0.8) +
   geom_hline(data = data.frame(Comm_treat = c("+", "+"),
                                Phage_treat = c("+", "-", "+", "-"),
                                limit = c(1000/2.5, 1000/2.5)),
@@ -313,8 +313,8 @@ dev.off()
 png("plots/prelimdens_C_cfumorphfreq.png", width = 5, height = 2.5, units = "in", res = 150)
 ggplot(data = prelimdens_C[prelimdens_C$Strain == "PA", ],
        aes(x = Timepoint, y = freq_L)) +
-  geom_line(aes(group = paste(Population, Strain))) +
-  geom_line(data = prelimdens_C_sum[prelimdens_C_sum$Strain == "PA", ], lwd = 2) +
+  geom_line(aes(group = paste(Population, Strain)), alpha = 0.5, lwd = 0.8) +
+  #geom_line(data = prelimdens_C_sum[prelimdens_C_sum$Strain == "PA", ], lwd = 2) +
   facet_grid(Comm_treat ~ Phage_treat,
              labeller = labeller(Phage_treat = c("+" = "Phage Added",
                                                  "-" = "No Phage"),
@@ -392,7 +392,7 @@ p1 <- ggplot(data = density[density$Pop %in% 3:10 & !is.na(density$cfu_ml), ],
        aes(x = Timepoint, y = cfu_ml, color = Strain)) +
   #geom_point(aes(shape = bd)) + 
   geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
-  geom_line(data = density_sum, lwd = 2, alpha = 0.8) +
+  #geom_line(data = density_sum, lwd = 2, alpha = 0.8) +
   geom_hline(yintercept = 400, lty = 2) +
   facet_grid(Comm_treat ~ Phage_treat,
              labeller = labeller(Phage_treat = c("+" = "Phage Added",
@@ -431,10 +431,10 @@ p1 +
 dev.off()
 
 png("plots/cfumorphfreq.png", width = 5, height = 4, units = "in", res = 150)
-ggplot(data = density[density$Strain == "PA", ],
+ggplot(data = filter(density, Pop %in% 3:10, Strain == "PA"),
        aes(x = Timepoint, y = L_freq)) +
-  geom_line(aes(group = paste(Pop, Strain))) +
-  geom_line(data = density_sum[density_sum$Strain == "PA", ], lwd = 2) +
+  geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5, lwd = 0.8) +
+  #geom_line(data = density_sum[density_sum$Strain == "PA", ], lwd = 2) +
   facet_grid(Comm_treat ~ Phage_treat,
              labeller = labeller(Phage_treat = c("+" = "Phage Added",
                                                  "-" = "No Phage"),
@@ -511,6 +511,8 @@ EOP_isols <- mutate(group_by(EOP_isols,
 EOP_isols$EOP_plot[EOP_isols$bd == TRUE] <- 
   max(EOP_isols$EOP[EOP_isols$bd == TRUE], na.rm = TRUE)
 
+
+
 #Calculate average across pops
 EOP_sum <- summarize(group_by(EOP_isols,
                               Bact_treat, Bact_treat_C,
@@ -530,7 +532,7 @@ if(any(spots$Bact_treat != spots$Phage_treat &
 
 #Test plot before manipulation
 ggplot(data = spots,
-       aes(x = as.factor(Bact_timepoint), 
+       aes(x = as.factor(paste(Bact_timepoint, Bact_isol)), 
            y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
   geom_tile(aes(fill = clearing)) +
   facet_grid(Bact_treat * Phage_treat ~ Bact_pop) +
@@ -593,9 +595,9 @@ resis_sum <- summarize(group_by(resis_isols,
 
 png("plots/resis_grid.png", width = 6, height = 4, units = "in", res = 150)
 ggplot(data = resis_isols,
-       aes(x = as.factor(Bact_timepoint), 
+       aes(x = as.factor(paste(Bact_timepoint, Bact_isol)), 
            y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
-  geom_tile(aes(fill = clearing)) +
+  geom_tile(aes(fill = as.factor(clearing))) +
   ggh4x::facet_nested(Bact_treat_C * Bact_treat_P ~ Phage_pop,
                       labeller = labeller(
                         Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
@@ -603,11 +605,15 @@ ggplot(data = resis_isols,
   labs(x = "Bacterial timepoint", y = "Phage timepoint",
        subtitle = "Population") +
   scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  scale_x_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
   theme_bw() +
   theme(strip.text = element_text(size = 8),
         axis.text.y = element_text(vjust = -0.1)) +
-  scale_fill_continuous(high = "#132B43", low = "#56B1F7",
-                        name = "Frequency of\nsusceptibility")
+  scale_fill_manual(breaks = c(1, 0, NA),
+                    labels = c("Susceptible", "Resistant", "NA"),
+                    values = c("#132B43", "#56B1F7", "gray"),
+                    name = "") +
+  NULL
 dev.off()
 
 png("plots/resis_grid_avg.png", width = 5.5, height = 4, units = "in", res = 150)
@@ -627,4 +633,28 @@ ggplot(data = resis_sum,
         legend.title = element_text(size = 16)) +
   scale_fill_continuous(high = "#132B43", low = "#56B1F7",
                          name = "Frequency of\nsusceptibility")
+dev.off()
+
+png("plots/resis_grid_phagetreats.png", width = 6, height = 2.5, units = "in", res = 150)
+ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
+       aes(x = as.factor(paste(Bact_timepoint, Bact_isol)), 
+           y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+  geom_tile(aes(fill = as.factor(clearing))) +
+  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Phage_pop,
+                      labeller = labeller(
+                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                        Bact_treat_C = c(NC = "No\nCompetitors", C = "Competitors\nAdded"))) +
+  labs(x = "Bacterial timepoint", y = "Phage timepoint",
+       subtitle = "Population") +
+  scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  scale_x_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  theme_bw() +
+  theme(strip.text = element_text(size = 8),
+        axis.text.y = element_text(vjust = -0.1),
+        axis.text.x = element_text(hjust = 0.2)) +
+  scale_fill_manual(breaks = c(1, 0, NA),
+                    labels = c("Susceptible", "Resistant", "NA"),
+                    values = c("#132B43", "#56B1F7", "gray"),
+                    name = "") +
+  NULL
 dev.off()
