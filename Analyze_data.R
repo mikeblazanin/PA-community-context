@@ -164,7 +164,8 @@ ggplot(data = prelimdens_NC_sum,
         #legend.position = c(0.3, 0.6),
         legend.background = element_rect(color = "black"),
         legend.position = "top") +
-  guides(color = guide_legend(nrow = 1, byrow = TRUE)) +
+  guides(color = guide_legend(nrow = 1, byrow = TRUE,
+                              override.aes = list(lwd = 2, alpha = 1))) +
   NULL
 dev.off()
 
@@ -306,7 +307,8 @@ ggplot(data = prelimdens_C,
         #legend.position = c(0.3, 0.6),
         legend.background = element_rect(color = "black"),
         legend.position = "top") +
-  guides(color = guide_legend(nrow = 2, byrow = TRUE)) +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE,
+                              override.aes = list(lwd = 2, alpha = 1))) +
   NULL
 dev.off()
 
@@ -388,7 +390,9 @@ density_sum <- summarize(group_by(density,
                      cfu_ml = 10**mean(log10(cfu_ml), na.rm = TRUE),
                      L_freq = mean(L_freq, na.rm = TRUE))
 
-p1 <- ggplot(data = density[density$Pop %in% 3:10 & !is.na(density$cfu_ml), ],
+p1 <- ggplot(
+  data = filter(density, Pop %in% 3:10, !is.na(cfu_ml),
+                !(Pop == 9 & Phage_treat == "-")),
        aes(x = Timepoint, y = cfu_ml, color = Strain)) +
   #geom_point(aes(shape = bd)) + 
   geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
@@ -420,18 +424,21 @@ p1 <- ggplot(data = density[density$Pop %in% 3:10 & !is.na(density$cfu_ml), ],
 
 png("plots/density_legendside.png", width = 7, height = 5, units = "in",
     res = 150)
-p1
+p1  +
+  guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1)))
 dev.off()
 
 png("plots/density.png", width = 5, height = 5, units = "in",
     res = 150)
 p1 +
   theme(legend.position = "top") +
-  guides(color = guide_legend(nrow = 2, byrow = TRUE))
+  guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1),
+                              nrow = 2, byrow = TRUE))
 dev.off()
 
 png("plots/cfumorphfreq.png", width = 5, height = 4, units = "in", res = 150)
-ggplot(data = filter(density, Pop %in% 3:10, Strain == "PA"),
+ggplot(data = filter(density, Pop %in% 3:10, Strain == "PA",
+                     !(Pop == 9 & Phage_treat == "-")),
        aes(x = Timepoint, y = L_freq)) +
   geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5, lwd = 0.8) +
   #geom_line(data = density_sum[density_sum$Strain == "PA", ], lwd = 2) +
@@ -593,7 +600,7 @@ resis_sum <- summarize(group_by(resis_isols,
                                 Phage_treat_P, Phage_timepoint),
                        clearing_avg = mean(clearing, na.rm = TRUE))
 
-png("plots/resis_grid.png", width = 6, height = 4, units = "in", res = 150)
+png("plots/resis_grid.png", width = 8, height = 4, units = "in", res = 150)
 ggplot(data = resis_isols,
        aes(x = as.factor(paste(Bact_timepoint, Bact_isol)), 
            y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
@@ -608,9 +615,10 @@ ggplot(data = resis_isols,
   scale_x_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
   theme_bw() +
   theme(strip.text = element_text(size = 8),
-        axis.text.y = element_text(vjust = -0.1)) +
+        axis.text.y = element_text(vjust = -0.1),
+        axis.text.x = element_text(hjust = -0.1)) +
   scale_fill_manual(breaks = c(1, 0, NA),
-                    labels = c("Susceptible", "Resistant", "NA"),
+                    labels = c("Susceptible", "Resistant", "Phage Extinct"),
                     values = c("#132B43", "#56B1F7", "gray"),
                     name = "") +
   NULL
@@ -635,7 +643,7 @@ ggplot(data = resis_sum,
                          name = "Frequency of\nsusceptibility")
 dev.off()
 
-png("plots/resis_grid_phagetreats.png", width = 6, height = 2.5, units = "in", res = 150)
+png("plots/resis_grid_phagetreats.png", width = 6.75, height = 3, units = "in", res = 150)
 ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
        aes(x = as.factor(paste(Bact_timepoint, Bact_isol)), 
            y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
@@ -651,9 +659,10 @@ ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
   theme_bw() +
   theme(strip.text = element_text(size = 8),
         axis.text.y = element_text(vjust = -0.1),
-        axis.text.x = element_text(hjust = 0.2)) +
+        axis.text.x = element_text(hjust = 0.2),
+        legend.position = "bottom") +
   scale_fill_manual(breaks = c(1, 0, NA),
-                    labels = c("Susceptible", "Resistant", "NA"),
+                    labels = c("Susceptible", "Resistant", "Phage Extinct"),
                     values = c("#132B43", "#56B1F7", "gray"),
                     name = "") +
   NULL
