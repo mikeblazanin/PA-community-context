@@ -3,6 +3,7 @@
 library(ggplot2)
 library(dplyr)
 library(tidyr)
+library(cowplot)
 
 dir.create("plots", showWarnings = FALSE)
 
@@ -643,17 +644,12 @@ ggplot(data = resis_sum,
                          name = "Frequency of\nsusceptibility")
 dev.off()
 
-png("plots/resis_grid_phagetreats.png", width = 6.75, height = 3, units = "in", res = 150)
+png("plots/resis_grid_phagetreats.png", width = 6.75, height = 3, 
+    units = "in", res = 150)
 ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
        aes(x = as.factor(paste(Bact_timepoint, Bact_isol)), 
            y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
   geom_tile(aes(fill = as.factor(clearing))) +
-  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Phage_pop,
-                      labeller = labeller(
-                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
-                        Bact_treat_C = c(NC = "No\nCompetitors", C = "Competitors\nAdded"))) +
-  labs(x = "Bacterial timepoint", y = "Phage timepoint",
-       subtitle = "Population") +
   scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
   scale_x_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
   theme_bw() +
@@ -665,5 +661,65 @@ ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
                     labels = c("Susceptible", "Resistant", "Phage Extinct"),
                     values = c("#132B43", "#56B1F7", "gray"),
                     name = "") +
+  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Phage_pop,
+                      labeller = labeller(
+                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                        Bact_treat_C = c(NC = "No\nCompetitors", C = "Competitors\nAdded"))) +
+  labs(x = "Bacterial timepoint", y = "Phage timepoint",
+       subtitle = "Population") +
   NULL
+dev.off()
+
+
+
+p1 <- ggplot(data = filter(resis_isols, Bact_treat_P == "P",
+                     Bact_treat_C == "NC"),
+       aes(x = as.factor(paste(Bact_timepoint, Bact_isol)), 
+           y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+  facet_wrap(~Phage_pop, ncol = 2,
+             labeller = as_labeller(function(x){paste("Pop", x)})) +
+  geom_tile(aes(fill = as.factor(clearing))) +
+  scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  scale_x_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  theme_bw() +
+  theme(strip.text = element_text(size = 8),
+        axis.text.y = element_text(vjust = -0.1),
+        axis.text.x = element_text(hjust = 0.2)) +
+  scale_fill_manual(breaks = c(1, 0, NA),
+                    labels = c("Susceptible", "Resistant", "Phage Extinct"),
+                    values = c("#132B43", "#56B1F7", "gray"),
+                    name = "") +
+  labs(x = "Bacterial timepoint", y = "Phage timepoint",
+       subtitle = "No Competitors Added") +
+  theme(legend.position = "right") +
+  NULL
+
+p2 <- ggplot(data = filter(resis_isols, Bact_treat_P == "P",
+                           Bact_treat_C == "C"),
+             aes(x = as.factor(paste(Bact_timepoint, Bact_isol)), 
+                 y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+  facet_wrap(~Phage_pop, ncol = 2,
+             labeller = as_labeller(function(x){paste("Pop", x)})) +
+  geom_tile(aes(fill = as.factor(clearing))) +
+  scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  scale_x_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  theme_bw() +
+  theme(strip.text = element_text(size = 8),
+        axis.text.y = element_text(vjust = -0.1),
+        axis.text.x = element_text(hjust = 0.2)) +
+  scale_fill_manual(breaks = c(1, 0, NA),
+                    labels = c("Susceptible", "Resistant", "Phage Extinct"),
+                    values = c("#132B43", "#56B1F7", "gray"),
+                    name = "") +
+  labs(x = "Bacterial timepoint", y = "Phage timepoint",
+       subtitle = "Competitors Added") +
+  theme(legend.position = "right") +
+  NULL
+
+png("plots/resis_grid_phagetreats_wrapped.png", width = 6.5, height = 6, 
+    units = "in", res = 150)
+plot_grid(p1 + guides(fill = "none"), 
+          p2 + guides(fill = "none"), 
+          get_legend(p1),
+          nrow = 1, rel_widths = c(1, 1, 0.5))
 dev.off()
