@@ -588,10 +588,32 @@ spots_isols <- summarize(group_by(spots,
                                 Phage_treat_P, Phage_timepoint, Phage_isol),
                        clearing = mean(clearing))
 
-#Merge in EOP data
+#Cross streak data ----
+cs_isols <- read.csv("William cross-streak data.csv", fileEncoding = "UTF-8")
+
+cs_isols <- separate_wider_regex(cs_isols,
+                              cols = "Bact_treat",
+                              patterns = c("Bact_treat_C" = "^N?C", 
+                                           "Bact_treat_P" = "N?P$"),
+                              cols_remove = FALSE)
+cs_isols <- separate_wider_regex(cs_isols,
+                              cols = "Phage_treat",
+                              patterns = c("Phage_treat_C" = "^N?C", 
+                                           "Phage_treat_P" = "N?P$"),
+                              cols_remove = FALSE)
+
+cs_isols <- pivot_longer(cs_isols, cols = starts_with("Bact_timepoint"),
+                         names_to = "Bact_timepoint", 
+                         names_prefix = "Bact_timepoint.T",
+                         names_transform = as.integer,
+                         values_to = "clearing",
+                         values_transform = function(x) {as.numeric(x == "S")})
+
+#Merge different resistance data
 EOP_isols <- mutate(EOP_isols, clearing = ifelse(bd == TRUE, 0, 1))
 
-resis_isols <- full_join(spots_isols, EOP_isols)
+resis_isols <- full_join(cs_isols, full_join(spots_isols, EOP_isols))
+
 
 #Calculate average across pops
 resis_sum <- summarize(group_by(resis_isols,
@@ -612,8 +634,8 @@ ggplot(data = resis_isols,
                         Bact_treat_C = c(NC = "No Competitors", C = "Competitors Added"))) +
   labs(x = "Bacterial timepoint", y = "Phage timepoint",
        subtitle = "Population") +
-  scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
-  scale_x_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  #scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  #scale_x_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
   theme_bw() +
   theme(strip.text = element_text(size = 8),
         axis.text.y = element_text(vjust = -0.1),
