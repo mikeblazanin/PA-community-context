@@ -426,7 +426,9 @@ p1 <- ggplot(
 png("plots/density_legendside.png", width = 7, height = 5, units = "in",
     res = 150)
 p1  +
-  guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1)))
+  guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1))) +
+  geom_text(data = filter(density, Timepoint == 9, Strain == "H6"),
+            aes(y = cfu_ml, label = Pop))
 dev.off()
 
 png("plots/density.png", width = 5, height = 5, units = "in",
