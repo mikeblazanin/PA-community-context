@@ -668,28 +668,31 @@ ggplot(data = resis_sum,
                          name = "Frequency of\nsusceptibility")
 dev.off()
 
-png("plots/resis_grid_phagetreats.png", width = 6.75, height = 3, 
+png("plots/resis_grid_phagetreats.png", width = 10, height = 3, 
     units = "in", res = 150)
 ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
-       aes(x = as.factor(paste(Bact_timepoint, Bact_isol)), 
+       aes(x = Bact_isol, 
            y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
   geom_tile(aes(fill = as.factor(clearing))) +
   scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
-  scale_x_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  # scale_x_discrete(labels = rep(c(0, "", 1, "", 2, "", 4, "", 8, ""),
+  #                               times = c(1, 5, 1, 5, 1, 5, 1, 5, 1, 5))) +
   theme_bw() +
   theme(strip.text = element_text(size = 8),
         axis.text.y = element_text(vjust = -0.1),
-        axis.text.x = element_text(hjust = 0.2),
-        legend.position = "bottom") +
+        #axis.text.x = element_text(hjust = 0.2),
+        axis.text.x = element_blank(),
+        legend.position = "bottom",
+        panel.spacing.x = unit(.05, "lines")) +
   scale_fill_manual(breaks = c(1, 0, NA),
                     labels = c("Susceptible", "Resistant", "Phage Extinct"),
                     values = c("#132B43", "#56B1F7", "gray"),
                     name = "") +
-  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Phage_pop,
+  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Phage_pop * Bact_timepoint,
                       labeller = labeller(
                         Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
                         Bact_treat_C = c(NC = "No\nCompetitors", C = "Competitors\nAdded"))) +
-  labs(x = "Bacterial timepoint", y = "Phage timepoint",
+  labs(x = "Bacterial Isolate", y = "Phage timepoint",
        subtitle = "Population") +
   NULL
 dev.off()
