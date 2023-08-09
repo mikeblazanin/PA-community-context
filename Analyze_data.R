@@ -439,6 +439,78 @@ p1 +
                               nrow = 2, byrow = TRUE))
 dev.off()
 
+png("plots/density_bact.png", width = 7, height = 5, units = "in",
+    res = 150)
+ggplot(
+  data = filter(density, Strain != "H6", Pop %in% 3:10, !is.na(cfu_ml),
+                !(Pop == 9 & Phage_treat == "-")),
+  aes(x = Timepoint, y = cfu_ml, color = Strain)) +
+  #geom_point(aes(shape = bd)) + 
+  geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
+  #geom_line(data = density_sum, lwd = 2, alpha = 0.8) +
+  geom_hline(yintercept = 400, lty = 2) +
+  facet_grid(Comm_treat ~ Phage_treat,
+             labeller = labeller(Phage_treat = c("+" = "Phage Added",
+                                                 "-" = "No Phage"),
+                                 Comm_treat = c("+" = "Competitors Added",
+                                                "-" = "No Competitors"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+  scale_y_continuous(trans = "log10",
+                     breaks = 10**c(2, 6, 10),
+                     labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  labs(y = "Density (cfu/mL or pfu/mL)", x = "Timepoint (days)") +
+  scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                     labels = c("P. aeruginosa", "S. aureus",
+                                "E. faecalis", "A. xylosoxidans",
+                                "Phage H6"),
+                     values = my_cols[c(3, 1, 2, 7, 8)]) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 10),
+        strip.text =  element_text(size = 12.5),
+        #legend.position = c(0.3, 0.6),
+        legend.background = element_rect(color = "black")) +
+  guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1)))
+dev.off()
+
+png("plots/density_phage.png", width = 7, height = 5, units = "in",
+    res = 150)
+ggplot(
+  data = filter(density, Strain == "H6", Pop %in% 3:10, !is.na(cfu_ml),
+                !(Pop == 9 & Phage_treat == "-")),
+  aes(x = Timepoint, y = cfu_ml, color = Strain)) +
+  #geom_point(aes(shape = bd)) + 
+  geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
+  #geom_line(data = density_sum, lwd = 2, alpha = 0.8) +
+  geom_hline(yintercept = 400, lty = 2) +
+  facet_grid(Comm_treat ~ Phage_treat,
+             labeller = labeller(Phage_treat = c("+" = "Phage Added",
+                                                 "-" = "No Phage"),
+                                 Comm_treat = c("+" = "Competitors Added",
+                                                "-" = "No Competitors"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+  scale_y_continuous(trans = "log10",
+                     breaks = 10**c(2, 6, 10),
+                     labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  labs(y = "Density (cfu/mL or pfu/mL)", x = "Timepoint (days)") +
+  scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                     labels = c("P. aeruginosa", "S. aureus",
+                                "E. faecalis", "A. xylosoxidans",
+                                "Phage H6"),
+                     values = my_cols[c(3, 1, 2, 7, 8)]) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 10),
+        strip.text =  element_text(size = 12.5),
+        #legend.position = c(0.3, 0.6),
+        legend.background = element_rect(color = "black")) +
+  guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1)))
+dev.off()
+
 png("plots/cfumorphfreq.png", width = 5, height = 4, units = "in", res = 150)
 ggplot(data = filter(density, Pop %in% 3:10, Strain == "PA",
                      !(Pop == 9 & Phage_treat == "-")),
@@ -615,10 +687,47 @@ cs_isols <- pivot_longer(cs_isols, cols = starts_with("Bact_timepoint"),
 EOP_isols <- mutate(EOP_isols, clearing = ifelse(bd == TRUE, 0, 1))
 
 resis_isols <- full_join(cs_isols, full_join(spots_isols, EOP_isols))
+resis_isols$Bact_treat_C <- relevel(factor(resis_isols$Bact_treat_C), "NC")
+
+#Calculate average w/in pops
+resis_sum_pops <- summarize(group_by(resis_isols,
+                                  Bact_treat, Bact_treat_C,
+                                  Bact_treat_P, Bact_timepoint,
+                                  Bact_pop,
+                                  Phage_treat, Phage_treat_C,
+                                  Phage_treat_P, Phage_timepoint,
+                                  Phage_pop),
+                         clearing_avg = mean(clearing, na.rm = TRUE))
+
+#Merge with population data
+pop_resis_merge <- 
+  select(
+    full_join(
+      filter(mutate(density, 
+                    Bact_timepoint = Timepoint,
+                    Bact_pop = Pop,
+                    Bact_treat_P = ifelse(Phage_treat == "+", "P", "NP"),
+                    Bact_treat_C = ifelse(Comm_treat == "+", "C", "NC")),
+             Strain == "H6",
+             Bact_timepoint %in% c(0, 1, 2, 4, 8),
+             Bact_pop %in% 3:10),
+      filter(resis_sum_pops, Bact_timepoint == Phage_timepoint),
+      by = c("Bact_timepoint", "Bact_pop", "Bact_treat_P", "Bact_treat_C")),
+    Strain, cfu_ml, bd, Bact_timepoint, Bact_treat_P, Bact_treat_C, Bact_pop,
+    Phage_timepoint, Phage_treat_P, Phage_treat_C, Phage_pop,
+    clearing_avg)
+
+
+ggplot(data = filter(pop_resis_merge, Phage_treat_P == "P"),
+       aes(y = cfu_ml, x = clearing_avg, color = as.factor(Bact_timepoint))) +
+  geom_point() +
+  scale_y_log10() +
+  #facet_grid(~ Bact_pop) +
+  NULL
 
 
 #Calculate average across pops
-resis_sum <- summarize(group_by(resis_isols,
+resis_sum_treats <- summarize(group_by(resis_isols,
                                 Bact_treat, Bact_treat_C,
                                 Bact_treat_P, Bact_timepoint,
                                 Phage_treat, Phage_treat_C,
@@ -650,7 +759,7 @@ ggplot(data = resis_isols,
 dev.off()
 
 png("plots/resis_grid_avg.png", width = 5.5, height = 4, units = "in", res = 150)
-ggplot(data = resis_sum,
+ggplot(data = resis_sum_treats,
        aes(x = as.factor(Bact_timepoint), 
            y = as.factor(Phage_timepoint))) +
   geom_tile(aes(fill = clearing_avg)) +
