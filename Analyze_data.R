@@ -689,6 +689,9 @@ EOP_isols <- mutate(EOP_isols, clearing = ifelse(bd == TRUE, 0, 1))
 resis_isols <- full_join(cs_isols, full_join(spots_isols, EOP_isols))
 resis_isols$Bact_treat_C <- relevel(factor(resis_isols$Bact_treat_C), "NC")
 
+#Write copy to file
+write.csv(resis_isols, "aggregate_resis_data.csv", row.names = FALSE)
+
 #Calculate average w/in pops
 resis_sum_pops <- summarize(group_by(resis_isols,
                                   Bact_treat, Bact_treat_C,
