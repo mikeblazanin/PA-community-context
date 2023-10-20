@@ -15,6 +15,8 @@ dat <- lapply(dat, FUN = function(x) {
 dat[[1]]$Pop <- "3"
 dat[[2]]$Pop <- "4"
 
+dat <- merge_dfs(dat, collapse = TRUE)
+
 #Designs ----
 trt_designs <- make_design(
   nrows = 8, ncol = 12, output_format = "tidy",
@@ -43,13 +45,12 @@ trt_isols4 <- make_design(
              "120012121213121212121213121212151212",
              FALSE),
   Isol = mdp("Blank", 7, 11))
-                           
-dat[[1]] <- merge_dfs(dat[[1]], trt_isols3, by = c("Well", "Pop"))
-dat[[2]] <- merge_dfs(dat[[2]], trt_isols4, by = c("Well", "Pop"))
 
-dat <- merge_dfs(dat, collapse = TRUE)
+trt_isols <- do.call(rbind, list(trt_isols3, trt_isols4))
 
-dat <- merge_dfs(dat, trt_designs, by = "Well", drop = TRUE)
+dat <- merge_dfs(dat, trt_designs)
+dat <- merge_dfs(dat, trt_isols, drop = TRUE)
+
 
 #Time ----
 dat$Time <- lubridate::time_length(lubridate::hms(dat$Time))
