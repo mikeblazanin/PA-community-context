@@ -2,6 +2,8 @@ library(gcplyr)
 library(ggplot2)
 library(dplyr)
 
+setwd("./growth_curves")
+
 dat <- read_wides(files = c("William growth curves pilot 2023-02-08.csv",
                             "2023-02-18 William growth curve.csv"),
                   startrow = c(41, 35), endrow = c(128, 180),
