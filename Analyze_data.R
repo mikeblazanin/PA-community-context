@@ -866,3 +866,37 @@ plot_grid(p1 + guides(fill = "none"),
           get_legend(p1),
           nrow = 1, rel_widths = c(1, 1, 0.5))
 dev.off()
+
+# Pigments ----
+
+pig1 <- import_blockmeasures(list.files(path = "./pigment_data/", full.names = T),
+           startrow = 42, endrow = 50, endcol = "M",
+           metadata = list("Wavelength" = c(41, "A")))
+pig2 <- import_blockmeasures(list.files(path = "./pigment_data/", full.names = T),
+                    startrow = 57, endrow = 65, endcol = "M",
+                    metadata = list("Wavelength" = c(56, "A")))
+
+
+colnames(pig1)[1] <- "file"
+colnames(pig2)[1] <- "file"
+pig12 <- trans_wide_to_tidy(list(pig1, pig2), id_cols = c("file", "Wavelength"),
+                            values_to_numeric = FALSE)
+pig12 <- lapply(
+  pig12, 
+  FUN = function(x) {x$Wavelength <- gsub(".*:", "", x$Wavelength); return(x)})
+
+pigspectrum <- read_wides(list.files(path = "./pigment_data/", full.names = T),
+                          startrow = 69, endrow = 90)
+pigspectrum <- trans_wide_to_tidy(pigspectrum, id_cols = c("file", "Wavelength"),
+                                  values_to_numeric = FALSE)
+
+pig <- merge_dfs(pig12, pigspectrum, collapse = TRUE)
+
+
+#Make designs
+
+#Merge designs
+
+#Subtract blank
+
+#Plots
