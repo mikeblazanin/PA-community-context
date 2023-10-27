@@ -64,10 +64,12 @@ dat <- mutate(dat,
                 ifelse(Treat == "Anc", "Anc",
                        ifelse(Treat %in% c("CNP", "NN"), "NP", "P")))
 
-#Smooth ----
+#Subtract blank ----
 dat <- mutate(group_by(dat, file),
               meas_blanked = Measurements - mean(Measurements[Treat == "Blank"]))
 dat <- filter(dat, Treat != "Blank")
+
+#Smooth ----
 dat <- mutate(group_by(dat, file, Well),
               sm_meas = smooth_data(x = Time, y = meas_blanked,
                                     sm_method = "moving-median",
@@ -105,7 +107,8 @@ dat_sum <- summarize(
   group_by(dat, file, Well, Pop, Treat, bact_treat, phage_treat, Timepoint, Isol),
   max_percap = max_gc(deriv_percap),
   max_dens = max_gc(sm_meas),
-  lag = lag_time(x = Time, y = sm_meas, deriv = deriv_percap))
+  lag = lag_time(x = Time, y = sm_meas, deriv = deriv_percap),
+  auc = auc(x = Time, y = sm_meas))
   
 ggplot(data = dat_sum,
        aes(x = Timepoint, y = max_dens, color = Treat)) +
@@ -121,6 +124,12 @@ ggplot(data = dat_sum,
        
 ggplot(data = dat_sum,
        aes(x = Timepoint, y = lag, color = Treat)) +
+  geom_point(size =3, alpha = 0.5, position = position_dodge(width = 0.3)) +
+  facet_grid(~ Pop) +
+  theme_bw()       
+
+ggplot(data = dat_sum,
+       aes(x = Timepoint, y = auc, color = Treat)) +
   geom_point(size =3, alpha = 0.5, position = position_dodge(width = 0.3)) +
   facet_grid(~ Pop) +
   theme_bw()       
