@@ -4,6 +4,7 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(cowplot)
+library(gcplyr)
 
 dir.create("plots", showWarnings = FALSE)
 
@@ -869,13 +870,14 @@ dev.off()
 
 # Pigments ----
 
-pig1 <- import_blockmeasures(list.files(path = "./pigment_data/", full.names = T),
-           startrow = 42, endrow = 50, endcol = "M",
-           metadata = list("Wavelength" = c(41, "A")))
-pig2 <- import_blockmeasures(list.files(path = "./pigment_data/", full.names = T),
-                    startrow = 57, endrow = 65, endcol = "M",
-                    metadata = list("Wavelength" = c(56, "A")))
-
+pig1 <- import_blockmeasures(
+  list.files(path = "./pigment_data/", full.names = T, pattern = ".*Production.csv$"),
+  startrow = 42, endrow = 50, endcol = "M",
+  metadata = list("Wavelength" = c(41, "A")))
+pig2 <- import_blockmeasures(
+  list.files(path = "./pigment_data/", full.names = T, pattern = ".*Production.csv$"),
+  startrow = 57, endrow = 65, endcol = "M",
+  metadata = list("Wavelength" = c(56, "A")))
 
 colnames(pig1)[1] <- "file"
 colnames(pig2)[1] <- "file"
@@ -885,18 +887,49 @@ pig12 <- lapply(
   pig12, 
   FUN = function(x) {x$Wavelength <- gsub(".*:", "", x$Wavelength); return(x)})
 
-pigspectrum <- read_wides(list.files(path = "./pigment_data/", full.names = T),
-                          startrow = 69, endrow = 90)
+pigspectrum <- read_wides(
+  list.files(path = "./pigment_data/", full.names = T, pattern = ".*Production.csv$"),
+  startrow = 69, endrow = 90)
 pigspectrum <- trans_wide_to_tidy(pigspectrum, id_cols = c("file", "Wavelength"),
                                   values_to_numeric = FALSE)
 
 pig <- merge_dfs(pig12, pigspectrum, collapse = TRUE)
+pig$file <- regmatches(pig$file, regexpr("\\d{4}-\\d{2}-\\d{2}", pig$file))
 
-
-#Make designs
+#Read designs
+designs <-
+  read_blocks(
+    list.files(path = "./pigment_data/", full.names = T, pattern = ".*Design.csv$"))
+designs <- trans_block_to_wide(designs)
+designs <- trans_wide_to_tidy(designs, id_cols = "block_name",
+                              values_to_numeric = FALSE)
+designs <- mutate(designs, 
+                  Measurements = ifelse(Measurements == "", NA, Measurements))
+designs <- separate_tidy(designs, "Measurements", sep = ", ",
+                         into = c("Pop", "Timepoint", "Treat", "Isol"),
+                         coerce_NA = FALSE)
+colnames(designs)[1] <- "file"
+designs$file <- regmatches(designs$file, regexpr("\\d{4}-\\d{2}-\\d{2}", designs$file))
 
 #Merge designs
+pig <- merge_dfs(pig, designs, drop = TRUE)
 
 #Subtract blank
+pig$Measurements[pig$Measurements == "OVRFLW"] <- NA
+pig$Measurements <- as.numeric(pig$Measurements)
+pig <- mutate(group_by(pig, file, Wavelength),
+              Meas_norm = Measurements - Measurements[Pop == "Blank"])
 
 #Plots
+ggplot(data = filter(pig, Pop != "Blank"), 
+       aes(x = as.numeric(Wavelength), y = Meas_norm, group = Well, color = Treat)) +
+  geom_line() +
+  facet_grid(Pop ~ Timepoint)
+
+ggplot(data = filter(pig, Pop != "Blank", Wavelength %in% c(405, 695)), 
+       aes(x = Timepoint, y = Meas_norm, color = Treat)) +
+  geom_point(size = 3, alpha = 0.7, position = position_jitter(width = 0.2)) +
+  facet_grid(Wavelength ~ Pop, scales = "free")
+
+
+
