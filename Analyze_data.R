@@ -931,5 +931,8 @@ ggplot(data = filter(pig, Pop != "Blank", Wavelength %in% c(405, 695)),
   geom_point(size = 3, alpha = 0.7, position = position_jitter(width = 0.2)) +
   facet_grid(Wavelength ~ Pop, scales = "free")
 
-
+ggplot(data = filter(pig, Pop != "Blank", Wavelength %in% c(405, 695)), 
+       aes(x = Timepoint, y = Meas_norm, color = Treat, shape = Pop)) +
+  geom_point(size = 3, alpha = 0.7, position = position_jitter(width = 0.2)) +
+  facet_grid(Wavelength ~ ., scales = "free")
 
