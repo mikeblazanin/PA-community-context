@@ -512,6 +512,41 @@ ggplot(
   guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1)))
 dev.off()
 
+png("plots/density_NC_treats.png", width = 7, height = 3, units = "in",
+    res = 150)
+ggplot(
+  data = filter(density, Strain %in% c("PA", "H6"), Pop %in% 3:10, 
+                Comm_treat == "-", !is.na(cfu_ml),
+                !(Pop == 9 & Phage_treat == "-")),
+  aes(x = Timepoint, y = cfu_ml, color = Strain)) +
+  #geom_point(aes(shape = bd)) + 
+  geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
+  #geom_line(data = density_sum, lwd = 2, alpha = 0.8) +
+  geom_hline(yintercept = 400, lty = 2) +
+  facet_grid(. ~ Phage_treat,
+             labeller = labeller(Phage_treat = c("+" = "Phage Added",
+                                                 "-" = "No Phage"),
+                                 Comm_treat = c("+" = "Competitors Added",
+                                                "-" = "No Competitors"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+  scale_y_continuous(trans = "log10",
+                     breaks = 10**c(2, 6, 10),
+                     labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  labs(y = "Density (cfu/mL or pfu/mL)", x = "Timepoint (days)") +
+  scale_color_manual(limits = c("PA", "H6"),
+                     labels = c("P. aeruginosa", "Phage H6"),
+                     values = my_cols[c(3, 8)]) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 10),
+        strip.text =  element_text(size = 12.5),
+        #legend.position = c(0.3, 0.6),
+        legend.background = element_rect(color = "black")) +
+  guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1)))
+dev.off()
+
 png("plots/cfumorphfreq.png", width = 5, height = 4, units = "in", res = 150)
 ggplot(data = filter(density, Pop %in% 3:10, Strain == "PA",
                      !(Pop == 9 & Phage_treat == "-")),
