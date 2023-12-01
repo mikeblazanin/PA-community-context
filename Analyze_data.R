@@ -569,7 +569,9 @@ ggplot(data = filter(density, Pop %in% 3:10, Strain == "PA",
 dev.off()
 
 
-## EOP data ----
+# Resistance data ----
+
+### EOP data ----
 
 EOP <- read.csv("2023-05-20 EOP Timeshift data.csv", stringsAsFactors = F)
 
@@ -640,7 +642,7 @@ EOP_sum <- summarize(group_by(EOP_isols,
                      EOP_avg = 10**mean(log10(EOP), na.rm = TRUE),
                      EOP_plot_avg = 10**mean(log10(EOP_plot), na.rm = TRUE))
 
-#Spot test data ----
+### Spot test data ----
 spots <- read.csv("2023-05-24 Spot Timeshift data.csv", stringsAsFactors = F)
 
 if(any(spots$Bact_treat != spots$Phage_treat &
@@ -698,7 +700,7 @@ spots_isols <- summarize(group_by(spots,
                                 Phage_treat_P, Phage_timepoint, Phage_isol),
                        clearing = mean(clearing))
 
-#Cross streak data ----
+### Cross streak data ----
 cs_isols <- read.csv("William cross-streak data.csv", fileEncoding = "UTF-8")
 
 cs_isols <- separate_wider_regex(cs_isols,
@@ -718,6 +720,8 @@ cs_isols <- pivot_longer(cs_isols, cols = starts_with("Bact_timepoint"),
                          names_transform = as.integer,
                          values_to = "clearing",
                          values_transform = function(x) {as.numeric(x == "S")})
+
+### Merged resistance data ----
 
 #Merge different resistance data
 EOP_isols <- mutate(EOP_isols, clearing = ifelse(bd == TRUE, 0, 1))
@@ -955,6 +959,10 @@ pig$Measurements <- as.numeric(pig$Measurements)
 pig <- mutate(group_by(pig, file, Wavelength),
               Meas_norm = Measurements - Measurements[Pop == "Blank"])
 
+#Adjust columns for cross-compatibility
+
+
+
 #Plots
 ggplot(data = filter(pig, Pop != "Blank"), 
        aes(x = as.numeric(Wavelength), y = Meas_norm, group = Well, color = Treat)) +
@@ -971,3 +979,12 @@ ggplot(data = filter(pig, Pop != "Blank", Wavelength %in% c(405, 695)),
   geom_point(size = 3, alpha = 0.7, position = position_jitter(width = 0.2)) +
   facet_grid(Wavelength ~ ., scales = "free")
 
+# Multivariate analyses ----
+
+#spots <- dup_rows(spots, "Bact_treat", "Anc", c("CP", "NCP", "CNP", "NCNP"))
+
+# spots <- separate_wider_regex(spots,
+#                               cols = "Bact_treat",
+#                               patterns = c("Bact_treat_C" = "^N?C", 
+#                                            "Bact_treat_P" = "N?P$"),
+#                               cols_remove = FALSE)
