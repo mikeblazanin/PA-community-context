@@ -428,8 +428,9 @@ png("plots/density_legendside.png", width = 7, height = 5, units = "in",
     res = 150)
 p1  +
   guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1))) +
-  geom_text(data = filter(density, Timepoint == 9, Strain == "H6"),
-            aes(y = cfu_ml, label = Pop))
+  # geom_text(data = filter(density, Timepoint == 9, Strain == "H6"),
+  #           aes(y = cfu_ml, label = Pop)) +
+  NULL
 dev.off()
 
 png("plots/density.png", width = 5, height = 5, units = "in",
@@ -510,6 +511,45 @@ ggplot(
         #legend.position = c(0.3, 0.6),
         legend.background = element_rect(color = "black")) +
   guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1)))
+dev.off()
+
+png("plots/density_phageemphasized.png", width = 7, height = 5, units = "in",
+    res = 150)
+ggplot(
+  data = filter(density, Pop %in% 3:10, !is.na(cfu_ml),
+                !(Pop == 9 & Phage_treat == "-")),
+  aes(x = Timepoint, y = cfu_ml, color = Strain)) +
+  #geom_point(aes(shape = bd)) + 
+  geom_line(aes(group = paste(Pop, Strain), lwd = Strain), alpha = 0.6) +
+  #geom_line(data = density_sum, lwd = 2, alpha = 0.8) +
+  geom_hline(yintercept = 400, lty = 2) +
+  facet_grid(Comm_treat ~ Phage_treat,
+             labeller = labeller(Phage_treat = c("+" = "Phage Added",
+                                                 "-" = "No Phage"),
+                                 Comm_treat = c("+" = "All Bacteria Added",
+                                                "-" = "Only Pseudomonas"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+  scale_y_continuous(trans = "log10",
+                     breaks = 10**c(2, 6, 10),
+                     labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  labs(y = "Density (cfu/mL or pfu/mL)", x = "Timepoint (days)") +
+  scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                     labels = c("P. aeruginosa", "S. aureus",
+                                "E. faecalis", "A. xylosoxidans",
+                                "Phage H6"),
+                     values = my_cols[c(3, 1, 2, 7, 8)]) +
+  scale_linewidth_manual(breaks = c("AX", "EF", "PA", "SA", "H6"),
+                         values = c(.5, .5, .5, .5, 1.5)) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 10),
+        strip.text =  element_text(size = 12.5),
+        #legend.position = c(0.3, 0.6),
+        legend.background = element_rect(color = "black")) +
+  guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1)),
+         linewidth = "none")
 dev.off()
 
 png("plots/density_NC_treats.png", width = 7, height = 3, units = "in",
@@ -743,22 +783,56 @@ resis_sum_pops <- summarize(group_by(resis_isols,
                          clearing_avg = mean(clearing, na.rm = TRUE))
 
 #Merge with population data
+density_mod <- 
+  filter(mutate(density, 
+                Bact_timepoint = Timepoint,
+                Bact_pop = Pop,
+                Bact_treat_P = ifelse(Phage_treat == "+", "P", "NP"),
+                Bact_treat_C = ifelse(Comm_treat == "+", "C", "NC")),
+         Strain == "H6",
+         Bact_pop %in% 3:10)
+change_before <- function(x) {
+  if(length(x) < 2) {return(NA)
+  } else {return(c(NA, x[2:length(x)]/x[1:(length(x)-1)]))}
+}
+change_after <- function(x) {
+  if(length(x) < 2) {return(NA)
+  } else {return(c(x[2:length(x)]/x[1:(length(x)-1)], NA))}
+}
+density_mod <- mutate(
+  group_by(density_mod, Bact_pop, Bact_treat_P, Bact_treat_C),
+  change_before = change_before(cfu_ml[order(as.numeric(Timepoint))]),
+  change_after = change_after(cfu_ml[order(as.numeric(Timepoint))]))
+
+ggplot(data = density_mod, aes(x = Timepoint, y = change_after, group = Bact_pop)) + 
+  geom_line() + 
+  scale_y_log10() +
+  facet_grid(Bact_treat_C ~ Bact_treat_P)
+
+ggplot(data = density_mod, 
+       aes(x = Timepoint, y = cfu_ml, group = Bact_pop)) + 
+  geom_line(aes(color = change_after < 0.1)) + 
+  scale_y_log10() +
+  facet_grid(Bact_treat_C ~ Bact_treat_P)
+
+ggplot(data = density_mod, aes(x = change_after)) + 
+  geom_histogram() + 
+  scale_x_log10() +
+  facet_grid(Bact_treat_C ~ Bact_treat_P) +
+  geom_vline(xintercept = 1, color = "red")
+
+summary(lm(data = filter(density_mod, Bact_timepoint > 1, Bact_treat_P == "P"),
+   cfu_ml ~ Bact_treat_C + Bact_timepoint:Bact_treat_C))
+
 pop_resis_merge <- 
   select(
     full_join(
-      filter(mutate(density, 
-                    Bact_timepoint = Timepoint,
-                    Bact_pop = Pop,
-                    Bact_treat_P = ifelse(Phage_treat == "+", "P", "NP"),
-                    Bact_treat_C = ifelse(Comm_treat == "+", "C", "NC")),
-             Strain == "H6",
-             Bact_timepoint %in% c(0, 1, 2, 4, 8),
-             Bact_pop %in% 3:10),
+      filter(density_mod, Bact_timepoint %in% c(0, 1, 2, 4, 8)),
       filter(resis_sum_pops, Bact_timepoint == Phage_timepoint),
       by = c("Bact_timepoint", "Bact_pop", "Bact_treat_P", "Bact_treat_C")),
     Strain, cfu_ml, bd, Bact_timepoint, Bact_treat_P, Bact_treat_C, Bact_pop,
     Phage_timepoint, Phage_treat_P, Phage_treat_C, Phage_pop,
-    clearing_avg)
+    clearing_avg, change_before, change_after)
 
 
 ggplot(data = filter(pop_resis_merge, Phage_treat_P == "P"),
@@ -767,6 +841,23 @@ ggplot(data = filter(pop_resis_merge, Phage_treat_P == "P"),
   scale_y_log10() +
   #facet_grid(~ Bact_pop) +
   NULL
+
+ggplot(data = filter(pop_resis_merge, Phage_treat_P == "P"),
+       aes(y = change_before, x = clearing_avg, color = as.factor(Bact_timepoint))) +
+  geom_point() +
+  scale_y_log10() +
+  #facet_grid(~ Bact_pop) +
+  NULL
+
+ggplot(data = filter(pop_resis_merge, Phage_treat_P == "P"),
+       aes(y = change_after, x = clearing_avg, color = as.factor(Bact_timepoint))) +
+  geom_point() +
+  scale_y_log10() +
+  #facet_grid(~ Bact_pop) +
+  NULL
+
+summary(lm(log10(change_after) ~ clearing_avg,
+   data = filter(pop_resis_merge, Phage_treat_P == "P", Bact_timepoint != 0)))
 
 
 #Calculate average across pops
@@ -853,7 +944,92 @@ ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
   NULL
 dev.off()
 
+png("plots/resis_grid_phagetreats2.png", width = 10, height = 3.5, 
+    units = "in", res = 150)
+ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
+       aes(x = Bact_isol, 
+           y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+  geom_tile(aes(fill = as.factor(clearing))) +
+  scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  scale_x_continuous(breaks = 1:6) +
+  theme_bw() +
+  theme(strip.text = element_text(size = 8),
+        axis.text.y = element_text(vjust = -0.1),
+        #axis.text.x = element_text(hjust = 0.2),
+        axis.text.x = element_blank(),
+        legend.position = "bottom",
+        panel.spacing.x = unit(.05, "lines")) +
+  scale_fill_manual(breaks = c(1, 0, NA),
+                    labels = c("Susceptible", "Resistant", "Phage Extinct"),
+                    values = c("#132B43", "#56B1F7", "gray"),
+                    name = "") +
+  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Bact_timepoint * Phage_pop,
+                      labeller = labeller(
+                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                        Bact_treat_C = c(NC = "No\nCompetitors", C = "Competitors\nAdded"),
+                        Bact_timepoint = function(x) paste("Bacterial timepoint", x))) +
+  labs(x = "Bacterial Isolate", y = "Phage timepoint",
+       subtitle = "Replicate population") +
+  NULL
+dev.off()
 
+png("plots/resis_grid_phagetreats_split1.png", width = 6, height = 3.5, 
+    units = "in", res = 150)
+ggplot(data = filter(resis_isols, Bact_treat_P == "P", Bact_timepoint %in% c(0, 1, 2)),
+       aes(x = Bact_isol, 
+           y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+  geom_tile(aes(fill = as.factor(clearing))) +
+  scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  scale_x_continuous(breaks = 1:6) +
+  theme_bw() +
+  theme(strip.text = element_text(size = 8),
+        axis.text.y = element_text(vjust = -0.1),
+        #axis.text.x = element_text(hjust = 0.2),
+        axis.text.x = element_blank(),
+        legend.position = "bottom",
+        panel.spacing.x = unit(.05, "lines")) +
+  scale_fill_manual(breaks = c(1, 0, NA),
+                    labels = c("Susceptible", "Resistant", "Phage Extinct"),
+                    values = c("#132B43", "#56B1F7", "gray"),
+                    name = "") +
+  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Bact_timepoint * Phage_pop,
+                      labeller = labeller(
+                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                        Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria\nAdded"),
+                        Bact_timepoint = function(x) paste("Bacterial timepoint", x))) +
+  labs(x = "Bacterial Isolate", y = "Phage timepoint",
+       subtitle = "Replicate population") +
+  NULL
+dev.off()
+
+png("plots/resis_grid_phagetreats_split2.png", width = 4.5, height = 3.5, 
+    units = "in", res = 150)
+ggplot(data = filter(resis_isols, Bact_treat_P == "P", Bact_timepoint %in% c(4, 8)),
+       aes(x = Bact_isol, 
+           y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+  geom_tile(aes(fill = as.factor(clearing))) +
+  scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  scale_x_continuous(breaks = 1:6) +
+  theme_bw() +
+  theme(strip.text = element_text(size = 8),
+        axis.text.y = element_text(vjust = -0.1),
+        #axis.text.x = element_text(hjust = 0.2),
+        axis.text.x = element_blank(),
+        legend.position = "bottom",
+        panel.spacing.x = unit(.05, "lines")) +
+  scale_fill_manual(breaks = c(1, 0, NA),
+                    labels = c("Susceptible", "Resistant", "Phage Extinct"),
+                    values = c("#132B43", "#56B1F7", "gray"),
+                    name = "") +
+  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Bact_timepoint * Phage_pop,
+                      labeller = labeller(
+                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                        Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria\nAdded"),
+                        Bact_timepoint = function(x) paste("Bacterial timepoint", x))) +
+  labs(x = "Bacterial Isolate", y = "Phage timepoint",
+       subtitle = "Replicate population") +
+  NULL
+dev.off()
 
 p1 <- ggplot(data = filter(resis_isols, Bact_treat_P == "P",
                      Bact_treat_C == "NC"),
@@ -961,6 +1137,15 @@ pig <- mutate(group_by(pig, file, Wavelength),
 
 #Adjust columns for cross-compatibility
 
+#Summarize
+pig_sum <-
+  summarize(group_by(pig, Wavelength, Pop, Timepoint, Treat),
+            Meas_norm_avg = mean(Meas_norm),
+            Meas_norm_sd = sd(Meas_norm))
+pig_sum_sum <-
+  summarize(group_by(pig_sum, Wavelength, Timepoint, Treat),
+            Meas_norm_avg_avg = mean(Meas_norm_avg),
+            Meas_norm_avg_sd = sd(Meas_norm_avg))
 
 
 #Plots
@@ -977,6 +1162,16 @@ ggplot(data = filter(pig, Pop != "Blank", Wavelength %in% c(405, 695)),
 ggplot(data = filter(pig, Pop != "Blank", Wavelength %in% c(405, 695)), 
        aes(x = Timepoint, y = Meas_norm, color = Treat, shape = Pop)) +
   geom_point(size = 3, alpha = 0.7, position = position_jitter(width = 0.2)) +
+  facet_grid(Wavelength ~ ., scales = "free")
+
+ggplot(data = filter(pig_sum, Pop != "Blank", Wavelength %in% c(405, 695)), 
+       aes(x = Timepoint, y = Meas_norm_avg, color = Treat)) +
+  geom_point(size = 3, alpha = 0.7, position = position_dodge(width = 0.3)) +
+  facet_grid(Wavelength ~ ., scales = "free")
+
+ggplot(data = filter(pig_sum_sum, Treat != "Blank", Wavelength %in% c(405, 695)), 
+       aes(x = Timepoint, y = Meas_norm_avg_avg, color = Treat)) +
+  geom_point(size = 3, alpha = 0.7) +
   facet_grid(Wavelength ~ ., scales = "free")
 
 # Multivariate analyses ----
