@@ -1161,7 +1161,7 @@ ggplot(data = filter(pig, Pop != "Blank", Wavelength %in% c(405, 695)),
 
 ggplot(data = filter(pig, Pop != "Blank", Wavelength %in% c(405, 695)), 
        aes(x = Timepoint, y = Meas_norm, color = Treat, shape = Pop)) +
-  geom_point(size = 3, alpha = 0.7, position = position_jitter(width = 0.2)) +
+  geom_point(size = 3, alpha = 0.7, position = position_dodge(width = 0.4)) +
   facet_grid(Wavelength ~ ., scales = "free")
 
 ggplot(data = filter(pig_sum, Pop != "Blank", Wavelength %in% c(405, 695)), 
