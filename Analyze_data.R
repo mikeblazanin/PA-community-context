@@ -6,6 +6,7 @@ library(tidyr)
 library(cowplot)
 library(gcplyr)
 library(GGally)
+library(lme4)
 
 dir.create("plots", showWarnings = FALSE)
 
@@ -35,6 +36,14 @@ dup_rows <- function(mydf, mut_col, from_vals, to_vals) {
   newdf[which(idx %in% which(rowsrep > 1)), mut_col] <- to_vals
   
   return(newdf)
+}
+
+mynormalize <- function(x, a_input, b_input, a_output, b_output) {
+  #normalize a vector of data, x, by scaling values such that 
+  #a_input becomes a_output and b_input becomes b_output
+  stopifnot(b_input > a_input, b_output > a_output)
+  
+  return((b_output-a_output)*(x-a_input)/(b_input - a_input) + a_output)
 }
 
 ## Prelim experiment: population data from run without competitors ----
@@ -1165,6 +1174,9 @@ pig <- mutate(group_by(pig, file, Wavelength),
               Meas_norm = Measurements - Measurements[Bact_pop == "Blank"])
 pig <- filter(pig, Bact_isol != "Blank")
 
+#Do batch correction
+
+
 #Adjust columns for cross-compatibility
 pig <- mutate(pig,
               Bact_isol = gsub("#", "", Bact_isol),
@@ -1249,13 +1261,26 @@ twitching <- mutate(
   Bact_treat = factor(Bact_treat, 
                       levels = c("Anc", "NN", "CNP", "NCP", "CP", "pilA")))
 
+#Calculate batch-corrected rate
+ref_Anc = mean(twitching$cm_day[twitching$Bact_treat == "Anc"])
+ref_pilA = mean(twitching$cm_day[twitching$Bact_treat == "pilA"])
+
+twitching <- mutate(
+  group_by(twitching, Date),
+  cm_day_norm = mynormalize(x = cm_day,
+                            b_input = mean(cm_day[Bact_treat == "Anc"]),
+                            b_output = ref_Anc,
+                            a_input = mean(cm_day[Bact_treat == "pilA"]),
+                            a_output = ref_pilA))
+
 #Summarize by isol (which should only affect pilA)
 twitching_isols <- summarize(group_by(twitching,
                                 Date, Bact_pop, Bact_timepoint,
                                 Bact_treat, Bact_treat_C, Bact_treat_P,
                                 Bact_isol),
-                       cm_day = mean(cm_day))
-                
+                       cm_day = mean(cm_day),
+                       cm_day_norm = mean(cm_day_norm))
+
 png("./plots/motility.png", width = 8, height = 6, units = "in",
     res = 150)               
 ggplot(data = filter(twitching_isols),
@@ -1264,6 +1289,35 @@ ggplot(data = filter(twitching_isols),
   geom_point(size = 5, alpha = 0.7) +
   facet_wrap(~Bact_pop) +
   labs(x = "Timepoint", y = "Twitching motility (cm/day)",
+       subtitle = "Population") +
+  
+  scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                     breaks = c("Anc", "NP", "P", "pilA"),
+                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  scale_fill_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                    breaks = c("Anc", "NP", "P", "pilA"),
+                    labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  scale_shape_manual(values = c(25, 21, 23, 24), name = "Other Bacteria Added",
+                     breaks = c("Anc", "NC", "C", "pilA"),
+                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  guides(shape = guide_legend(override.aes = list(fill = "black"))) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 12),
+        strip.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        title = element_text(size = 20))
+dev.off()
+
+png("./plots/motility_norm.png", width = 8, height = 6, units = "in",
+    res = 150)               
+ggplot(data = filter(twitching_isols),
+       aes(x = Bact_timepoint, y = cm_day_norm, 
+           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
+  geom_point(size = 5, alpha = 0.7) +
+  facet_wrap(~Bact_pop) +
+  labs(x = "Timepoint", y = "Normalized Twitching Motility (cm/day)",
        subtitle = "Population") +
   
   scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
@@ -1306,22 +1360,6 @@ isol_data <- full_join(
     names_from = "Wavelength", values_from = Meas_norm,
     names_prefix = "wavelength_"))
 
-ggplot(data = isol_data,
-       aes(x = clearing_avg, y = cm_day, color = Bact_treat,
-           shape = Bact_timepoint)) +
-  geom_point()
-
-ggplot(data = isol_data,
-       aes(x = clearing_avg, y = wavelength_405, color = Bact_treat,
-           shape = Bact_timepoint)) +
-  geom_point()
-
-ggplot(data = isol_data,
-       aes(x = clearing_avg, y = wavelength_695, color = Bact_treat,
-           shape = Bact_timepoint)) +
-  geom_point()
-
-
 ggpairs(data = isol_data,
         columns = which(colnames(isol_data) %in% 
                           c("cm_day", "clearing_avg", 
@@ -1329,6 +1367,14 @@ ggpairs(data = isol_data,
         aes(color = Bact_treat),
         upper = list(continuous = "points"),
         diag = list(continuous = "barDiag"))
+
+ggplot(data = isol_data,
+       aes(x = clearing_avg, y = cm_day_norm, color = Bact_treat_P)) +
+  geom_point()
+
+
+
+
                         
                         
                         
