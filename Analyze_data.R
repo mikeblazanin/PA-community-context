@@ -1283,7 +1283,7 @@ twitching_isols <- summarize(group_by(twitching,
 
 png("./plots/motility.png", width = 8, height = 6, units = "in",
     res = 150)               
-ggplot(data = filter(twitching_isols),
+ggplot(data = twitching_isols,
        aes(x = Bact_timepoint, y = cm_day, 
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 5, alpha = 0.7) +
@@ -1312,14 +1312,14 @@ dev.off()
 
 png("./plots/motility_norm.png", width = 8, height = 6, units = "in",
     res = 150)               
-ggplot(data = filter(twitching_isols),
+ptwitching_norm <-
+  ggplot(data = twitching_isols,
        aes(x = Bact_timepoint, y = cm_day_norm, 
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 5, alpha = 0.7) +
   facet_wrap(~Bact_pop) +
   labs(x = "Timepoint", y = "Normalized Twitching Motility (cm/day)",
        subtitle = "Population") +
-  
   scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
                      breaks = c("Anc", "NP", "P", "pilA"),
                      labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
@@ -1337,6 +1337,7 @@ ggplot(data = filter(twitching_isols),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14),
         title = element_text(size = 20))
+print(ptwitching_norm)
 dev.off()
 
 # Multivariate analyses ----
@@ -1374,6 +1375,13 @@ ggplot(data = isol_data,
 
 
 
+png("./plots/motility_norm_sensitivesmarked.png", width = 8, height = 6, units = "in",
+    res = 150)
+ptwitching_norm +
+  geom_point(data = filter(isol_data, clearing_avg > 0, !is.na(cm_day_norm)),
+             aes(x = as.factor(Bact_timepoint), y = cm_day_norm),
+             pch = 4, color = "black", size = 3)
+dev.off()
 
                         
                         
