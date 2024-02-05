@@ -5,6 +5,7 @@ library(dplyr)
 library(tidyr)
 library(cowplot)
 library(gcplyr)
+library(GGally)
 
 dir.create("plots", showWarnings = FALSE)
 
@@ -718,8 +719,6 @@ EOP_isols <- mutate(group_by(EOP_isols,
 EOP_isols$EOP_plot[EOP_isols$bd == TRUE] <- 
   max(EOP_isols$EOP[EOP_isols$bd == TRUE], na.rm = TRUE)
 
-
-
 #Calculate average across pops
 EOP_sum <- summarize(group_by(EOP_isols,
                               Bact_treat, Bact_treat_C,
@@ -815,7 +814,10 @@ cs_isols <- pivot_longer(cs_isols, cols = starts_with("Bact_timepoint"),
 
 #Merge different resistance data
 resis_isols <- full_join(cs_isols, full_join(spots_isols, EOP_isols))
-resis_isols$Bact_treat_C <- relevel(factor(resis_isols$Bact_treat_C), "NC")
+resis_isols <- mutate(resis_isols,
+                      Bact_treat = factor(Bact_treat),
+                      Bact_treat_C = relevel(factor(Bact_treat_C), "NC"),
+                      Bact_treat_P = factor(Bact_treat_P))
 
 #Write copy to file
 write.csv(resis_isols, "aggregate_resis_data.csv", row.names = FALSE)
@@ -825,7 +827,21 @@ resis_isols_bactsum <- summarize(
   group_by(resis_isols,
            Bact_treat, Bact_treat_C, Bact_treat_P, Bact_timepoint,
            Bact_pop, Bact_isol),
-  clearing_avg = mean(clearing, na.rm = TRUE))                               
+  clearing_avg = mean(clearing, na.rm = TRUE))
+resis_isols_bactsum_undup <- summarize(
+  group_by(mutate(resis_isols_bactsum, 
+         Bact_treat = ifelse(Bact_timepoint == 0, 
+                             "Anc", 
+                             as.character(Bact_treat)),
+         Bact_treat_C = ifelse(Bact_timepoint == 0, 
+                               "Anc", 
+                               as.character(Bact_treat_C)),
+         Bact_treat_P = ifelse(Bact_timepoint == 0, 
+                               "Anc", 
+                               as.character(Bact_treat_P))),
+         Bact_treat, Bact_treat_C, Bact_treat_P, Bact_timepoint,
+         Bact_pop, Bact_isol, clearing_avg))
+
 
 #Calculate average across pops
 resis_sum_treats <- summarize(group_by(resis_isols,
@@ -1147,26 +1163,25 @@ pig$Measurements[pig$Measurements == "OVRFLW"] <- NA
 pig$Measurements <- as.numeric(pig$Measurements)
 pig <- mutate(group_by(pig, file, Wavelength),
               Meas_norm = Measurements - Measurements[Bact_pop == "Blank"])
+pig <- filter(pig, Bact_isol != "Blank")
 
 #Adjust columns for cross-compatibility
 pig <- mutate(pig,
               Bact_isol = gsub("#", "", Bact_isol),
               Bact_pop = gsub("P", "", Bact_pop),
               Bact_timepoint = gsub("T", "", Bact_timepoint),
-              Bact_treat_C = ifelse(Bact_treat %in% c("NCP", "NN"), "NC",
+              Bact_treat_C = factor(
+                ifelse(Bact_treat %in% c("NCP", "NN"), "NC",
                                     ifelse(Bact_treat %in% c("CNP", "CP"), "C",
                                            Bact_treat)),
-              Bact_treat_P = ifelse(Bact_treat %in% c("NN", "CNP"), "NP",
+                levels = c("Anc", "NC", "C")),
+              Bact_treat_P = factor(
+                ifelse(Bact_treat %in% c("NN", "CNP"), "NP",
                                     ifelse(Bact_treat %in% c("NCP", "CP"), "P",
-                                           Bact_treat)))
-
-#Reorder Treat cols
-pig$Bact_treat <- factor(pig$Bact_treat, 
-                         levels = c("Anc", "NN", "CNP", "NCP", "CP", "Blank"))
-pig$Bact_treat_C <- factor(pig$Bact_treat_C,
-                           levels = c("Anc", "NC", "C", "Blank"))
-pig$Bact_treat_P <- factor(pig$Bact_treat_P,
-                           levels = c("Anc", "NP", "P", "Blank"))
+                                           Bact_treat)),
+                levels = c("Anc", "NP", "P")),
+              Bact_treat = factor(Bact_treat,
+                                  levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
 #Summarize
 pig_sum <-
@@ -1205,7 +1220,7 @@ ggplot(data = filter(pig, Bact_pop != "Blank", Wavelength %in% c(405, 695)),
                      breaks = c("Anc", "NC", "C"),
                      labels = c("Ancestor", "No", "Yes")) +
   guides(shape = guide_legend(override.aes = list(fill = "black"))) +
-  labs(y = "Absorbance") +
+  labs(x = "Timepoint (days)", y = "Absorbance") +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
         axis.text = element_text(size = 12),
@@ -1225,16 +1240,14 @@ twitching <- read.csv("Twitching Motility Data.csv")
 twitching <- mutate(
   twitching,
   cm_day = (width/2 + height/2)/2,
-  Bact_treat_C = ifelse(Bact_treat %in% c("NCP", "NN"), "NC",
+  Bact_treat_C = factor(ifelse(Bact_treat %in% c("NCP", "NN"), "NC",
                         ifelse(Bact_treat %in% c("CNP", "CP"), "C",
-                               Bact_treat)),
-  Bact_treat_P = ifelse(Bact_treat %in% c("NN", "CNP"), "NP",
+                               Bact_treat))),
+  Bact_treat_P = factor(ifelse(Bact_treat %in% c("NN", "CNP"), "NP",
                         ifelse(Bact_treat %in% c("NCP", "CP"), "P",
-                               Bact_treat)))
-
-#Reorder Treat col
-twitching$Bact_treat <- factor(twitching$Bact_treat, 
-                         levels = c("Anc", "NN", "CNP", "NCP", "CP", "pilA"))
+                               Bact_treat))),
+  Bact_treat = factor(Bact_treat, 
+                      levels = c("Anc", "NN", "CNP", "NCP", "CP", "pilA")))
 
 #Summarize by isol (which should only affect pilA)
 twitching_isols <- summarize(group_by(twitching,
@@ -1273,22 +1286,51 @@ ggplot(data = filter(twitching_isols),
 dev.off()
 
 # Multivariate analyses ----
-resis_isols_bactsum$Bact_isol <- as.character(resis_isols_bactsum$Bact_isol)
-resis_isols_bactsum$Bact_pop <- as.character(resis_isols_bactsum$Bact_pop)
+isol_data <- full_join(
+  dplyr::select(mutate(twitching, Bact_pop = as.character(Bact_pop)), 
+         !c(Date, width, height)),
+  mutate(resis_isols_bactsum_undup,
+         Bact_timepoint = as.character(Bact_timepoint),
+         Bact_pop = as.character(Bact_pop),
+         Bact_isol = as.character(Bact_isol),
+         Bact_treat = plyr::revalue(Bact_treat, c("NCNP" = "NN"), 
+                                    warn_missing = FALSE)))
+isol_data <- full_join(
+  isol_data,
+  pivot_wider(
+    select(
+      filter(pig, Bact_pop != "Blank", Wavelength %in% c(405, 695)),
+      !c(file, Well, Measurements)),
+    id_cols = c("Bact_pop", "Bact_timepoint", "Bact_treat", 
+                "Bact_treat_C", "Bact_treat_P", "Bact_isol"),
+    names_from = "Wavelength", values_from = Meas_norm,
+    names_prefix = "wavelength_"))
+
+ggplot(data = isol_data,
+       aes(x = clearing_avg, y = cm_day, color = Bact_treat,
+           shape = Bact_timepoint)) +
+  geom_point()
+
+ggplot(data = isol_data,
+       aes(x = clearing_avg, y = wavelength_405, color = Bact_treat,
+           shape = Bact_timepoint)) +
+  geom_point()
+
+ggplot(data = isol_data,
+       aes(x = clearing_avg, y = wavelength_695, color = Bact_treat,
+           shape = Bact_timepoint)) +
+  geom_point()
 
 
-isol_data <- full_join(resis_isols_bactsum,
-                       pig)
-
-
-isol_data <-
-  full_join(
-    resis_isols_bactsum,
-    full_join(select(twitching, !Date, !width, !height),
-              pivot_wider(filter(pig, Bact_pop != "Blank", 
-                                 Wavelength %in% c(405, 695)),
-                          id_cols = c("Bact_pop", "Bact_timepoint", "Bact_treat", 
-                                      "Bact_treat_C", "Bact_treat_P", "Bact_isol"),
-                          names_from = "Wavelength", values_from = Meas_norm,
-                          names_prefix = "wavelength_")))
-                      
+ggpairs(data = isol_data,
+        columns = which(colnames(isol_data) %in% 
+                          c("cm_day", "clearing_avg", 
+                            "wavelength_405", "wavelength_695")),
+        aes(color = Bact_treat),
+        upper = list(continuous = "points"),
+        diag = list(continuous = "barDiag"))
+                        
+                        
+                        
+                        
+                        
