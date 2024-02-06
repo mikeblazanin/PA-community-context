@@ -1175,7 +1175,22 @@ pig <- mutate(group_by(pig, file, Wavelength),
 pig <- filter(pig, Bact_isol != "Blank")
 
 #Do batch correction
-
+# pig$Meas_norm2 <- NA
+# for(wave in unique(pig$Wavelength)) {
+#   #TODO
+#   #something like this
+#   #see: https://stats.stackexchange.com/questions/228800/crossed-vs-nested-random-effects-how-do-they-differ-and-how-are-they-specified
+#   twitching_lmer <- 
+#     lmer(data = twitching,
+#          cm_day ~ (1|Date) + Bact_treat + Bact_timepoint)
+#   
+#   twitching$cm_day_norm <-
+#     twitching$cm_day -
+#     predict(twitching_lmer,
+#             newdata = twitching,
+#             re.form = ~ (1|Date),
+#             random.only = TRUE)
+# }
 
 #Adjust columns for cross-compatibility
 pig <- mutate(pig,
