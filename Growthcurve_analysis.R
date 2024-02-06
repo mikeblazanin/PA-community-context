@@ -1,68 +1,50 @@
 library(gcplyr)
 library(ggplot2)
 library(dplyr)
+library(stringr)
 
 setwd("./growth_curves")
 
 #Tidy ----
-dat <- read_wides(files = c("William 2023-08-12 PA Community, Pop 3.csv",
-                            "William An 2023-10-15 Growth Curve Pop 4.csv"),
+dat <- read_wides(files = list.files(pattern = "Data.csv"),
                   startrow = 41, startcol = "B")
-
-dat <- trans_wide_to_tidy(dat, id_cols = c("file", "Time", "T° 600"))
-dat <- lapply(dat, FUN = function(x) {
-  colnames(x) <- gsub("T° 600", "Temp", colnames(x)); return(x)})
-dat[[1]]$Pop <- "3"
-dat[[2]]$Pop <- "4"
-
+dat <- lapply(dat, FUN = function(x) {select(x, !3)})
+dat <- trans_wide_to_tidy(dat, id_cols = c("file", "Time"))
 dat <- merge_dfs(dat, collapse = TRUE)
+dat$Time <- lubridate::time_length(lubridate::hms(dat$Time))
+dat2 <- mutate(read_tidys("2024-02-02 William Growth Curve Pop 7 Tidy.csv"),
+               Measurements = as.numeric(Measurements),
+               Time = as.numeric(Time))
+dat <- merge_dfs(dat, dat2)
+dat <- mutate(dat, date = str_split_i(file, " ", 1))
 
 #Designs ----
-trt_designs <- make_design(
-  nrows = 8, ncol = 12, output_format = "tidy",
-  Timepoint = mdp(c(0, 1, 2, 4, 8),
-                  2:5, 2:10,
-                  "110022222222333333334444444455555555",
-                  FALSE),
-  Treat = mdp(c("Anc", "NN", "NCP", "CNP", "CP"),
-              2:5, 2:10,
-              "110022334455223344552233445522334455",
-              FALSE),
-  Timepoint = mdp("Blank", 7, 11),
-  Treat = mdp("Blank", 7, 11))
+designs <- read_blocks(list.files(pattern = "Design.csv"))
+designs <- trans_block_to_wide(designs)
+designs <- trans_wide_to_tidy(designs, id_cols = "block_name", 
+                              values_to_numeric = FALSE)
+designs <- separate_tidy(designs, "Measurements", sep = ", ",
+                         into = c("Pop", "Timepoint", "Bact_treat", "Isol"))
 
-trt_isols3 <- make_design(
-  nrows = 8, ncol = 12, output_format = "tidy",
-  Pop = mdp(3, 1:8, 1:12),
-  Isol = mdp(1:6, 2:5, 2:10,
-             "120012341212121212121212121212121212",
-             FALSE),
-  Isol = mdp("Blank", 7, 11))
-trt_isols4 <- make_design(
-  nrows = 8, ncol = 12, output_format = "tidy",
-  Pop = mdp(4, 1:8, 1:12),
-  Isol = mdp(1:6, 2:5, 2:10,
-             "120012121213121212121213121212151212",
-             FALSE),
-  Isol = mdp("Blank", 7, 11))
-
-trt_isols <- do.call(rbind, list(trt_isols3, trt_isols4))
-
-dat <- merge_dfs(dat, trt_designs)
-dat <- merge_dfs(dat, trt_isols, drop = TRUE)
-
-
-#Time ----
-dat$Time <- lubridate::time_length(lubridate::hms(dat$Time))
-
-#Treatments split ----
-dat <- mutate(dat,
-              bact_treat = 
-                ifelse(Treat == "Anc", "Anc",
-                       ifelse(Treat %in% c("NCP", "NN"), "NC", "C")),
-              phage_treat =
-                ifelse(Treat == "Anc", "Anc",
-                       ifelse(Treat %in% c("CNP", "NN"), "NP", "P")))
+designs <- mutate(designs,
+                  date = str_split_i(block_name, " ", 1),
+                  Pop = gsub("^P", "", Pop),
+                  Timepoint = gsub("^T", "", Timepoint),
+                  Isol = gsub("^#", "", Isol),
+                  Bact_treat_C = factor(
+                    ifelse(Bact_treat %in% c("NCP", "NN"), "NC",
+                           ifelse(Bact_treat %in% c("CNP", "CP"), "C",
+                                  Bact_treat)),
+                    levels = c("Anc", "NC", "C")),
+                  Bact_treat_P = factor(
+                    ifelse(Bact_treat %in% c("NN", "CNP"), "NP",
+                           ifelse(Bact_treat %in% c("NCP", "CP"), "P",
+                                  Bact_treat)),
+                    levels = c("Anc", "NP", "P")),
+                  Bact_treat = factor(Bact_treat,
+                                      levels = c("Anc", "NN", "CNP", "NCP", "CP")))
+                               
+dat <- merge_dfs(dat, designs, drop = TRUE)
 
 #Subtract blank ----
 dat <- mutate(group_by(dat, file),
