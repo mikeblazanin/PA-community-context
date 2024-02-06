@@ -23,14 +23,15 @@ designs <- read_blocks(list.files(pattern = "Design.csv"))
 designs <- trans_block_to_wide(designs)
 designs <- trans_wide_to_tidy(designs, id_cols = "block_name", 
                               values_to_numeric = FALSE)
-designs <- separate_tidy(designs, "Measurements", sep = ", ",
-                         into = c("Pop", "Timepoint", "Bact_treat", "Isol"))
+designs <- separate_tidy(
+  designs, "Measurements", sep = ", ",
+  into = c("Bact_pop", "Bact_timepoint", "Bact_treat", "Bact_isol"))
 
 designs <- mutate(designs,
                   date = str_split_i(block_name, " ", 1),
-                  Pop = gsub("^P", "", Pop),
-                  Timepoint = gsub("^T", "", Timepoint),
-                  Isol = gsub("^#", "", Isol),
+                  Bact_pop = gsub("^P", "", Bact_pop),
+                  Bact_timepoint = gsub("^T", "", Bact_timepoint),
+                  Bact_isol = gsub("^#", "", Bact_isol),
                   Bact_treat_C = factor(
                     ifelse(Bact_treat %in% c("NCP", "NN"), "NC",
                            ifelse(Bact_treat %in% c("CNP", "CP"), "C",
