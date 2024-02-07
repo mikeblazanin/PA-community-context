@@ -3,6 +3,11 @@ library(ggplot2)
 library(dplyr)
 library(stringr)
 
+#Okabe and Ito 2008 colorblind-safe qualitative color scale
+my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
+             "#D55E00", "#CC79A7", "#000000")
+scales::show_col(my_cols)
+
 if("growth_curves" %in% list.files()) {setwd("./growth_curves")}
 
 #Tidy ----
@@ -12,10 +17,6 @@ dat <- lapply(dat, FUN = function(x) {select(x, !3)})
 dat <- trans_wide_to_tidy(dat, id_cols = c("file", "Time"))
 dat <- merge_dfs(dat, collapse = TRUE)
 dat$Time <- lubridate::time_length(lubridate::hms(dat$Time))
-dat2 <- mutate(read_tidys("2024-02-02 William Growth Curve Pop 7 Tidy.csv"),
-               Measurements = as.numeric(Measurements),
-               Time = as.numeric(Time))
-dat <- merge_dfs(dat, dat2)
 dat <- mutate(dat, 
               date = str_split_i(file, " ", 1),
               Time_hr = Time/60/60)
