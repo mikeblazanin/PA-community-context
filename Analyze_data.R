@@ -819,6 +819,9 @@ cs_isols <- pivot_longer(cs_isols, cols = starts_with("Bact_timepoint"),
                          values_to = "clearing",
                          values_transform = function(x) {as.numeric(x == "S")})
 
+#cs_isols includes no data from CNP or NCNP treats, so there's no
+# contamination to exclude
+
 ### Merged resistance data ----
 
 #Merge different resistance data
@@ -1167,6 +1170,29 @@ designs$file <- regmatches(designs$file, regexpr("\\d{4}-\\d{2}-\\d{2}", designs
 #Merge designs
 pig <- merge_dfs(pig, designs, drop = TRUE)
 
+#Adjust columns for cross-compatibility
+pig <- mutate(pig,
+              Bact_isol = gsub("#", "", Bact_isol),
+              Bact_pop = gsub("P", "", Bact_pop),
+              Bact_timepoint = gsub("T", "", Bact_timepoint),
+              Bact_treat_C = factor(
+                ifelse(Bact_treat %in% c("NCP", "NN"), "NC",
+                                    ifelse(Bact_treat %in% c("CNP", "CP"), "C",
+                                           Bact_treat)),
+                levels = c("Anc", "NC", "C")),
+              Bact_treat_P = factor(
+                ifelse(Bact_treat %in% c("NN", "CNP"), "NP",
+                                    ifelse(Bact_treat %in% c("NCP", "CP"), "P",
+                                           Bact_treat)),
+                levels = c("Anc", "NP", "P")),
+              Bact_treat = factor(Bact_treat,
+                                  levels = c("Anc", "NN", "CNP", "NCP", "CP")))
+
+#Based on contamination, exclude NCNP Pop 9 T4 and later, CNP Pop 9 T2 and later
+pig <- filter(pig,
+              !((Bact_pop == 9 & Bact_treat == "NN" & Bact_timepoint >= 4) |
+                  (Bact_pop == 9 & Bact_treat == "CNP" & Bact_timepoint >= 2)))
+
 #Subtract blank
 pig$Measurements[pig$Measurements == "OVRFLW"] <- NA
 pig$Measurements <- as.numeric(pig$Measurements)
@@ -1191,24 +1217,6 @@ pig <- filter(pig, Bact_isol != "Blank")
 #             re.form = ~ (1|Date),
 #             random.only = TRUE)
 # }
-
-#Adjust columns for cross-compatibility
-pig <- mutate(pig,
-              Bact_isol = gsub("#", "", Bact_isol),
-              Bact_pop = gsub("P", "", Bact_pop),
-              Bact_timepoint = gsub("T", "", Bact_timepoint),
-              Bact_treat_C = factor(
-                ifelse(Bact_treat %in% c("NCP", "NN"), "NC",
-                                    ifelse(Bact_treat %in% c("CNP", "CP"), "C",
-                                           Bact_treat)),
-                levels = c("Anc", "NC", "C")),
-              Bact_treat_P = factor(
-                ifelse(Bact_treat %in% c("NN", "CNP"), "NP",
-                                    ifelse(Bact_treat %in% c("NCP", "CP"), "P",
-                                           Bact_treat)),
-                levels = c("Anc", "NP", "P")),
-              Bact_treat = factor(Bact_treat,
-                                  levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
 #Summarize
 pig_sum <-
@@ -1263,6 +1271,12 @@ ggplot(data = filter(pig_sum, Bact_pop != "Blank", Wavelength %in% c(405, 695)),
 
 # Twitching ----
 twitching <- read.csv("Twitching Motility Data.csv")
+
+#Exclude contaminated populations
+twitching <- 
+  filter(twitching,
+         !((Bact_pop == 9 & Bact_treat == "NN" & Bact_timepoint >= 4) |
+             (Bact_pop == 9 & Bact_treat == "CNP" & Bact_timepoint >= 2)))
 
 twitching <- mutate(
   twitching,
