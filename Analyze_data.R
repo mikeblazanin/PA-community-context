@@ -493,6 +493,79 @@ ggplot(
   guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1)))
 dev.off()
 
+png("plots/density_PA.png", width = 7, height = 5, units = "in",
+    res = 150)
+ggplot(
+  data = filter(density, Strain == "PA", Pop %in% 3:10, !is.na(cfu_ml),
+                !(Pop == 9 & treat_P == "NP")),
+  aes(x = Timepoint, y = cfu_ml, color = Strain)) +
+  #geom_point(aes(shape = bd)) + 
+  geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
+  #geom_line(data = density_sum, lwd = 2, alpha = 0.8) +
+  geom_hline(yintercept = 400, lty = 2) +
+  facet_grid(treat_C ~ treat_P,
+             labeller = labeller(treat_P = c("P" = "Phage Added",
+                                             "NP" = "No Phage"),
+                                 treat_C = c("C" = "Competitors Added",
+                                             "NC" = "No Competitors"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+  scale_y_continuous(trans = "log10",
+                     breaks = 10**c(2, 6, 10),
+                     labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  labs(y = "Density (cfu/mL or pfu/mL)", x = "Timepoint (days)") +
+  scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                     labels = c("P. aeruginosa", "S. aureus",
+                                "E. faecalis", "A. xylosoxidans",
+                                "Phage H6"),
+                     values = my_cols[c(3, 1, 2, 7, 8)]) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 10),
+        strip.text =  element_text(size = 12.5),
+        #legend.position = c(0.3, 0.6),
+        legend.background = element_rect(color = "black")) +
+  guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1)))
+dev.off()
+
+png("plots/density_otherbact.png", width = 7, height = 5, units = "in",
+    res = 150)
+ggplot(
+  data = filter(density, Strain %in% c("AX", "EF", "SA"), 
+                Pop %in% 3:10, !is.na(cfu_ml),
+                !(Pop == 9 & treat_P == "NP")),
+  aes(x = Timepoint, y = cfu_ml, color = Strain)) +
+  #geom_point(aes(shape = bd)) + 
+  geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
+  #geom_line(data = density_sum, lwd = 2, alpha = 0.8) +
+  geom_hline(yintercept = 400, lty = 2) +
+  facet_grid(treat_C ~ treat_P,
+             labeller = labeller(treat_P = c("P" = "Phage Added",
+                                             "NP" = "No Phage"),
+                                 treat_C = c("C" = "Competitors Added",
+                                             "NC" = "No Competitors"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+  scale_y_continuous(trans = "log10",
+                     breaks = 10**c(2, 6, 10),
+                     labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  labs(y = "Density (cfu/mL or pfu/mL)", x = "Timepoint (days)") +
+  scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                     labels = c("P. aeruginosa", "S. aureus",
+                                "E. faecalis", "A. xylosoxidans",
+                                "Phage H6"),
+                     values = my_cols[c(3, 1, 2, 7, 8)]) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 10),
+        strip.text =  element_text(size = 12.5),
+        #legend.position = c(0.3, 0.6),
+        legend.background = element_rect(color = "black")) +
+  guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1)))
+dev.off()
+
 png("plots/density_phage.png", width = 7, height = 5, units = "in",
     res = 150)
 ggplot(
@@ -1102,27 +1175,38 @@ pop_resis_merge <-
     Phage_timepoint, Phage_treat_P, Phage_treat_C, Phage_pop,
     clearing_avg, change_before, change_after)
 
-
+png("./plots/phagedens_v_resisfreq.png", width = 5, height = 4, units = "in",
+    res = 150)
 ggplot(data = filter(pop_resis_merge, Phage_treat_P == "P"),
-       aes(y = cfu_ml, x = clearing_avg, color = as.factor(Bact_timepoint))) +
+       aes(y = cfu_ml, x = 1-clearing_avg, color = as.factor(Bact_timepoint))) +
   geom_point() +
   scale_y_log10() +
-  #facet_grid(~ Bact_pop) +
-  NULL
-
+  labs(y = "pfu/mL", x = "Frequency of resistance") +
+  scale_color_manual(name = "Timepoint", values = my_cols[c(8, 1, 2, 3, 7)]) +
+  theme_bw()
+dev.off()
+  
+png("./plots/changebefore_v_resisfreq.png", width = 5, height = 4, units = "in",
+    res = 150)
 ggplot(data = filter(pop_resis_merge, Phage_treat_P == "P"),
-       aes(y = change_before, x = clearing_avg, color = as.factor(Bact_timepoint))) +
+       aes(y = change_before, x = 1-clearing_avg, color = as.factor(Bact_timepoint))) +
   geom_point() +
   scale_y_log10() +
-  #facet_grid(~ Bact_pop) +
-  NULL
+  labs(y = "Fold-change in pfu/mL from day before", x = "Frequency of resistance") +
+  scale_color_manual(name = "Timepoint", values = my_cols[c(8, 1, 2, 3, 7)]) +
+  theme_bw()
+dev.off()
 
+png("./plots/changeafter_v_resisfreq.png", width = 5, height = 4, units = "in",
+    res = 150)
 ggplot(data = filter(pop_resis_merge, Phage_treat_P == "P"),
-       aes(y = change_after, x = clearing_avg, color = as.factor(Bact_timepoint))) +
+       aes(y = change_after, x = 1-clearing_avg, color = as.factor(Bact_timepoint))) +
   geom_point() +
   scale_y_log10() +
-  #facet_grid(~ Bact_pop) +
-  NULL
+  labs(y = "Fold-change in pfu/mL to day after", x = "Frequency of resistance") +
+  scale_color_manual(name = "Timepoint", values = my_cols[c(8, 1, 2, 3, 7)]) +
+  theme_bw()
+dev.off()
 
 # Pigments ----
 
@@ -1468,7 +1552,6 @@ pca_base <- ggplot(pca_dat, aes(x = PC1, y = PC2)) +
                                label = row.names(isol_pca$rotation)),
                            size = 8, alpha = .8, color = "red4", seed = 8,
                            min.segment.length = unit(1, "native")) +
-  scale_color_manual(values = my_cols[c(8, 1, 2, 3, 7)]) +
   theme_bw() +
   labs(x = paste("PC1 (", 
                  round((100*((isol_pca$sdev)**2)/
@@ -1484,14 +1567,21 @@ pca_base <- ggplot(pca_dat, aes(x = PC1, y = PC2)) +
         legend.text = element_text(size = 32),
         plot.title = element_text(size = 36))
 
-png("./plots/PCA.png", width = 12, height = 8, units = "in", res = 150)
+png("./plots/PCA.png", width = 10, height = 7, units = "in", res = 150)
 pca_base + 
-  geom_point(aes(color = Bact_timepoint), size = 5, alpha = 0.7)
+  geom_point(aes(color = Bact_timepoint), size = 5, alpha = 0.7) +
+  scale_color_manual(name = "Timepoint", 
+                     breaks = c(0, 1, 2, 4, 8),
+                     values = my_cols[c(8, 1, 2, 3, 7)])
 dev.off()
 
-png("./plots/PCA2.png", width = 10, height = 8, units = "in", res = 150)
+png("./plots/PCA2.png", width = 11, height = 8, units = "in", res = 150)
 pca_base + 
-  geom_point(aes(color = Bact_treat_P), size = 5, alpha = 0.7)
+  geom_point(aes(color = Bact_treat_P), size = 5, alpha = 0.7) +
+  scale_color_manual(name = "Phage\nTreatment", 
+                     breaks = c("Anc", "NP", "P"),
+                     values = my_cols[c(8, 1, 2)],
+                     labels = c("Ancestor", "No Phage", "Phage"))
 dev.off()
                         
                         
