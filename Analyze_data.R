@@ -7,6 +7,7 @@ library(cowplot)
 library(gcplyr)
 library(GGally)
 library(lme4)
+library(ggrepel)
 
 dir.create("plots", showWarnings = FALSE)
 
@@ -1346,7 +1347,7 @@ ptwitching_norm <-
        aes(x = Bact_timepoint, y = cm_day_norm, 
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 5, alpha = 0.7) +
-  facet_wrap(~Bact_pop) +
+  facet_wrap(~as.numeric(Bact_pop)) +
   labs(x = "Timepoint", y = "Normalized Twitching Motility (cm/day)",
        subtitle = "Population") +
   scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
@@ -1389,19 +1390,38 @@ isol_data <- full_join(
                 "Bact_treat_C", "Bact_treat_P", "Bact_isol"),
     names_from = "Wavelength", values_from = Meas_norm,
     names_prefix = "wavelength_"))
+isol_data <- full_join(
+  isol_data,
+  read.csv("growth_curve_metrics.csv", 
+           colClasses = c("Bact_pop" = "character", 
+                          "Bact_timepoint" = "character",
+                          "Bact_isol" = "character")))
+isol_data <- mutate(isol_data,
+                    resis = 1-clearing_avg)
+
 
 ggpairs(data = isol_data,
         columns = which(colnames(isol_data) %in% 
-                          c("cm_day", "clearing_avg", 
-                            "wavelength_405", "wavelength_695")),
-        aes(color = Bact_treat),
-        upper = list(continuous = "points"),
-        diag = list(continuous = "barDiag"))
+                          c("resis", #"cm_day_norm",  
+                            "wavelength_405", "wavelength_695",
+                            "max_percap", "max_dens", "auc")),
+        upper = list(continuous = "points"))
 
 ggplot(data = isol_data,
-       aes(x = clearing_avg, y = cm_day_norm, color = Bact_treat_P)) +
+       aes(x = cm_day_norm, y = resis, color = Bact_treat_P)) +
   geom_point()
 
+ggplot(data = isol_data,
+       aes(x = max_dens, y = wavelength_405, color = Bact_treat_P)) +
+  geom_point()
+ggplot(data = isol_data,
+       aes(x = max_dens, y = wavelength_405, color = Bact_timepoint)) +
+  geom_point()
+
+ggplot(data = isol_data,
+       aes(x = max_dens, y = wavelength_695, color = Bact_treat,
+           shape = Bact_timepoint)) +
+  geom_point()
 
 
 png("./plots/motility_norm_sensitivesmarked.png", width = 8, height = 6, units = "in",
@@ -1412,8 +1432,66 @@ ptwitching_norm +
              pch = 4, color = "black", size = 3)
 dev.off()
 
-                        
-                        
-                        
+
+##Run PCA
+pca_dat <- isol_data
+
+pca_cols <- which(colnames(pca_dat) %in%
+                    c(#"resis", #"cm_day_norm",  
+                    "wavelength_405", "wavelength_695",
+                    "max_percap", "max_dens", "auc"))
+
+pca_dat <- pca_dat[complete.cases(pca_dat[, pca_cols]), ]
+
+isol_pca <- prcomp(pca_dat[, pca_cols], center = TRUE, scale = TRUE, retx = TRUE)
+
+#Merge pca with data
+pca_dat <- cbind(as.data.frame(isol_pca$x),
+                 pca_dat)
+
+#Rename rotations for better plotting
+replace_names = c("wavelength_405" = "w405",
+                  "wavelength_695" = "w695",
+                  "max_percap" = "r",
+                  "max_dens" = "k")
+row.names(isol_pca$rotation) <- plyr::revalue(
+  x = row.names(isol_pca$rotation), replace = replace_names)
+  
+arrow_len <- 3
+pca_base <- ggplot(pca_dat, aes(x = PC1, y = PC2)) +
+  geom_segment(data = as.data.frame(isol_pca$rotation),
+               aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
+               arrow = arrow(length = unit(0.02, "npc")),
+               alpha = .5, lwd = 2, color = "red4") +
+  ggrepel::geom_text_repel(data = as.data.frame(isol_pca$rotation),
+                           aes(x = arrow_len*PC1, y = arrow_len*PC2,
+                               label = row.names(isol_pca$rotation)),
+                           size = 8, alpha = .8, color = "red4", seed = 8,
+                           min.segment.length = unit(1, "native")) +
+  scale_color_manual(values = my_cols[c(8, 1, 2, 3, 7)]) +
+  theme_bw() +
+  labs(x = paste("PC1 (", 
+                 round((100*((isol_pca$sdev)**2)/
+                          sum((isol_pca$sdev)**2))[1], 1),
+                 "%)", sep = ""),
+       y = paste("PC2 (", 
+                 round((100*((isol_pca$sdev)**2)/
+                          sum((isol_pca$sdev)**2))[2], 1),
+                 "%)", sep = "")) +
+  theme(axis.title = element_text(size = 36),
+        axis.text = element_text(size = 22),
+        legend.title = element_text(size = 36),
+        legend.text = element_text(size = 32),
+        plot.title = element_text(size = 36))
+
+png("./plots/PCA.png", width = 12, height = 8, units = "in", res = 150)
+pca_base + 
+  geom_point(aes(color = Bact_timepoint), size = 5, alpha = 0.7)
+dev.off()
+
+png("./plots/PCA2.png", width = 10, height = 8, units = "in", res = 150)
+pca_base + 
+  geom_point(aes(color = Bact_treat_P), size = 5, alpha = 0.7)
+dev.off()
                         
                         
