@@ -1491,21 +1491,43 @@ ggpairs(data = isol_data,
                             "max_percap", "max_dens", "auc")),
         upper = list(continuous = "points"))
 
-ggplot(data = isol_data,
-       aes(x = cm_day_norm, y = resis, color = Bact_treat_P)) +
-  geom_point()
-
+png("./plots/maxdens_405nm_treat.png", width = 5, height = 4, units = "in", res = 150)
 ggplot(data = isol_data,
        aes(x = max_dens, y = wavelength_405, color = Bact_treat_P)) +
-  geom_point()
+  geom_point() +
+  scale_color_manual(name = "Phage\nTreatment", 
+                     breaks = c("Anc", "NP", "P", "pilA"),
+                     values = my_cols[c(8, 1, 2, 7)],
+                     labels = c("Ancestor", "No Phage", "Phage", "pilA"))
+dev.off()
+
+png("./plots/maxdens_405nm_time.png", width = 5, height = 4, units = "in", res = 150)
 ggplot(data = isol_data,
        aes(x = max_dens, y = wavelength_405, color = Bact_timepoint)) +
-  geom_point()
+  geom_point() +
+  scale_color_manual(name = "Timepoint", 
+                     breaks = c(0, 1, 2, 4, 8, "pilA"),
+                     values = my_cols[c(8, 1, 2, 3, 7, 4)])
+dev.off()
 
+png("./plots/maxdens_695nm_treat.png", width = 5, height = 4, units = "in", res = 150)
 ggplot(data = isol_data,
-       aes(x = max_dens, y = wavelength_695, color = Bact_treat,
-           shape = Bact_timepoint)) +
-  geom_point()
+       aes(x = max_dens, y = wavelength_695, color = Bact_treat_P)) +
+  geom_point() +
+  scale_color_manual(name = "Phage\nTreatment", 
+                     breaks = c("Anc", "NP", "P", "pilA"),
+                     values = my_cols[c(8, 1, 2, 7)],
+                     labels = c("Ancestor", "No Phage", "Phage", "pilA"))
+dev.off()
+
+png("./plots/maxdens_695nm_time.png", width = 5, height = 4, units = "in", res = 150)
+ggplot(data = isol_data,
+       aes(x = max_dens, y = wavelength_695, color = Bact_timepoint)) +
+  geom_point() +
+  scale_color_manual(name = "Timepoint", 
+                     breaks = c(0, 1, 2, 4, 8, "pilA"),
+                     values = my_cols[c(8, 1, 2, 3, 7, 4)])
+dev.off()
 
 
 png("./plots/motility_norm_sensitivesmarked.png", width = 8, height = 6, units = "in",
