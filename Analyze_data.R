@@ -1486,6 +1486,10 @@ isol_data <- full_join(
                 "Bact_treat_C", "Bact_treat_P", "Bact_isol"),
     names_from = "Wavelength", values_from = Meas_norm,
     names_prefix = "wavelength_"))
+if(!"growth_curve_metrics.csv" %in% list.files()) {
+  source("Growthcurve_analysis.R")
+  setwd("..") #return wd to parent dir where this script needs it
+}
 isol_data <- full_join(
   isol_data,
   read.csv("growth_curve_metrics.csv", 
