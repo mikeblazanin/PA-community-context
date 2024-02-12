@@ -159,7 +159,7 @@ ggplot(data = prelimdens_NC_sum,
   facet_grid(Comm_treat ~ Phage_treat,
              labeller = labeller(Phage_treat = c("+" = "Phage Added",
                                                  "-" = "No Phage"),
-                                 Comm_treat = c("-" = "No Competitors"))) +
+                                 Comm_treat = c("-" = "Only Pseudomonas"))) +
   scale_y_continuous(trans = "log10",
                      breaks = 10**c(2, 6, 10),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
@@ -190,7 +190,7 @@ ggplot(data = prelimdens_NC_sum[prelimdens_NC_sum$Strain == "PA", ],
   facet_grid(Comm_treat ~ Phage_treat,
              labeller = labeller(Phage_treat = c("+" = "Phage Added",
                                                  "-" = "No Phage"),
-                                 Comm_treat = c("-" = "No Competitors"))) +
+                                 Comm_treat = c("-" = "Only Pseudomonas"))) +
   xlim(0, NA) +
   scale_y_continuous(breaks = c(0, 0.5, 1)) +
   labs(y = "Frequency of Large\nColony Morphology") +
@@ -300,7 +300,7 @@ ggplot(data = prelimdens_C,
   facet_grid(Comm_treat ~ Phage_treat,
              labeller = labeller(Phage_treat = c("+" = "Phage Added",
                                                  "-" = "No Phage"),
-                                 Comm_treat = c("+" = "Competitors Added"))) +
+                                 Comm_treat = c("+" = "All Bacteria"))) +
   scale_y_continuous(trans = "log10",
                      breaks = 10**c(2, 6, 10),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
@@ -333,7 +333,7 @@ ggplot(data = prelimdens_C[prelimdens_C$Strain == "PA", ],
   facet_grid(Comm_treat ~ Phage_treat,
              labeller = labeller(Phage_treat = c("+" = "Phage Added",
                                                  "-" = "No Phage"),
-                                 Comm_treat = c("+" = "Competitors Added"))) +
+                                 Comm_treat = c("+" = "All Bacteria"))) +
   xlim(0, NA) +
   scale_y_continuous(breaks = c(0, 0.5, 1)) +
   labs(y = "Frequency of Large\nColony Morphology") +
@@ -401,7 +401,11 @@ density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("P", "NP"),
                     mut_col = "treat_P")
 density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("C", "NC"),
                     mut_col = "treat_C")
-                    
+
+#Change factor orders
+density <- mutate(density,
+                  treat_C = factor(treat_C, levels = c("NC", "C")),
+                  treat_P = factor(treat_P, levels = c("NP", "P")))
 
 density_sum <- summarize(group_by(density,
                               Timepoint, treat_P, treat_C, Strain),
@@ -418,10 +422,11 @@ p1 <- ggplot(
   geom_hline(yintercept = 400, lty = 2) +
   facet_grid(treat_C ~ treat_P,
              labeller = labeller(treat_P = c("P" = "Phage Added",
-                                                 "NP" = "No Phage"),
-                                 treat_C = c("C" = "Competitors Added",
-                                                "NC" = "No Competitors"))) +
-  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+                                             "NP" = "No Phage"),
+                                 treat_C = c("C" = "All Bacteria",
+                                             "NC" = "Only Pseudomonas"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
+                     limits = c(0, NA)) +
   scale_y_continuous(trans = "log10",
                      breaks = 10**c(2, 6, 10),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
@@ -470,9 +475,10 @@ ggplot(
   facet_grid(treat_C ~ treat_P,
              labeller = labeller(treat_P = c("P" = "Phage Added",
                                                  "NP" = "No Phage"),
-                                 treat_C = c("C" = "Competitors Added",
-                                                "NC" = "No Competitors"))) +
-  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+                                 treat_C = c("C" = "All Bacteria",
+                                                "NC" = "Only Pseudomonas"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
+                     limits = c(0, NA)) +
   scale_y_continuous(trans = "log10",
                      breaks = 10**c(2, 6, 10),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
@@ -506,9 +512,10 @@ ggplot(
   facet_grid(treat_C ~ treat_P,
              labeller = labeller(treat_P = c("P" = "Phage Added",
                                              "NP" = "No Phage"),
-                                 treat_C = c("C" = "Competitors Added",
-                                             "NC" = "No Competitors"))) +
-  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+                                 treat_C = c("C" = "All Bacteria",
+                                             "NC" = "Only Pseudomonas"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
+                     limits = c(0, NA)) +
   scale_y_continuous(trans = "log10",
                      breaks = 10**c(2, 6, 10),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
@@ -543,9 +550,10 @@ ggplot(
   facet_grid(treat_C ~ treat_P,
              labeller = labeller(treat_P = c("P" = "Phage Added",
                                              "NP" = "No Phage"),
-                                 treat_C = c("C" = "Competitors Added",
-                                             "NC" = "No Competitors"))) +
-  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+                                 treat_C = c("C" = "All Bacteria",
+                                             "NC" = "Only Pseudomonas"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
+                     limits = c(0, NA)) +
   scale_y_continuous(trans = "log10",
                      breaks = 10**c(2, 6, 10),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
@@ -579,9 +587,10 @@ ggplot(
   facet_grid(treat_C ~ treat_P,
              labeller = labeller(treat_P = c("P" = "Phage Added",
                                                  "NP" = "No Phage"),
-                                 treat_C = c("C" = "Competitors Added",
-                                                "NC" = "No Competitors"))) +
-  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+                                 treat_C = c("C" = "All Bacteria",
+                                                "NC" = "Only Pseudomonas"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
+                     limits = c(0, NA)) +
   scale_y_continuous(trans = "log10",
                      breaks = 10**c(2, 6, 10),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
@@ -617,7 +626,8 @@ ggplot(
                                                  "NP" = "No Phage"),
                                  treat_C = c("C" = "All Bacteria Added",
                                                 "NC" = "Only Pseudomonas"))) +
-  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
+                     limits = c(0, NA)) +
   scale_y_continuous(trans = "log10",
                      breaks = 10**c(2, 6, 10),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
@@ -655,9 +665,10 @@ ggplot(
   facet_grid(treat_P ~ .,
              labeller = labeller(treat_P = c("P" = "Phage Added",
                                                  "NP" = "No Phage"),
-                                 treat_C = c("C" = "Competitors Added",
-                                                "NC" = "No Competitors"))) +
-  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+                                 treat_C = c("C" = "All Bacteria",
+                                                "NC" = "Only Pseudomonas"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
+                     limits = c(0, NA)) +
   scale_y_continuous(trans = "log10",
                      breaks = 10**c(2, 6, 10),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
@@ -685,9 +696,10 @@ ggplot(data = filter(density, Pop %in% 3:10, Strain == "PA",
   facet_grid(treat_C ~ treat_P,
              labeller = labeller(treat_P = c("P" = "Phage Added",
                                                  "NP" = "No Phage"),
-                                 treat_C = c("C" = "Competitors Added",
-                                                "NC" = "No Competitors"))) +
-  scale_x_continuous(breaks = c(0, 3, 6, 9), limits = c(0, NA)) +
+                                 treat_C = c("C" = "All Bacteria",
+                                                "NC" = "Only Pseudomonas"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
+                     limits = c(0, NA)) +
   scale_y_continuous(breaks = c(0, 0.5, 1)) +
   labs(y = "Frequency of Large Colony Morphology") +
   theme_bw() +
@@ -959,7 +971,7 @@ ggplot(data = resis_isols,
   ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Phage_pop * Bact_timepoint,
                       labeller = labeller(
                         Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
-                        Bact_treat_C = c(NC = "No\nCompetitors", C = "Competitors\nAdded"))) +
+                        Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria"))) +
   labs(x = "Bacterial Isolate", y = "Phage timepoint",
        subtitle = "Population\nBacterial timepoint") +
   NULL
@@ -973,7 +985,7 @@ ggplot(data = resis_sum_treats,
   facet_grid(Bact_treat_C ~ Bact_treat_P,
                       labeller = labeller(
                         Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
-                        Bact_treat_C = c(NC = "No Competitors", C = "Competitors Added"))) +
+                        Bact_treat_C = c(NC = "Only Pseudomonas", C = "All Bacteria"))) +
   labs(x = "Bacterial timepoint", y = "Phage timepoint") +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
@@ -1007,7 +1019,7 @@ ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
   ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Phage_pop * Bact_timepoint,
                       labeller = labeller(
                         Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
-                        Bact_treat_C = c(NC = "No\nCompetitors", C = "Competitors\nAdded"))) +
+                        Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria"))) +
   labs(x = "Bacterial Isolate", y = "Phage timepoint",
        subtitle = "Population\nBacterial timepoint") +
   NULL
@@ -1035,7 +1047,7 @@ ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
   ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Bact_timepoint * Phage_pop,
                       labeller = labeller(
                         Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
-                        Bact_treat_C = c(NC = "No\nCompetitors", C = "Competitors\nAdded"),
+                        Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria"),
                         Bact_timepoint = function(x) paste("Bacterial timepoint", x))) +
   labs(x = "Bacterial Isolate", y = "Phage timepoint",
        subtitle = "Replicate population") +
@@ -1118,7 +1130,7 @@ p1 <- ggplot(data = filter(resis_isols, Bact_treat_P == "P",
                     values = c("#132B43", "#56B1F7", "gray"),
                     name = "") +
   labs(x = "Bacterial timepoint", y = "Phage timepoint",
-       subtitle = "No Competitors Added") +
+       subtitle = "Only Pseudomonas") +
   theme(legend.position = "right") +
   NULL
 
@@ -1140,7 +1152,7 @@ p2 <- ggplot(data = filter(resis_isols, Bact_treat_P == "P",
                     values = c("#132B43", "#56B1F7", "gray"),
                     name = "") +
   labs(x = "Bacterial timepoint", y = "Phage timepoint",
-       subtitle = "Competitors Added") +
+       subtitle = "All Bacteria") +
   theme(legend.position = "right") +
   NULL
 
