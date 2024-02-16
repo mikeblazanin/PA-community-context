@@ -1369,6 +1369,14 @@ ggplot(data = filter(pig_sum, Bact_pop != "Blank", Wavelength %in% c(405, 695)),
 # Twitching ----
 twitching <- read.csv("Twitching Motility Data.csv")
 
+#Exclude bad isolates
+twitching <-
+  filter(twitching,
+         !(Date == "2024-02-16" & Bact_pop == 9 &
+             Bact_treat == "Anc" & Bact_timepoint == 0 & Bact_isol == 2),
+         !(Date == "2024-02-16" & Bact_pop == 8 &
+             Bact_treat == "NN" & Bact_timepoint == 1 & Bact_isol == 2))
+
 #Exclude contaminated populations
 twitching <- 
   filter(twitching,
@@ -1413,7 +1421,7 @@ ggplot(data = twitching_isols,
        aes(x = Bact_timepoint, y = cm_day, 
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 5, alpha = 0.7) +
-  facet_wrap(~Bact_pop) +
+  facet_grid(~Bact_pop) +
   labs(x = "Timepoint", y = "Twitching motility (cm/day)",
        subtitle = "Population") +
   
@@ -1436,14 +1444,14 @@ ggplot(data = twitching_isols,
         title = element_text(size = 20))
 dev.off()
 
-png("./plots/motility_norm.png", width = 8, height = 6, units = "in",
+png("./plots/motility_norm.png", width = 8, height = 5, units = "in",
     res = 150)               
 ptwitching_norm <-
   ggplot(data = twitching_isols,
        aes(x = Bact_timepoint, y = cm_day_norm, 
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 5, alpha = 0.7) +
-  facet_wrap(~as.numeric(Bact_pop)) +
+  facet_grid(~as.numeric(Bact_pop)) +
   labs(x = "Timepoint", y = "Normalized Twitching Motility (cm/day)",
        subtitle = "Population") +
   scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
@@ -1464,6 +1472,35 @@ ptwitching_norm <-
         legend.text = element_text(size = 14),
         title = element_text(size = 20))
 print(ptwitching_norm)
+dev.off()
+
+png("./plots/motility_norm_nopops.png", width = 7, height = 5, units = "in",
+    res = 150)               
+ptwitching_norm2 <-
+  ggplot(data = twitching_isols,
+         aes(x = Bact_timepoint, y = cm_day_norm, 
+             color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
+  geom_point(size = 4, alpha = 0.5,
+             position = position_dodge(width = 0.5)) +
+  labs(x = "Timepoint", y = "Normalized Twitching Motility\n(cm/day)") +
+  scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                     breaks = c("Anc", "NP", "P", "pilA"),
+                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  scale_fill_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                    breaks = c("Anc", "NP", "P", "pilA"),
+                    labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  scale_shape_manual(values = c(25, 21, 23, 24), name = "Other Bacteria Added",
+                     breaks = c("Anc", "NC", "C", "pilA"),
+                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  guides(shape = guide_legend(override.aes = list(fill = "black"))) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 12),
+        strip.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        title = element_text(size = 20))
+print(ptwitching_norm2)
 dev.off()
 
 # Multivariate analyses ----
@@ -1552,6 +1589,16 @@ ptwitching_norm +
   geom_point(data = filter(isol_data, clearing_avg > 0, !is.na(cm_day_norm)),
              aes(x = as.factor(Bact_timepoint), y = cm_day_norm),
              pch = 4, color = "black", size = 3)
+dev.off()
+
+png("./plots/motility_norm_nopops_sensitivesmarked.png", width = 8, height = 6, units = "in",
+    res = 150)
+ptwitching_norm2 +
+  geom_point(data = filter(isol_data, clearing_avg > 0, !is.na(cm_day_norm)),
+             aes(x = Bact_timepoint, y = cm_day_norm,
+                 group = paste(Bact_treat_P, Bact_treat_C)),
+             pch = 4, color = "black", size = 3,
+             position = position_dodge(width = 0.5))
 dev.off()
 
 
