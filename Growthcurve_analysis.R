@@ -54,7 +54,7 @@ dat <- merge_dfs(dat, designs, drop = TRUE)
 
 #Exclude contaminated pops
 dat <- filter(dat,
-              !((Bact_pop == 9 & Bact_treat == "NN" & Bact_timepoint >= 4) |
+              !((Bact_pop == 9 & Bact_treat == "NN" & Bact_timepoint >= 2) |
                   (Bact_pop == 9 & Bact_treat == "CNP" & Bact_timepoint >= 2)))
 
 #Subtract blank ----

@@ -1,5 +1,4 @@
 ## Setup ----
-
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -792,7 +791,7 @@ EOP$Bact_treat_P <- relevel(as.factor(EOP$Bact_treat_P), ref = "NP")
 
 #Based on contamination, exclude NCNP Pop 9 T4 and later, CNP Pop 9 T2 and later
 EOP <- filter(EOP, 
-              !((Bact_pop == 9 & Bact_treat == "NCNP" & Bact_timepoint >= 4) |
+              !((Bact_pop == 9 & Bact_treat == "NCNP" & Bact_timepoint >= 2) |
                   (Bact_pop == 9 & Bact_treat == "CNP" & Bact_timepoint >= 2)))
 
 #average technical replicates together (should just be Ancestors)
@@ -872,7 +871,7 @@ spots$Bact_treat_P <- relevel(as.factor(spots$Bact_treat_P), ref = "NP")
 
 #Based on contamination, exclude NCNP Pop 9 T4 and later, CNP Pop 9 T2 and later
 spots <- filter(spots, 
-              !((Bact_pop == 9 & Bact_treat == "NCNP" & Bact_timepoint >= 4) |
+              !((Bact_pop == 9 & Bact_treat == "NCNP" & Bact_timepoint >= 2) |
                   (Bact_pop == 9 & Bact_treat == "CNP" & Bact_timepoint >= 2)))
 
 #average technical replicates together (should just be Ancestors)
@@ -1287,7 +1286,7 @@ pig <- mutate(pig,
 
 #Based on contamination, exclude NCNP Pop 9 T4 and later, CNP Pop 9 T2 and later
 pig <- filter(pig,
-              !((Bact_pop == 9 & Bact_treat == "NN" & Bact_timepoint >= 4) |
+              !((Bact_pop == 9 & Bact_treat == "NN" & Bact_timepoint >= 2) |
                   (Bact_pop == 9 & Bact_treat == "CNP" & Bact_timepoint >= 2)))
 
 #Subtract blank
@@ -1380,7 +1379,7 @@ twitching <-
 #Exclude contaminated populations
 twitching <- 
   filter(twitching,
-         !((Bact_pop == 9 & Bact_treat == "NN" & Bact_timepoint >= 4) |
+         !((Bact_pop == 9 & Bact_treat == "NN" & Bact_timepoint >= 2) |
              (Bact_pop == 9 & Bact_treat == "CNP" & Bact_timepoint >= 2)))
 
 twitching <- mutate(
