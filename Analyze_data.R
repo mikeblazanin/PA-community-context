@@ -1502,6 +1502,15 @@ ptwitching_norm2 <-
 print(ptwitching_norm2)
 dev.off()
 
+if(F) {
+  ggplot(data = filter(twitching, Bact_pop == 10),
+         aes(x = Bact_timepoint, y = cm_day_norm,
+             color = Bact_treat, fill = Bact_treat, shape = Bact_isol)) +
+    geom_point(size = 4, alpha = 0.5,
+               position = position_dodge(width = 0.5)) +
+    guides(shape = guide_legend(override.aes = list(fill = "black")))
+}
+
 # Multivariate analyses ----
 isol_data <- full_join(
   dplyr::select(mutate(twitching, Bact_pop = as.character(Bact_pop)), 
