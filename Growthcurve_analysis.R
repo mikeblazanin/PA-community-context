@@ -2,6 +2,7 @@ library(gcplyr)
 library(ggplot2)
 library(dplyr)
 library(stringr)
+library(cowplot)
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -76,10 +77,7 @@ dat <- filter(dat,
               #Bad wells
               !(date == "2024-01-26" & Bact_pop == 6 &
                   Bact_treat == "CNP" & Bact_timepoint == 8 &
-                  Bact_isol == 1),
-              !(date == "2024-02-02" & Bact_pop == 7 &
-                  Bact_treat == "NCP" & Bact_timepoint == 1 &
-                  Bact_isol == 2))
+                  Bact_isol == 1))
 
 #Smooth ----
 dat <- mutate(group_by(dat, date, Well),
@@ -103,13 +101,26 @@ dat <- mutate(group_by(dat, date, Well),
                 percapita = TRUE, trans_y = 'log', blank = 0))
 
 #Assess noise
-ggplot(data = dat, aes(x = Time_hr, y = deriv, group = Well)) +
-  geom_line() +
-  facet_wrap(~ date)
-
-ggplot(data = dat, aes(x = Time_hr, y = deriv_percap, group = Well)) +
-  geom_line() +
-  facet_wrap(~ date)
+for (mydate in unique(dat$date)) {
+  png(paste0("./plots/sm_deriv_derivpercap_", mydate, ".png"),
+      width = 4, height = 10, units = "in", res = 150)
+  print(
+    cowplot::plot_grid(ncol = 1,
+      ggplot(data = filter(dat, date == mydate),
+             aes(x = Time_hr, y = sm_meas, color = Bact_isol)) +
+        geom_line(aes(group = Well), alpha = 0.6) +
+        facet_grid(Bact_timepoint ~ Bact_treat),
+      ggplot(data = filter(dat, date == mydate),
+             aes(x = Time_hr, y = deriv, color = Bact_isol)) +
+        geom_line(aes(group = Well), alpha = 0.6) +
+        facet_grid(Bact_timepoint ~ Bact_treat),
+      ggplot(data = filter(dat, date == mydate),
+             aes(x = Time_hr, y = deriv_percap, color = Bact_isol)) +
+        geom_line(aes(group = Well), alpha = 0.6) +
+        facet_grid(Bact_timepoint ~ Bact_treat)
+    ))
+  dev.off()
+}
 
 #Summarize ----
 dat_sum <- summarize(
