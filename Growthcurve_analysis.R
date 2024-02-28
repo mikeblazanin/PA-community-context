@@ -103,7 +103,7 @@ dat <- mutate(group_by(dat, date, Well),
 #Assess noise
 for (mydate in unique(dat$date)) {
   png(paste0("./plots/sm_deriv_derivpercap_", mydate, ".png"),
-      width = 4, height = 10, units = "in", res = 150)
+      width = 4, height = 9, units = "in", res = 150)
   print(
     cowplot::plot_grid(ncol = 1,
       ggplot(data = filter(dat, date == mydate),
@@ -225,7 +225,7 @@ ggplot(data = dat_sum,
 dev.off()
 
 for(pop in unique(dat$Bact_pop)) {
-  png(paste0("lagcheck_pop", pop, ".png"), 
+  png(paste0("./plots/lagcheck_pop", pop, ".png"), 
              width = 7, height = 12, units = "in", res = 300)
   print(
     ggplot(data = filter(dat, Bact_pop == pop),
