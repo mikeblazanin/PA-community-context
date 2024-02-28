@@ -1374,7 +1374,11 @@ twitching <-
          !(Date == "2024-02-16" & Bact_pop == 9 &
              Bact_treat == "Anc" & Bact_timepoint == 0 & Bact_isol == 2),
          !(Date == "2024-02-16" & Bact_pop == 8 &
-             Bact_treat == "NN" & Bact_timepoint == 1 & Bact_isol == 2))
+             Bact_treat == "NN" & Bact_timepoint == 1 & Bact_isol == 2),
+         !(Date == "2024-02-16" & Bact_pop == 8 &
+             Bact_treat == "CP" & Bact_timepoint == 8 & Bact_isol == 2),
+         !(Date == "2024-02-03" & Bact_pop == 7 &
+             Bact_treat == "NCP" & Bact_timepoint == 1 & Bact_isol == 2))
 
 #Exclude contaminated populations
 twitching <- 
