@@ -960,9 +960,8 @@ cs_isols <- pivot_longer(cs_isols, cols = starts_with("Bact_timepoint"),
 ### Merged resistance data ----
 
 #Merge different resistance data
-resis_isols <- full_join(cs_isols, full_join(spots_isols, EOP_isols))
-resis_isols <- full_join(resis_isols, EOP2)
-stop("figure out why the second join leads to more entries")
+resis_isols <- full_join(EOP2, 
+                         full_join(cs_isols, full_join(spots_isols, EOP_isols)))
 resis_isols <- mutate(resis_isols,
                       Bact_treat = factor(Bact_treat),
                       Bact_treat_C = relevel(factor(Bact_treat_C), "NC"),
