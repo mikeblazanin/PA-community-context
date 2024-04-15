@@ -825,6 +825,56 @@ EOP_sum <- summarize(group_by(EOP_isols,
 #Prepare to merge
 EOP_isols <- mutate(EOP_isols, clearing = ifelse(bd == TRUE, 0, 1))
 
+### EOP data II ----
+EOP2 <- read.csv("2024-04-11_EOP_2_results.csv", stringsAsFactors = F)
+
+#rename columns for eventual merging
+EOP2 <- mutate(EOP2, pfu2 = pfu, dilution2 = dilution, 
+               Estimated_pfu2 = Estimated_pfu)
+EOP2 <- select(EOP2, -pfu, -dilution, -Estimated_pfu, -Bacteria, -Phage)
+
+#ID below-detection counts, and calculate pfu/mL (note 1.5 uL spots)
+EOP2 <- mutate(EOP2, 
+               bd2 = ifelse(pfu2 == 0, TRUE, FALSE),
+               pfu2 = ifelse(pfu2 == 0, 1, pfu2),
+               pfu_ml2 = 1000/1.5 * pfu2 / 10**dilution2)
+
+#Deal with T0 labels
+# When it's T0 with a specific treat, the T0 should be matched
+#  to that treat name
+# When it's T0 with T0, those rows need to be duplicated across all
+#  the treats so they plot for all four treats 
+EOP2 <- mutate(EOP2,
+               Bact_treat = ifelse(Bact_treat == "Anc" & Phage_treat != "Anc",
+                                   Phage_treat, Bact_treat),
+               Phage_treat = ifelse(Phage_treat == "Anc" & Bact_treat != "Anc",
+                                    Bact_treat, Phage_treat))
+EOP2 <- dup_rows(EOP2, "Bact_treat", "Anc", c("CP", "NCP"))
+EOP2 <- mutate(EOP2,
+               Phage_treat = ifelse(Phage_treat == "Anc", Bact_treat, Phage_treat))
+EOP2 <- separate_wider_regex(EOP2,
+                             cols = "Bact_treat",
+                             patterns = c("Bact_treat_C" = "^N?C", 
+                                          "Bact_treat_P" = "N?P$"),
+                             cols_remove = FALSE)
+EOP2 <- separate_wider_regex(EOP2,
+                             cols = "Phage_treat",
+                             patterns = c("Phage_treat_C" = "^N?C", 
+                                          "Phage_treat_P" = "N?P$"),
+                             cols_remove = FALSE)
+EOP2$Bact_treat_C <- relevel(as.factor(EOP2$Bact_treat_C), ref = "NC")
+
+#Calculate EOP (relative to highest pfu/mL for ea phage stock)
+EOP2 <- mutate(group_by(EOP2, 
+                        Phage_pop, Phage_treat, 
+                        Phage_timepoint, Phage_isol),
+               EOP2 = pfu_ml2/max(pfu_ml2),
+               EOP2_plot = EOP2,
+               clearing2 = ifelse(bd2 == TRUE, 0, 1))
+EOP2$EOP2_plot[EOP2$bd2 == TRUE] <- 
+  max(EOP2$EOP2[EOP2$bd2 == TRUE], na.rm = TRUE)
+
+
 ### Spot test data ----
 spots <- read.csv("2023-05-24 Spot Timeshift data.csv", stringsAsFactors = F)
 
@@ -911,10 +961,24 @@ cs_isols <- pivot_longer(cs_isols, cols = starts_with("Bact_timepoint"),
 
 #Merge different resistance data
 resis_isols <- full_join(cs_isols, full_join(spots_isols, EOP_isols))
+resis_isols <- full_join(resis_isols, EOP2)
+stop("figure out why the second join leads to more entries")
 resis_isols <- mutate(resis_isols,
                       Bact_treat = factor(Bact_treat),
                       Bact_treat_C = relevel(factor(Bact_treat_C), "NC"),
                       Bact_treat_P = factor(Bact_treat_P))
+
+#Pull earlier results into gaps in later results
+resis_isols <- mutate(
+  resis_isols,
+  clearing2 = ifelse(is.na(clearing2), clearing, clearing2),
+  EOP2_plot = ifelse(is.na(EOP2_plot), 
+                     ifelse(clearing2 == 0, min(EOP2_plot, na.rm = TRUE), 0.5), 
+                     EOP2_plot),
+  Plaque_morphology = ifelse(is.na(Plaque_morphology), 
+                             ifelse(clearing2 == 0, "None", "Clear?"),
+                             Plaque_morphology))
+stop("replace placeholder value of 0.5 with some flag, it should never be called")
 
 #Write copy to file
 write.csv(resis_isols, "aggregate_resis_data.csv", row.names = FALSE)
@@ -1000,7 +1064,7 @@ png("plots/resis_grid_phagetreats.png", width = 10, height = 3.5,
 ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
        aes(x = Bact_isol, 
            y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
-  geom_tile(aes(fill = as.factor(clearing))) +
+  geom_tile(aes(fill = as.factor(clearing2))) +
   scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
   # scale_x_discrete(labels = rep(c(0, "", 1, "", 2, "", 4, "", 8, ""),
   #                               times = c(1, 5, 1, 5, 1, 5, 1, 5, 1, 5))) +
@@ -1161,6 +1225,64 @@ plot_grid(p1 + guides(fill = "none"),
           p2 + guides(fill = "none"), 
           get_legend(p1),
           nrow = 1, rel_widths = c(1, 1, 0.5))
+dev.off()
+
+png("plots/EOP_grid_phagetreats.png", width = 10, height = 3.5, 
+    units = "in", res = 150)
+ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
+       aes(x = Bact_isol, 
+           y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+  geom_tile(aes(fill = log10(EOP2_plot))) +
+  scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  # scale_x_discrete(labels = rep(c(0, "", 1, "", 2, "", 4, "", 8, ""),
+  #                               times = c(1, 5, 1, 5, 1, 5, 1, 5, 1, 5))) +
+  theme_bw() +
+  theme(strip.text = element_text(size = 8),
+        axis.text.y = element_text(vjust = -0.1),
+        #axis.text.x = element_text(hjust = 0.2),
+        axis.text.x = element_blank(),
+        legend.position = "bottom",
+        panel.spacing.x = unit(.05, "lines")) +
+  # scale_fill_manual(breaks = c(1, 0, NA),
+  #                   labels = c("Susceptible", "Resistant", "Phage Extinct"),
+  #                   values = c("#132B43", "#56B1F7", "gray"),
+  #                   name = "") +
+  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Phage_pop * Bact_timepoint,
+                      labeller = labeller(
+                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                        Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria"))) +
+  labs(x = "Bacterial Isolate", y = "Phage timepoint",
+       subtitle = "Population\nBacterial timepoint") +
+  NULL
+dev.off()
+
+png("plots/Plaquemorph_grid_phagetreats.png", width = 10, height = 3.5, 
+    units = "in", res = 150)
+ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
+       aes(x = Bact_isol, 
+           y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+  geom_tile(aes(fill = as.factor(Plaque_morphology))) +
+  scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  # scale_x_discrete(labels = rep(c(0, "", 1, "", 2, "", 4, "", 8, ""),
+  #                               times = c(1, 5, 1, 5, 1, 5, 1, 5, 1, 5))) +
+  theme_bw() +
+  theme(strip.text = element_text(size = 8),
+        axis.text.y = element_text(vjust = -0.1),
+        #axis.text.x = element_text(hjust = 0.2),
+        axis.text.x = element_blank(),
+        legend.position = "bottom",
+        panel.spacing.x = unit(.05, "lines")) +
+  # scale_fill_manual(breaks = c(1, 0, NA),
+  #                   labels = c("Susceptible", "Resistant", "Phage Extinct"),
+  #                   values = c("#132B43", "#56B1F7", "gray"),
+  #                   name = "") +
+  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Phage_pop * Bact_timepoint,
+                      labeller = labeller(
+                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                        Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria"))) +
+  labs(x = "Bacterial Isolate", y = "Phage timepoint",
+       subtitle = "Population\nBacterial timepoint") +
+  NULL
 dev.off()
 
 ### Population dynamics vs resistance ----
