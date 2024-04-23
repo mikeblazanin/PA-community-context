@@ -871,9 +871,8 @@ EOP2 <- mutate(group_by(EOP2,
                EOP2 = pfu_ml2/max(pfu_ml2),
                EOP2_plot = EOP2,
                clearing2 = ifelse(bd2 == TRUE, 0, 1))
-EOP2$EOP2_plot[EOP2$bd2 == TRUE] <- 
+EOP2$EOP2_plot[EOP2$EOP2_plot < max(EOP2$EOP2[EOP2$bd2 == TRUE], na.rm = TRUE)] <-
   max(EOP2$EOP2[EOP2$bd2 == TRUE], na.rm = TRUE)
-
 
 ### Spot test data ----
 spots <- read.csv("2023-05-24 Spot Timeshift data.csv", stringsAsFactors = F)
@@ -962,7 +961,7 @@ cs_isols <- pivot_longer(cs_isols, cols = starts_with("Bact_timepoint"),
 #Merge different resistance data
 resis_isols <- full_join(EOP2, 
                          full_join(cs_isols, full_join(spots_isols, EOP_isols)))
-resis_isols <- mutate(resis_isols,
+resis_isols <- mutate(ungroup(resis_isols),
                       Bact_treat = factor(Bact_treat),
                       Bact_treat_C = relevel(factor(Bact_treat_C), "NC"),
                       Bact_treat_P = factor(Bact_treat_P))
@@ -972,12 +971,12 @@ resis_isols <- mutate(
   resis_isols,
   clearing2 = ifelse(is.na(clearing2), clearing, clearing2),
   EOP2_plot = ifelse(is.na(EOP2_plot), 
-                     ifelse(clearing2 == 0, min(EOP2_plot, na.rm = TRUE), 0.5), 
+                     ifelse(clearing2 == 0, min(EOP2_plot, na.rm = TRUE), 1), 
                      EOP2_plot),
   Plaque_morphology = ifelse(is.na(Plaque_morphology), 
                              ifelse(clearing2 == 0, "None", "Clear?"),
                              Plaque_morphology))
-stop("replace placeholder value of 0.5 with some flag, it should never be called")
+stop("replace placeholder value of 1 with some flag, it should never be called")
 
 #Write copy to file
 write.csv(resis_isols, "aggregate_resis_data.csv", row.names = FALSE)
