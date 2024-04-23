@@ -187,7 +187,8 @@ ggplot(data = dat_sum,
        aes(x = Bact_timepoint, y = max_dens_norm,
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 3, alpha = 0.5) +
-  facet_grid(~ Bact_pop) +
+  facet_grid(~ as.numeric(Bact_pop),
+             labeller = as_labeller(function(x) {LETTERS[as.numeric(x)-2]})) +
   theme_bw() +
   scale_color_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
                      breaks = c("Anc", "NP", "P"),
@@ -205,7 +206,9 @@ ggplot(data = dat_sum,
         axis.text = element_text(size = 12),
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
-        legend.text = element_text(size = 14))
+        legend.text = element_text(size = 14),
+        plot.subtitle = element_text(size = 16)) +
+  labs(subtitle = "Replicate Population")
 dev.off()
 
 png("../plots/max_dens_norm_nopops.png", width = 7, height = 4, units = "in",
@@ -267,7 +270,8 @@ ggplot(data = dat_sum,
        aes(x = Bact_timepoint, y = max_percap_norm,
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 3, alpha = 0.5) +
-  facet_grid(~ Bact_pop) +
+  facet_grid(~ as.numeric(Bact_pop),
+             labeller = as_labeller(function(x) {LETTERS[as.numeric(x)-2]})) +
   theme_bw() +
   scale_color_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
                      breaks = c("Anc", "NP", "P"),
@@ -285,7 +289,9 @@ ggplot(data = dat_sum,
         axis.text = element_text(size = 12),
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
-        legend.text = element_text(size = 14))
+        legend.text = element_text(size = 14),
+        plot.subtitle = element_text(size = 16)) +
+  labs(subtitle = "Replicate Population")
 dev.off()
 
 png("../plots/max_percap_norm_nopops.png", width = 7, height = 4, units = "in",
@@ -347,6 +353,8 @@ ggplot(data = dat_sum,
        aes(x = Bact_timepoint, y = auc_norm,
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 3, alpha = 0.5) +
+  facet_grid(~ as.numeric(Bact_pop),
+             labeller = as_labeller(function(x) {LETTERS[as.numeric(x)-2]})) +
   theme_bw() +
   scale_color_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
                      breaks = c("Anc", "NP", "P"),
@@ -364,7 +372,9 @@ ggplot(data = dat_sum,
         axis.text = element_text(size = 12),
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
-        legend.text = element_text(size = 14))
+        legend.text = element_text(size = 14),
+        plot.subtitle = element_text(size = 16)) +
+  labs(subtitle = "Replicate Population")
 dev.off()
 
 png("../plots/auc_norm_nopops.png", width = 7, height = 4, units = "in",
