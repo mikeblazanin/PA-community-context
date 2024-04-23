@@ -1,0 +1,97 @@
+library(tidyr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+
+#Okabe and Ito 2008 colorblind-safe qualitative color scale
+my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
+             "#D55E00", "#CC79A7", "#000000")
+scales::show_col(my_cols)
+
+mutations <- read.table("mutations_compare_all.tsv", sep = "\t",
+                        stringsAsFactors = FALSE, header = TRUE, quote = "")
+
+mutations_wide <- pivot_wider(mutations,
+                              names_from = title, values_from = frequency)
+
+mutations_wide$mut_id <- 1:nrow(mutations_wide)
+
+mutations_wide <- mutate(group_by(mutations_wide, mut_id),
+                         num_anc = sum(!is.na(c(`01_B_T0_3`, `02_B_T0_4`,
+                                              `03_B_T0_5`, `04_B_T0_6`,
+                                              `05_B_T0_7`, `06_B_T0_8`,
+                                              `07_B_T0_9`, `08_B_T0_10`))))
+
+mutations_long <- pivot_longer(mutations_wide,
+                               names_to = "title",
+                               values_to = "frequency",
+                               cols = `01_B_T0_3`:`58_P_T8_CP10`)
+mutations_long <- filter(mutations_long, !is.na(frequency))
+mutations_long <- mutate(mutations_long,
+                         title = ifelse(title == "42_P_T0", "42_P_T0_Anc", title))
+
+mutations_long <- separate_wider_delim(
+  mutations_long, title, "_",
+  names = c("Samp_id", "Samp_type", "Timepoint", "TreatPop"))
+mutations_long <- mutate(
+  mutations_long,
+  Timepoint = gsub("T", "", Timepoint),
+  Treat = ifelse(Timepoint == 0, "Anc", str_extract(TreatPop, "CP|NCP|CNP|NN")),
+  Pop = str_extract(TreatPop, "[:digit:]{1,2}"))
+
+mut_sum <- summarize(group_by(mutations_long, Samp_type, Timepoint, Treat, Pop, type),
+                     n_type = n(),
+                     fixed = sum(frequency == 1),
+                     polymorphic = sum(frequency > 0 & frequency < 1))
+                     
+ggplot(filter(mut_sum, Samp_type == "B"),
+       aes(x = as.factor(Timepoint), y = n_type, fill = type)) +
+  geom_bar(position = "stack", stat = "identity") +
+  facet_grid(Treat ~ as.numeric(Pop))
+
+ggplot(filter(mutations_long, Samp_type == "B"), 
+       aes(x = as.numeric(Pop), y = frequency)) +
+  geom_point(position = position_jitter(width = 0.1),
+             aes(color = num_anc > 1),
+             alpha = 0.5) +
+  facet_grid(Treat ~ .) +
+  #scale_y_log10() +
+  scale_color_manual("Appears in\nMultiple\nAncestors",
+                     breaks = c(TRUE, FALSE),
+                     values = my_cols)
+
+ggplot(filter(mutations_long, Samp_type == "B", num_anc <= 1), 
+       aes(x = as.numeric(Pop), y = frequency)) +
+  geom_point(position = position_jitter(width = 0.1),
+             aes(color = num_anc > 0),
+             alpha = 0.5) +
+  facet_grid(Treat ~ .)
+  #scale_y_log10() +
+  # scale_color_manual("Appears in\nMultiple\nAncestors",
+  #                    breaks = c(TRUE, FALSE),
+  #                    values = my_cols)
+
+mut_sum2 <- summarize(
+  group_by(mutations_long, across(c(-Samp_id, -Samp_type, -Timepoint, -TreatPop,
+                                    -frequency, -Treat, -Pop))),
+  total_freq = sum(frequency),
+  max_freq = max(frequency),
+  nhits = n(),
+  total_freq_NN = sum(frequency[Treat == "NN"]),
+  total_freq_NCP = sum(frequency[Treat == "NCP"]),
+  total_freq_CNP = sum(frequency[Treat == "CNP"]),
+  total_freq_CP = sum(frequency[Treat == "CP"]),
+  totalfreq_diff = total_freq_CP + total_freq_NCP - total_freq_CNP - total_freq_NN,
+  totalfreq_frac = (total_freq_CP + total_freq_NCP)/total_freq)
+
+write.table(
+  filter(mut_sum2, num_anc == 0, max_freq > 0.3,
+         seq_id %in% c("NZ_KE136335.1", "NZ_KE136336.1", "NZ_KE136338.1")),
+  "mut_sum2.tsv", sep = "\t", row.names = FALSE)
+
+mysub <- filter(mutations_long, 
+                seq_id %in% c("NZ_KE136335.1", "NZ_KE136336.1", "NZ_KE136338.1"),
+                num_anc == 0,
+                frequency > 0.3)
+
+write.csv(mysub, "muts_of_interest.csv")
