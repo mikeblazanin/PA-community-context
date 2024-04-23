@@ -976,7 +976,7 @@ resis_isols <- mutate(
   Plaque_morphology = ifelse(is.na(Plaque_morphology), 
                              ifelse(clearing2 == 0, "None", "Clear?"),
                              Plaque_morphology))
-stop("replace placeholder value of 1 with some flag, it should never be called")
+warning("replace placeholder value of 1 with some flag, it should never be called")
 
 #Write copy to file
 write.csv(resis_isols, "aggregate_resis_data.csv", row.names = FALSE)
@@ -986,7 +986,9 @@ resis_isols_bactsum <- summarize(
   group_by(resis_isols,
            Bact_treat, Bact_treat_C, Bact_treat_P, Bact_timepoint,
            Bact_pop, Bact_isol),
-  clearing_avg = mean(clearing, na.rm = TRUE))
+  clearing_avg = mean(clearing2, na.rm = TRUE),
+  EOP_avg = mean(EOP2_plot, na.rm = TRUE), #(the only NA's are when phage are extinct)
+  Plaque_morphology = names(sort(table(Plaque_morphology), decreasing = TRUE)[1]))
 resis_isols_bactsum_undup <- summarize(
   group_by(mutate(resis_isols_bactsum, 
          Bact_treat = ifelse(Bact_timepoint == 0, 
@@ -999,7 +1001,10 @@ resis_isols_bactsum_undup <- summarize(
                                "Anc", 
                                as.character(Bact_treat_P))),
          Bact_treat, Bact_treat_C, Bact_treat_P, Bact_timepoint,
-         Bact_pop, Bact_isol, clearing_avg))
+         Bact_pop, Bact_isol),
+  clearing_avg = mean(clearing_avg), 
+  EOP_avg = mean(EOP_avg), 
+  Plaque_morphology = names(sort(table(Plaque_morphology), decreasing = TRUE)[1]))
 
 
 #Calculate average across pops
@@ -1686,7 +1691,7 @@ isol_data <- full_join(
       !c(file, Well, Measurements)),
     id_cols = c("Bact_pop", "Bact_timepoint", "Bact_treat", 
                 "Bact_treat_C", "Bact_treat_P", "Bact_isol"),
-    names_from = "Wavelength", values_from = Meas_norm,
+    names_from = "Wavelength", values_from = Meas_norm_norm,
     names_prefix = "wavelength_"))
 if(!"growth_curve_metrics.csv" %in% list.files()) {
   source("Growthcurve_analysis.R")
@@ -1698,20 +1703,23 @@ isol_data <- full_join(
            colClasses = c("Bact_pop" = "character", 
                           "Bact_timepoint" = "character",
                           "Bact_isol" = "character")))
-isol_data <- mutate(isol_data,
-                    resis = 1-clearing_avg)
+isol_data <- mutate(
+  isol_data,
+  resis = 1-clearing_avg,
+  resis_cat = ifelse(Plaque_morphology %in% c("Clear", "Clear?"), 0,
+                     ifelse(Plaque_morphology == "None", 1, 0.5)))
 
 
 ggpairs(data = isol_data,
         columns = which(colnames(isol_data) %in% 
                           c("resis", #"cm_day_norm",  
                             "wavelength_405", "wavelength_695",
-                            "max_percap", "max_dens", "auc")),
+                            "max_percap_norm", "max_dens_norm", "auc_norm")),
         upper = list(continuous = "points"))
 
 png("./plots/maxdens_405nm_treat.png", width = 5, height = 4, units = "in", res = 150)
 ggplot(data = isol_data,
-       aes(x = max_dens, y = wavelength_405, color = Bact_treat_P)) +
+       aes(x = max_dens_norm, y = wavelength_405, color = Bact_treat_P)) +
   geom_point() +
   scale_color_manual(name = "Phage\nTreatment", 
                      breaks = c("Anc", "NP", "P", "pilA"),
@@ -1721,7 +1729,7 @@ dev.off()
 
 png("./plots/maxdens_405nm_time.png", width = 5, height = 4, units = "in", res = 150)
 ggplot(data = isol_data,
-       aes(x = max_dens, y = wavelength_405, color = Bact_timepoint)) +
+       aes(x = max_dens_norm, y = wavelength_405, color = Bact_timepoint)) +
   geom_point() +
   scale_color_manual(name = "Timepoint", 
                      breaks = c(0, 1, 2, 4, 8, "pilA"),
@@ -1730,7 +1738,7 @@ dev.off()
 
 png("./plots/maxdens_695nm_treat.png", width = 5, height = 4, units = "in", res = 150)
 ggplot(data = isol_data,
-       aes(x = max_dens, y = wavelength_695, color = Bact_treat_P)) +
+       aes(x = max_dens_norm, y = wavelength_695, color = Bact_treat_P)) +
   geom_point() +
   scale_color_manual(name = "Phage\nTreatment", 
                      breaks = c("Anc", "NP", "P", "pilA"),
@@ -1740,7 +1748,7 @@ dev.off()
 
 png("./plots/maxdens_695nm_time.png", width = 5, height = 4, units = "in", res = 150)
 ggplot(data = isol_data,
-       aes(x = max_dens, y = wavelength_695, color = Bact_timepoint)) +
+       aes(x = max_dens_norm, y = wavelength_695, color = Bact_timepoint)) +
   geom_point() +
   scale_color_manual(name = "Timepoint", 
                      breaks = c(0, 1, 2, 4, 8, "pilA"),
@@ -1771,9 +1779,9 @@ dev.off()
 pca_dat <- isol_data
 
 pca_cols <- which(colnames(pca_dat) %in%
-                    c(#"resis", #"cm_day_norm",  
+                    c(#"resis", #"cm_day_norm",
                     "wavelength_405", "wavelength_695",
-                    "max_percap", "max_dens", "auc"))
+                    "max_percap_norm", "max_dens_norm", "auc_norm"))
 
 pca_dat <- pca_dat[complete.cases(pca_dat[, pca_cols]), ]
 
@@ -1786,8 +1794,9 @@ pca_dat <- cbind(as.data.frame(isol_pca$x),
 #Rename rotations for better plotting
 replace_names = c("wavelength_405" = "w405",
                   "wavelength_695" = "w695",
-                  "max_percap" = "r",
-                  "max_dens" = "k")
+                  "max_percap_norm" = "r",
+                  "max_dens_norm" = "k",
+                  "auc_norm" = "auc")
 row.names(isol_pca$rotation) <- plyr::revalue(
   x = row.names(isol_pca$rotation), replace = replace_names)
   
@@ -1817,7 +1826,7 @@ pca_base <- ggplot(pca_dat, aes(x = PC1, y = PC2)) +
         legend.text = element_text(size = 32),
         plot.title = element_text(size = 36))
 
-png("./plots/PCA.png", width = 10, height = 7, units = "in", res = 150)
+png("./plots/PCA_time.png", width = 10, height = 7, units = "in", res = 150)
 pca_base + 
   geom_point(aes(color = Bact_timepoint), size = 5, alpha = 0.7) +
   scale_color_manual(name = "Timepoint", 
@@ -1825,7 +1834,7 @@ pca_base +
                      values = my_cols[c(8, 1, 2, 3, 7)])
 dev.off()
 
-png("./plots/PCA2.png", width = 11, height = 8, units = "in", res = 150)
+png("./plots/PCA_phagetreat.png", width = 11, height = 8, units = "in", res = 150)
 pca_base + 
   geom_point(aes(color = Bact_treat_P), size = 5, alpha = 0.7) +
   scale_color_manual(name = "Phage\nTreatment", 
@@ -1833,5 +1842,28 @@ pca_base +
                      values = my_cols[c(8, 1, 2)],
                      labels = c("Ancestor", "No Phage", "Phage"))
 dev.off()
-                        
-                        
+
+png("./plots/PCA_resis.png", width = 11, height = 6, units = "in", res = 150)
+pca_base + 
+  geom_point(aes(color = as.factor(resis_cat)), size = 5, alpha = 0.7) +
+  scale_color_manual(name = "Resistance", 
+                     breaks = c(0, 0.5, 1),
+                     values = my_cols[c(8, 1, 2)],
+                     labels = c("Susceptible", "Partial Resistance", "Full Resistance"))
+dev.off()                        
+             
+png("./plots/PCA_time&phagetreat.png", width = 11, height = 8, units = "in", res = 150)
+pca_base + 
+  geom_point(aes(color = Bact_timepoint, fill = Bact_timepoint, shape = Bact_treat_C), 
+             size = 5, alpha = 0.7) +
+  scale_color_manual(name = "Timepoint", 
+                     breaks = c(0, 1, 2, 4, 8),
+                     values = my_cols[c(8, 1, 2, 3, 7)]) +
+  scale_fill_manual(name = "Timepoint", 
+                     breaks = c(0, 1, 2, 4, 8),
+                     values = my_cols[c(8, 1, 2, 3, 7)]) +
+  scale_shape_manual(values = c(25, 21, 23, 24), name = "Other Bacteria\nAdded",
+                     breaks = c("Anc", "NC", "C"),
+                     labels = c("Ancestor", "No", "Yes")) +
+  guides(shape = guide_legend(override.aes = list(fill = "black")))
+dev.off()           
