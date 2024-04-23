@@ -1417,29 +1417,29 @@ pig <- mutate(group_by(pig, file, Wavelength),
 pig <- filter(pig, Bact_isol != "Blank")
 
 #Do batch correction
-# pig$Meas_norm2 <- NA
-# for(wave in unique(pig$Wavelength)) {
-#   #TODO
-#   #something like this
-#   #see: https://stats.stackexchange.com/questions/228800/crossed-vs-nested-random-effects-how-do-they-differ-and-how-are-they-specified
-#   twitching_lmer <- 
-#     lmer(data = twitching,
-#          cm_day ~ (1|Date) + Bact_treat + Bact_timepoint)
-#   
-#   twitching$cm_day_norm <-
-#     twitching$cm_day -
-#     predict(twitching_lmer,
-#             newdata = twitching,
-#             re.form = ~ (1|Date),
-#             random.only = TRUE)
-# }
+pig$Meas_norm_norm <- NA
+for(wave in unique(pig$Wavelength)) {
+  mydat <- pig[pig$Wavelength == wave & !is.na(pig$Meas_norm), ]
+  temp_lmer <- lmer(
+    data = mydat,
+    Meas_norm ~ (1|file) + Bact_treat + Bact_timepoint +
+      (1|Bact_treat:Bact_pop) + (1|Bact_treat:Bact_pop:Bact_isol))
+  pig$Meas_norm_norm[pig$Wavelength == wave & !is.na(pig$Meas_norm)] <-
+    mydat$Meas_norm -
+    predict(temp_lmer,
+            newdata = mydat,
+            re.form = ~ (1|file),
+            random.only = TRUE)
+}
 
 #Summarize
 pig_sum <-
   summarize(group_by(pig, Wavelength, Bact_pop, Bact_timepoint, 
                      Bact_treat, Bact_treat_C, Bact_treat_P),
             Meas_norm_avg = mean(Meas_norm),
-            Meas_norm_sd = sd(Meas_norm))
+            Meas_norm_sd = sd(Meas_norm),
+            Meas_norm_norm_avg = mean(Meas_norm_norm),
+            Meas_norm_norm_sd = sd(Meas_norm_norm))
 
 #Plots
 ggplot(data = filter(pig, Bact_pop != "Blank"), 
@@ -1449,6 +1449,11 @@ ggplot(data = filter(pig, Bact_pop != "Blank"),
 
 ggplot(data = filter(pig, Bact_pop != "Blank", Wavelength %in% c(405, 695)), 
        aes(x = Bact_timepoint, y = Meas_norm, color = Bact_treat)) +
+  geom_point(size = 3, alpha = 0.7, position = position_jitter(width = 0.2)) +
+  facet_grid(Wavelength ~ Bact_pop, scales = "free")
+
+ggplot(data = filter(pig, Bact_pop != "Blank", Wavelength %in% c(405, 695)), 
+       aes(x = Bact_timepoint, y = Meas_norm_norm, color = Bact_treat)) +
   geom_point(size = 3, alpha = 0.7, position = position_jitter(width = 0.2)) +
   facet_grid(Wavelength ~ Bact_pop, scales = "free")
 
@@ -1467,6 +1472,34 @@ ggplot(data = filter(pig, Bact_pop != "Blank", Wavelength %in% c(405, 695)),
   scale_fill_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
                      breaks = c("Anc", "NP", "P"),
                      labels = c("Ancestor", "No", "Yes")) +
+  scale_shape_manual(values = c(25, 21, 23), name = "Other Bacteria Added",
+                     breaks = c("Anc", "NC", "C"),
+                     labels = c("Ancestor", "No", "Yes")) +
+  guides(shape = guide_legend(override.aes = list(fill = "black"))) +
+  labs(x = "Timepoint (days)", y = "Absorbance") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 12),
+        strip.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
+dev.off()
+
+png("./plots/pigments_norm.png", width = 8, height = 6, units = "in",
+    res = 150)
+ggplot(data = filter(pig, Bact_pop != "Blank", Wavelength %in% c(405, 695)), 
+       aes(x = Bact_timepoint, y = Meas_norm_norm, 
+           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
+  geom_point(size = 3, alpha = 0.7, position = position_dodge(width = 0.6)) +
+  facet_grid(Wavelength ~ ., scales = "free",
+             labeller = labeller(Wavelength = c("405" = "405nm (pyoverdine)",
+                                                "695" = "695nm (pyocyanin)"))) +
+  scale_color_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
+                     breaks = c("Anc", "NP", "P"),
+                     labels = c("Ancestor", "No", "Yes")) +
+  scale_fill_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
+                    breaks = c("Anc", "NP", "P"),
+                    labels = c("Ancestor", "No", "Yes")) +
   scale_shape_manual(values = c(25, 21, 23), name = "Other Bacteria Added",
                      breaks = c("Anc", "NC", "C"),
                      labels = c("Ancestor", "No", "Yes")) +
