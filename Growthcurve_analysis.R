@@ -154,33 +154,6 @@ for(col in c("max_percap", "max_dens", "auc")) {
 }
 
 #Plot ----
-png("../plots/max_dens.png", width = 10, height = 4, units = "in",
-    res = 150)
-ggplot(data = dat_sum,
-       aes(x = Bact_timepoint, y = max_dens,
-           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
-  geom_point(size = 3, alpha = 0.5) +
-  facet_grid(~ Bact_pop) +
-  theme_bw() +
-  scale_color_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
-                     breaks = c("Anc", "NP", "P"),
-                     labels = c("Ancestor", "No", "Yes")) +
-  scale_fill_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
-                    breaks = c("Anc", "NP", "P"),
-                    labels = c("Ancestor", "No", "Yes")) +
-  scale_shape_manual(values = c(25, 21, 23), name = "Other Bacteria Added",
-                     breaks = c("Anc", "NC", "C"),
-                     labels = c("Ancestor", "No", "Yes")) +
-  guides(shape = guide_legend(override.aes = list(fill = "black"))) +
-  labs(x = "Timepoint (days)", y = "Maximum Density (OD600)") +
-  theme_bw() +
-  theme(axis.title = element_text(size = 20),
-        axis.text = element_text(size = 12),
-        strip.text = element_text(size = 16),
-        legend.title = element_text(size = 16),
-        legend.text = element_text(size = 14))
-dev.off()
-
 png("../plots/max_dens_norm.png", width = 10, height = 4, units = "in",
     res = 150)
 ggplot(data = dat_sum,
@@ -237,33 +210,6 @@ ggplot(data = dat_sum,
         legend.text = element_text(size = 14))
 dev.off()
 
-png("../plots/max_percap.png", width = 10, height = 4, units = "in",
-    res = 150)
-ggplot(data = dat_sum,
-       aes(x = Bact_timepoint, y = max_percap,
-           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
-  geom_point(size = 3, alpha = 0.5) +
-  facet_grid(~ Bact_pop) +
-  theme_bw() +
-  scale_color_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
-                     breaks = c("Anc", "NP", "P"),
-                     labels = c("Ancestor", "No", "Yes")) +
-  scale_fill_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
-                    breaks = c("Anc", "NP", "P"),
-                    labels = c("Ancestor", "No", "Yes")) +
-  scale_shape_manual(values = c(25, 21, 23), name = "Other Bacteria Added",
-                     breaks = c("Anc", "NC", "C"),
-                     labels = c("Ancestor", "No", "Yes")) +
-  guides(shape = guide_legend(override.aes = list(fill = "black"))) +
-  labs(x = "Timepoint (days)", y = "Maximum Growth Rate (/hr)") +
-  theme_bw() +
-  theme(axis.title = element_text(size = 20),
-        axis.text = element_text(size = 12),
-        strip.text = element_text(size = 16),
-        legend.title = element_text(size = 16),
-        legend.text = element_text(size = 14))
-dev.off()
-
 png("../plots/max_percap_norm.png", width = 10, height = 4, units = "in",
     res = 150)
 ggplot(data = dat_sum,
@@ -312,33 +258,6 @@ ggplot(data = dat_sum,
                      labels = c("Ancestor", "No", "Yes")) +
   guides(shape = guide_legend(override.aes = list(fill = "black"))) +
   labs(x = "Timepoint (days)", y = "Maximum Growth Rate (/hr)") +
-  theme_bw() +
-  theme(axis.title = element_text(size = 20),
-        axis.text = element_text(size = 12),
-        strip.text = element_text(size = 16),
-        legend.title = element_text(size = 16),
-        legend.text = element_text(size = 14))
-dev.off()
-
-png("../plots/auc.png", width = 10, height = 4, units = "in",
-    res = 150)
-ggplot(data = dat_sum,
-       aes(x = Bact_timepoint, y = auc,
-           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
-  geom_point(size = 3, alpha = 0.5) +
-  facet_grid(~ Bact_pop) +
-  theme_bw() +
-  scale_color_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
-                     breaks = c("Anc", "NP", "P"),
-                     labels = c("Ancestor", "No", "Yes")) +
-  scale_fill_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
-                    breaks = c("Anc", "NP", "P"),
-                    labels = c("Ancestor", "No", "Yes")) +
-  scale_shape_manual(values = c(25, 21, 23), name = "Other Bacteria Added",
-                     breaks = c("Anc", "NC", "C"),
-                     labels = c("Ancestor", "No", "Yes")) +
-  guides(shape = guide_legend(override.aes = list(fill = "black"))) +
-  labs(x = "Timepoint (days)", y = "Area Under the Curve\n(OD600 hr)") +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
         axis.text = element_text(size = 12),
