@@ -554,7 +554,7 @@ ggplot(
   scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
                      limits = c(0, NA)) +
   scale_y_continuous(trans = "log10",
-                     breaks = 10**c(2, 6, 10),
+                     breaks = 10**c(4, 6, 8),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
   labs(y = "Density (cfu/mL or pfu/mL)", x = "Timepoint (days)") +
   scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
@@ -1075,7 +1075,32 @@ ggplot(data = resis_sum_treats,
                          name = "Frequency of\nsusceptibility")
 dev.off()
 
-png("plots/resis_freq_time.png", width = 7, height = 4, units = "in", res = 150)
+png("plots/resis_freq_time.png", width = 8, height = 3.5, units = "in", res = 150)
+ggplot(data = resis_sum_pops,
+       aes(x = as.factor(Bact_timepoint), y = 1-clearing_avg,
+           color = Bact_treat_P)) +
+  geom_point(position = position_jitter(width = 0.1),
+             size = 3, alpha = 0.5) +
+  geom_line(data = resis_sum_pops_sum,
+            aes(group = Bact_treat), linewidth = 2) +
+  scale_color_manual(name = "Phage Treatment",
+                     breaks = c("NP", "P"),
+                     labels = c("No Phage", "Phage Added"),
+                     values = my_cols[c(2, 6)]) +
+  facet_grid(~ Bact_treat_C,
+             labeller = labeller(
+               Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+               Bact_treat_C = c(NC = "Only Pseudomonas", C = "All Bacteria"))) +
+  labs(x = "Bacterial timepoint", y = "Frequency of\nPhage Resistance") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 16),
+        strip.text = element_text(size = 11.5),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
+dev.off()
+
+png("plots/resis_freq_time_NConly.png", width = 7, height = 4, units = "in", res = 150)
 ggplot(data = filter(resis_sum_pops, Bact_treat_C == "NC"),
        aes(x = as.factor(Bact_timepoint), y = 1-clearing_avg,
            color = Bact_treat_P)) +
@@ -1086,7 +1111,7 @@ ggplot(data = filter(resis_sum_pops, Bact_treat_C == "NC"),
   scale_color_manual(name = "Phage Treatment",
                      breaks = c("NP", "P"),
                      labels = c("No Phage", "Phage Added"),
-                     values = my_cols[c(8, 2)]) +
+                     values = my_cols[c(2, 6)]) +
   labs(x = "Bacterial timepoint", y = "Bacterial Resistance\nto Phage") +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
@@ -1273,6 +1298,7 @@ ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
   scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
   # scale_x_discrete(labels = rep(c(0, "", 1, "", 2, "", 4, "", 8, ""),
   #                               times = c(1, 5, 1, 5, 1, 5, 1, 5, 1, 5))) +
+  scale_fill_continuous(high = "#132B43", low = "#56B1F7") +
   theme_bw() +
   theme(strip.text = element_text(size = 8),
         axis.text.y = element_text(vjust = -0.1),
@@ -1308,7 +1334,8 @@ ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
         axis.text.x = element_blank(),
         legend.position = "bottom",
         panel.spacing.x = unit(.05, "lines")) +
-  scale_fill_continuous(name = "log10(Susceptibility)") +
+  scale_fill_continuous(name = "log10(Susceptibility)",
+                        high = "#132B43", low = "#56B1F7") +
   ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Bact_timepoint * Phage_pop,
                       labeller = labeller(
                         Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
@@ -1930,7 +1957,6 @@ ggplot(
         legend.text = element_text(size = 14),
         title = element_text(size = 20))
 dev.off()
-
 
 ##Run PCA
 pca_dat <- isol_data
