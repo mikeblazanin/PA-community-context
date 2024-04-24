@@ -1015,6 +1015,19 @@ resis_sum_treats <- summarize(group_by(resis_isols,
                                 Phage_treat_P, Phage_timepoint),
                        clearing_avg = mean(clearing, na.rm = TRUE))
 
+#Calculate average for each pop
+resis_sum_pops <- summarize(group_by(resis_isols,
+                                     Bact_pop, Phage_pop,
+                                     Bact_treat, Bact_treat_C,
+                                     Bact_treat_P, Bact_timepoint,
+                                     Phage_treat, Phage_treat_C,
+                                     Phage_treat_P),
+                            clearing_avg = mean(clearing2, na.rm = TRUE))
+resis_sum_pops_sum <- summarize(group_by(resis_sum_pops,
+                                         Bact_treat, Bact_treat_C,
+                                         Bact_treat_P, Bact_timepoint),
+                                clearing_avg = mean(clearing_avg))
+
 png("plots/resis_grid.png", width = 8, height = 5, units = "in", res = 150)
 ggplot(data = resis_isols,
        aes(x = Bact_isol, 
@@ -1060,6 +1073,27 @@ ggplot(data = resis_sum_treats,
         legend.title = element_text(size = 16)) +
   scale_fill_continuous(high = "#132B43", low = "#56B1F7",
                          name = "Frequency of\nsusceptibility")
+dev.off()
+
+png("plots/resis_freq_time.png", width = 7, height = 4, units = "in", res = 150)
+ggplot(data = filter(resis_sum_pops, Bact_treat_C == "NC"),
+       aes(x = as.factor(Bact_timepoint), y = 1-clearing_avg,
+           color = Bact_treat_P)) +
+  geom_point(position = position_jitter(width = 0.1),
+             size = 3, alpha = 0.5) +
+  geom_line(data = filter(resis_sum_pops_sum, Bact_treat_C == "NC"),
+            aes(group = Bact_treat), linewidth = 2) +
+  scale_color_manual(name = "Phage Treatment",
+                     breaks = c("NP", "P"),
+                     labels = c("No Phage", "Phage Added"),
+                     values = my_cols[c(8, 2)]) +
+  labs(x = "Bacterial timepoint", y = "Bacterial Resistance\nto Phage") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 16),
+        strip.text = element_text(size = 11.5),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
 dev.off()
 
 png("plots/resis_grid_phagetreats.png", width = 10, height = 3.5, 
@@ -1724,6 +1758,30 @@ ptwitching_norm2 <-
         legend.text = element_text(size = 14),
         title = element_text(size = 20))
 print(ptwitching_norm2)
+dev.off()
+
+png("./plots/motility_norm_nopops_NConly.png", width = 7, height = 5, units = "in",
+    res = 150)               
+ggplot(data = filter(twitching_isols, Bact_treat_C != "C"),
+       aes(x = Bact_timepoint, y = cm_day_norm, 
+           color = Bact_treat_P, fill = Bact_treat_P)) +
+  geom_point(size = 4, alpha = 0.5,
+             position = position_dodge(width = 0.3)) +
+  labs(x = "Timepoint", y = "Normalized Twitching Motility\n(cm/day)") +
+  scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                     breaks = c("Anc", "NP", "P", "pilA"),
+                     labels = c("Ancestor", "No", "Yes", "No pilus control")) +
+  scale_fill_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                    breaks = c("Anc", "NP", "P", "pilA"),
+                    labels = c("Ancestor", "No", "Yes", "No pilus control")) +
+  guides(fill = "none") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 12),
+        strip.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        title = element_text(size = 20))
 dev.off()
 
 if(F) {
