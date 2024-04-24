@@ -43,22 +43,41 @@ mut_sum <- summarize(group_by(mutations_long, Samp_type, Timepoint, Treat, Pop, 
                      n_type = n(),
                      fixed = sum(frequency == 1),
                      polymorphic = sum(frequency > 0 & frequency < 1))
-                     
-ggplot(filter(mut_sum, Samp_type == "B"),
-       aes(x = as.factor(Timepoint), y = n_type, fill = type)) +
-  geom_bar(position = "stack", stat = "identity") +
-  facet_grid(Treat ~ as.numeric(Pop))
 
+png("./plots/muts_per_pop.png", width = 7, height = 4, units = "in",
+    res = 150)              
+ggplot(filter(mut_sum, Samp_type == "B"),
+       aes(x = as.numeric(Pop), y = n_type, fill = type)) +
+  geom_bar(position = "stack", stat = "identity") +
+  facet_grid(~ Treat,
+             labeller = labeller(
+               Treat = c(Anc = "Ancestor", 
+                         "NN" = "Only Pseudomonas\nNo Phage",
+                         "CNP" = "All Bacteria\nNo Phage",
+                         "NCP" = "Only Pseudomonas\nPhage Added",
+                         "CP" = "All Bacteria\nPhage Added"))) +
+  labs(x = "Population", y = "Number of mutations")
+dev.off()
+
+png("./plots/muts_in_ancestors.png", width = 6, height = 6, units = "in",
+    res = 150)
 ggplot(filter(mutations_long, Samp_type == "B"), 
        aes(x = as.numeric(Pop), y = frequency)) +
   geom_point(position = position_jitter(width = 0.1),
              aes(color = num_anc > 1),
              alpha = 0.5) +
-  facet_grid(Treat ~ .) +
-  #scale_y_log10() +
+  facet_grid(Treat ~ .,
+             labeller = labeller(
+               Treat = c(Anc = "Ancestor", 
+                         "NN" = "Only Pseudomonas\nNo Phage",
+                         "CNP" = "All Bacteria\nNo Phage",
+                         "NCP" = "Only Pseudomonas\nPhage Added",
+                         "CP" = "All Bacteria\nPhage Added"))) +
   scale_color_manual("Appears in\nMultiple\nAncestors",
                      breaks = c(TRUE, FALSE),
-                     values = my_cols)
+                     values = my_cols[c(2, 8)]) +
+  labs(x = "Population")
+dev.off()
 
 ggplot(filter(mutations_long, Samp_type == "B", num_anc <= 1), 
        aes(x = as.numeric(Pop), y = frequency)) +
@@ -72,7 +91,8 @@ ggplot(filter(mutations_long, Samp_type == "B", num_anc <= 1),
   #                    values = my_cols)
 
 mut_sum2 <- summarize(
-  group_by(mutations_long, across(c(-Samp_id, -Samp_type, -Timepoint, -TreatPop,
+  group_by(filter(mutations_long, Samp_type == "B"),
+          across(c(-Samp_id, -Samp_type, -Timepoint, -TreatPop,
                                     -frequency, -Treat, -Pop))),
   total_freq = sum(frequency),
   max_freq = max(frequency),
@@ -82,16 +102,36 @@ mut_sum2 <- summarize(
   total_freq_CNP = sum(frequency[Treat == "CNP"]),
   total_freq_CP = sum(frequency[Treat == "CP"]),
   totalfreq_diff = total_freq_CP + total_freq_NCP - total_freq_CNP - total_freq_NN,
-  totalfreq_frac = (total_freq_CP + total_freq_NCP)/total_freq)
+  totalfreq_frac = (total_freq_CP + total_freq_NCP)/total_freq,
+  max_freq_NN = max(c(0, frequency[Treat == "NN"])),
+  max_freq_NCP = max(c(0, frequency[Treat == "NCP"])),
+  max_freq_CNP = max(c(0, frequency[Treat == "CNP"])),
+  max_freq_CP = max(c(0, frequency[Treat == "CP"])),
+  max_freq_P = max(max_freq_NCP, max_freq_CP),
+  max_freq_NP = max(max_freq_CNP, max_freq_NN))
 
 write.table(
   filter(mut_sum2, num_anc == 0, max_freq > 0.3,
          seq_id %in% c("NZ_KE136335.1", "NZ_KE136336.1", "NZ_KE136338.1")),
-  "mut_sum2.tsv", sep = "\t", row.names = FALSE)
+  "mutations_of_interest.tsv", sep = "\t", row.names = FALSE)
 
-mysub <- filter(mutations_long, 
-                seq_id %in% c("NZ_KE136335.1", "NZ_KE136336.1", "NZ_KE136338.1"),
-                num_anc == 0,
-                frequency > 0.3)
+ggplot(data = mutate(mut_sum2,
+                     pilus_related = grepl("pil|Pil", gene_product)),
+       aes(x = (total_freq_NN + total_freq_CNP)/16,
+           y = (total_freq_NCP + total_freq_CP)/16)) +
+  geom_point(aes(size = nhits, color = pilus_related), alpha = 0.5) +
+  scale_size_continuous(name = "Number of\noccurrences", range = c(0, 4)) +
+  labs(x = "Average frequency in\nno-phage populations",
+       y = "Average frequency in\nphage-added populations") +
+  scale_y_log10()
 
-write.csv(mysub, "muts_of_interest.csv")
+png("./plots/mutation_frequency.png", width = 6, height = 6, units = "in",
+    res = 150)
+ggplot(data = mutate(mut_sum2,
+                     pilus_related = grepl("pil|Pil", gene_product)),
+       aes(y = max_freq_P, x = max_freq_NP)) +
+  geom_point(aes(size = total_freq/32, color = pilus_related), alpha = 0.5) +
+  scale_size_continuous(name = "Average frequency", range = c(1, 4)) +
+  labs(x = "Max frequency in\nno-phage populations",
+       y = "Max frequency in\nphage-added populations")
+dev.off()
