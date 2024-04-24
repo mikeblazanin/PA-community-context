@@ -1259,6 +1259,32 @@ ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
   NULL
 dev.off()
 
+png("plots/EOP_grid_phagetreats2.png", width = 10, height = 3.5, 
+    units = "in", res = 150)
+ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
+       aes(x = Bact_isol, 
+           y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+  geom_tile(aes(fill = log10(EOP2_plot))) +
+  scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  scale_x_continuous(breaks = 1:6) +
+  theme_bw() +
+  theme(strip.text = element_text(size = 8),
+        axis.text.y = element_text(vjust = -0.1),
+        #axis.text.x = element_text(hjust = 0.2),
+        axis.text.x = element_blank(),
+        legend.position = "bottom",
+        panel.spacing.x = unit(.05, "lines")) +
+  scale_fill_continuous(name = "log10(Susceptibility)") +
+  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Bact_timepoint * Phage_pop,
+                      labeller = labeller(
+                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                        Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria"),
+                        Bact_timepoint = function(x) paste("Bacterial timepoint", x))) +
+  labs(x = "Bacterial Isolate", y = "Phage timepoint",
+       subtitle = "Replicate population") +
+  NULL
+dev.off()
+
 png("plots/Plaquemorph_grid_phagetreats.png", width = 10, height = 3.5, 
     units = "in", res = 150)
 ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
@@ -1285,6 +1311,42 @@ ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
                         Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria"))) +
   labs(x = "Bacterial Isolate", y = "Phage timepoint",
        subtitle = "Population\nBacterial timepoint") +
+  NULL
+dev.off()
+
+png("plots/Plaquemorph_grid_phagetreats2.png", width = 10, height = 3.5, 
+    units = "in", res = 150)
+ggplot(data = mutate(
+  filter(resis_isols, Bact_treat_P == "P"),
+  Plaque_morphology = ifelse(Plaque_morphology %in% c("Tiny", "Cloudy"),
+                             "Tiny/Cloudy", Plaque_morphology)),
+       aes(x = Bact_isol, 
+           y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+  geom_tile(aes(fill = as.factor(Plaque_morphology))) +
+  scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  # scale_x_discrete(labels = rep(c(0, "", 1, "", 2, "", 4, "", 8, ""),
+  #                               times = c(1, 5, 1, 5, 1, 5, 1, 5, 1, 5))) +
+  theme_bw() +
+  theme(strip.text = element_text(size = 8),
+        axis.text.y = element_text(vjust = -0.1),
+        #axis.text.x = element_text(hjust = 0.2),
+        axis.text.x = element_blank(),
+        legend.position = "bottom",
+        panel.spacing.x = unit(.05, "lines")) +
+  scale_fill_manual(
+    breaks = c("Clear", "Clear?", "Tiny/Cloudy", "None", NA),
+    labels = c("Clear", "Unconfirmed", "Tiny/Cloudy", "None", "Phage Extinct"),
+    values = c(scales::seq_gradient_pal(low = "#132B43", high = "#56B1F7")(
+      seq(0, 1, length.out = 4)), "gray"),
+    name = "Plaque Morphology") +
+  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Bact_timepoint * Phage_pop,
+                      labeller = labeller(
+                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                        Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria"),
+                        Bact_timepoint = function(x) paste("Bacterial timepoint", x))) +
+  labs(x = "Bacterial Isolate", y = "Phage timepoint",
+       subtitle = "Population") +
+  guides(fill = guide_legend(nrow = 1)) +
   NULL
 dev.off()
 
@@ -1772,6 +1834,43 @@ ptwitching_norm2 +
                  group = paste(Bact_treat_P, Bact_treat_C)),
              pch = 4, color = "black", size = 3,
              position = position_dodge(width = 0.5))
+dev.off()
+
+png("./plots/motility_vs_resis.png", width = 6, height = 5, units = "in",
+    res = 150)
+ggplot(
+  data = mutate(
+    ungroup(isol_data),
+    resis_cat = ifelse(is.na(Plaque_morphology), "Resistant", Plaque_morphology),
+    resis_cat = plyr::revalue(resis_cat,
+                              c("Clear" = "Susceptible", "Clear?" = "Susceptible",
+                                "Cloudy" = "Partially Susceptible", 
+                                "Tiny" = "Partially Susceptible",
+                                "None" = "Resistant"))),
+       aes(x = resis_cat, y = cm_day_norm,
+           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
+  geom_point(size = 4, alpha = 0.4, position = position_dodge(width = .75)) +
+  labs(x = "", y = "Normalized Twitching Motility\n(cm/day)") +
+  scale_x_discrete(limits = c("Susceptible", "Partially Susceptible",
+                              "Resistant")) +
+  scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                     breaks = c("Anc", "NP", "P", "pilA"),
+                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  scale_fill_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                    breaks = c("Anc", "NP", "P", "pilA"),
+                    labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  scale_shape_manual(values = c(25, 21, 23, 24), name = "Other Bacteria Added",
+                     breaks = c("Anc", "NC", "C", "pilA"),
+                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  guides(shape = guide_legend(override.aes = list(fill = "black"))) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 12),
+        axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
+        strip.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        title = element_text(size = 20))
 dev.off()
 
 
