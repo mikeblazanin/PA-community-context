@@ -427,18 +427,19 @@
     },
     "gcplyr": {
       "Package": "gcplyr",
-      "Version": "1.8.0",
+      "Version": "1.9.0",
       "Source": "Repository",
       "Repository": "CRAN",
       "Requirements": [
         "R",
         "dplyr",
+        "rlang",
         "stats",
         "tidyr",
         "tools",
         "utils"
       ],
-      "Hash": "8e19d467068c58a15f5a788493722f6c"
+      "Hash": "4f98960bb21a94ae3719d1f30dbb26a8"
     },
     "generics": {
       "Package": "generics",
