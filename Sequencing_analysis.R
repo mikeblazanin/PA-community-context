@@ -108,7 +108,9 @@ mut_sum2 <- summarize(
   max_freq_CNP = max(c(0, frequency[Treat == "CNP"])),
   max_freq_CP = max(c(0, frequency[Treat == "CP"])),
   max_freq_P = max(max_freq_NCP, max_freq_CP),
-  max_freq_NP = max(max_freq_CNP, max_freq_NN))
+  max_freq_NP = max(max_freq_CNP, max_freq_NN),
+  max_freq_C = max(max_freq_CP, max_freq_CNP),
+  max_freq_NC = max(max_freq_NCP, max_freq_NN))
 
 write.table(
   filter(mut_sum2, num_anc == 0, max_freq > 0.3,
@@ -134,4 +136,46 @@ ggplot(data = mutate(mut_sum2,
   scale_size_continuous(name = "Average frequency", range = c(1, 4)) +
   labs(x = "Max frequency in\nno-phage populations",
        y = "Max frequency in\nphage-added populations")
+dev.off()
+
+png("./plots/mutation_frequency_simple.png", width = 6, height = 5, units = "in",
+    res = 150)
+ggplot(data = mutate(mut_sum2,
+                     pilus_related = grepl("pil|Pil", gene_product)),
+       aes(y = max_freq_P, x = max_freq_NP)) +
+  geom_point(aes(color = pilus_related), alpha = 0.5, size = 2.5) +
+  labs(x = "Max frequency in\nno-phage populations",
+       y = "Max frequency in\nphage-added populations") +
+  scale_color_manual(name = "Pilus-related\nmutation",
+                     breaks = c(FALSE, TRUE),
+                     values = my_cols[c(5, 6)]) +
+  scale_x_continuous(breaks = c(0, 1)) +
+  scale_y_continuous(breaks = c(0, 1)) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 12),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
+dev.off()
+
+png("./plots/mutation_frequency_NCvsC_amongP.png", width = 6, height = 5, units = "in",
+    res = 150)
+ggplot(data = mutate(filter(mut_sum2, max_freq_NP == 0),
+                     pilus_related = grepl("pil|Pil", gene_product)),
+       aes(y = max_freq_C, x = max_freq_NC)) +
+  geom_point(aes(color = pilus_related), alpha = 0.5, size = 2.5) +
+  labs(x = "Max frequency in\nonly-Pseudomonas populations",
+       y = "Max frequency in\nall bacteria populations",
+       subtitle = "Among phage-added-only mutations") +
+  scale_color_manual(name = "Pilus-related\nmutation",
+                     breaks = c(FALSE, TRUE),
+                     values = my_cols[c(5, 6)]) +
+  scale_x_continuous(breaks = c(0, 1)) +
+  scale_y_continuous(breaks = c(0, 1)) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 12),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        plot.subtitle = element_text(size = 16))
 dev.off()
