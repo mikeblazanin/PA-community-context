@@ -2050,3 +2050,46 @@ pca_base +
                      labels = c("Ancestor", "No", "Yes")) +
   guides(shape = guide_legend(override.aes = list(fill = "black")))
 dev.off()           
+
+png("./plots/maxdens_v_resis.png", width = 7, height = 10, units = "in", res = 300)
+ggplot(data = filter(isol_data, Bact_treat != "pilA"),
+       aes(x = Bact_timepoint, y = max_dens_norm,
+           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
+  geom_point(size = 3, alpha = 0.5) +
+  facet_grid(as.numeric(Bact_pop) ~ resis_cat) +
+  theme_bw() +
+  scale_color_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
+                     breaks = c("Anc", "NP", "P"),
+                     labels = c("Ancestor", "No", "Yes")) +
+  scale_fill_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
+                    breaks = c("Anc", "NP", "P"),
+                    labels = c("Ancestor", "No", "Yes")) +
+  scale_shape_manual(values = c(25, 21, 23), name = "Other Bacteria Added",
+                     breaks = c("Anc", "NC", "C"),
+                     labels = c("Ancestor", "No", "Yes")) +
+  guides(shape = guide_legend(override.aes = list(fill = "black"))) +
+  labs(x = "Timepoint (days)", y = "Maximum Density (OD600)") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 12),
+        strip.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        plot.subtitle = element_text(size = 16))
+dev.off()
+
+ggplot(data = filter(isol_data, Bact_treat != "pilA"),
+       aes(x = resis_cat, y = max_dens_norm,
+           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
+  geom_point(size = 3, alpha = 0.5) +
+  theme_bw() +
+  scale_color_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
+                     breaks = c("Anc", "NP", "P"),
+                     labels = c("Ancestor", "No", "Yes")) +
+  scale_fill_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
+                    breaks = c("Anc", "NP", "P"),
+                    labels = c("Ancestor", "No", "Yes")) +
+  scale_shape_manual(values = c(25, 21, 23), name = "Other Bacteria Added",
+                     breaks = c("Anc", "NC", "C"),
+                     labels = c("Ancestor", "No", "Yes")) +
+  guides(shape = guide_legend(override.aes = list(fill = "black")))
