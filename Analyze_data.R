@@ -610,6 +610,38 @@ ggplot(
   guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1)))
 dev.off()
 
+png("plots/density_phage_Ponly.png", width = 3.5, height = 5, units = "in",
+    res = 150)
+ggplot(
+  data = filter(density, Strain == "H6", Pop %in% 3:10, !is.na(cfu_ml),
+                !(Pop == 9 & treat_P == "NP"), treat_P == "P"),
+  aes(x = Timepoint, y = cfu_ml)) +
+  #geom_point(aes(shape = bd)) + 
+  geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
+  #geom_line(data = density_sum, lwd = 2, alpha = 0.8) +
+  geom_hline(yintercept = 400, lty = 2) +
+  facet_grid(treat_C ~ treat_P,
+             labeller = labeller(treat_P = c("P" = "Phage Added",
+                                             "NP" = "No Phage"),
+                                 treat_C = c("C" = "All Bacteria",
+                                             "NC" = "Only Pseudomonas"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
+                     limits = c(0, NA)) +
+  scale_y_continuous(trans = "log10",
+                     breaks = 10**c(2, 6, 10),
+                     labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  labs(y = "Phage Density (pfu/mL)", x = "Timepoint (days)") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 10),
+        strip.text =  element_text(size = 12.5),
+        #legend.position = c(0.3, 0.6),
+        legend.background = element_rect(color = "black")) +
+  guides(color = guide_legend(override.aes = list(lwd = 2, alpha = 1)))
+dev.off()
+
 png("plots/density_phageemphasized.png", width = 7, height = 5, units = "in",
     res = 150)
 ggplot(
@@ -1092,6 +1124,52 @@ ggplot(data = resis_sum_pops,
                Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
                Bact_treat_C = c(NC = "Only Pseudomonas", C = "All Bacteria"))) +
   labs(x = "Bacterial timepoint", y = "Frequency of\nPhage Resistance") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 16),
+        strip.text = element_text(size = 11.5),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
+dev.off()
+
+png("plots/resis_freq_time_vert.png", width = 6, height = 5, units = "in", res = 150)
+ggplot(data = resis_sum_pops,
+       aes(x = as.factor(Bact_timepoint), y = 1-clearing_avg,
+           color = Bact_treat_P)) +
+  geom_point(position = position_jitter(width = 0.1),
+             size = 3, alpha = 0.5) +
+  geom_line(data = resis_sum_pops_sum,
+            aes(group = Bact_treat), linewidth = 2) +
+  scale_color_manual(name = "Phage Treatment",
+                     breaks = c("NP", "P"),
+                     labels = c("No Phage", "Phage Added"),
+                     values = my_cols[c(2, 6)]) +
+  facet_grid(Bact_treat_C ~ .,
+             labeller = labeller(
+               Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+               Bact_treat_C = c(NC = "Only Pseudomonas", C = "All Bacteria"))) +
+  labs(x = "Bacterial timepoint", y = "Frequency of\nPhage Resistance") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 16),
+        strip.text = element_text(size = 11.5),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
+dev.off()
+
+png("plots/resis_freq_time_vert_Ponly.png", width = 4, height = 5, units = "in", res = 150)
+ggplot(data = filter(resis_sum_pops, Bact_treat_P == "P"),
+       aes(x = as.factor(Bact_timepoint), y = 1-clearing_avg)) +
+  geom_point(position = position_jitter(width = 0.1),
+             size = 3, alpha = 0.5) +
+  geom_line(data = filter(resis_sum_pops_sum, Bact_treat_P == "P"),
+            aes(group = Bact_treat), linewidth = 2) +
+  facet_grid(Bact_treat_C ~ .,
+             labeller = labeller(
+               Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+               Bact_treat_C = c(NC = "Only Pseudomonas", C = "All Bacteria"))) +
+  labs(x = "Bacterial timepoint", y = "Frequency of\nPhage Resistance") +
+  scale_y_continuous(breaks = c(0, 1)) +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
         axis.text = element_text(size = 16),
