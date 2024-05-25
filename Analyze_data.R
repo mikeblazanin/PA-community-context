@@ -1003,15 +1003,12 @@ resis_isols <- mutate(
   resis_isols,
   clearing2 = ifelse(is.na(clearing2), clearing, clearing2),
   EOP2_plot = ifelse(is.na(EOP2_plot), 
-                     ifelse(clearing2 == 0, min(EOP2_plot, na.rm = TRUE), 1), 
+                     ifelse(clearing2 == 0, min(EOP2_plot, na.rm = TRUE), NA),
+                     #Note: Pop 3 T0 #3 couldn't be retested so it gets set to NA here
                      EOP2_plot),
   Plaque_morphology = ifelse(is.na(Plaque_morphology), 
                              ifelse(clearing2 == 0, "None", "Clear?"),
                              Plaque_morphology))
-warning("replace placeholder value of 1 with some flag, it should never be called")
-
-#Write copy to file
-write.csv(resis_isols, "aggregate_resis_data.csv", row.names = FALSE)
 
 #Calculate average for ea bact isol across phages
 resis_isols_bactsum <- summarize(
@@ -1021,6 +1018,25 @@ resis_isols_bactsum <- summarize(
   clearing_avg = mean(clearing2, na.rm = TRUE),
   EOP_avg = mean(EOP2_plot, na.rm = TRUE), #(the only NA's are when phage are extinct)
   Plaque_morphology = names(sort(table(Plaque_morphology), decreasing = TRUE)[1]))
+resis_isols_bactsum <- mutate(
+  group_by(resis_isols_bactsum,
+           Bact_treat, Bact_treat_C, Bact_treat_P, Bact_timepoint, Bact_pop),
+  Bact_isol_forplotting = rank(EOP_avg, ties.method = "first", na.last = "keep"),
+  Bact_isol_forplotting = 
+    if(any(!is.na(Bact_isol_forplotting))) {
+      1 + max(Bact_isol_forplotting, na.rm = TRUE) - Bact_isol_forplotting
+      } else {NA})
+  
+resis_isols <-
+  left_join(resis_isols,
+            select(resis_isols_bactsum,
+                   Bact_treat, Bact_treat_C, Bact_treat_P, Bact_timepoint,
+                   Bact_pop, Bact_isol,
+                   Bact_isol_forplotting))
+                  
+#Write copy to file
+write.csv(resis_isols, "aggregate_resis_data.csv", row.names = FALSE)
+
 resis_isols_bactsum_undup <- summarize(
   group_by(mutate(resis_isols_bactsum, 
          Bact_treat = ifelse(Bact_timepoint == 0, 
@@ -1417,6 +1433,34 @@ ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
   scale_fill_continuous(name = "log10(Susceptibility)",
                         type = "viridis") +
                         #high = "#132B43", low = "#56B1F7") +
+  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Bact_timepoint * Phage_pop,
+                      labeller = labeller(
+                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                        Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria"),
+                        Bact_timepoint = function(x) paste("Bacterial timepoint", x))) +
+  labs(x = "Bacterial Isolate", y = "Phage timepoint",
+       subtitle = "Replicate population") +
+  NULL
+dev.off()
+
+png("plots/EOP_grid_phagetreats2_reordered.png", width = 10, height = 3.5, 
+    units = "in", res = 300)
+ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
+       aes(x = Bact_isol_forplotting, 
+           y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+  geom_tile(aes(fill = log10(EOP2_plot))) +
+  scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+  scale_x_continuous(breaks = 1:6) +
+  theme_bw() +
+  theme(strip.text = element_text(size = 8),
+        axis.text.y = element_text(vjust = -0.1),
+        #axis.text.x = element_text(hjust = 0.2),
+        axis.text.x = element_blank(),
+        legend.position = "bottom",
+        panel.spacing.x = unit(.05, "lines")) +
+  scale_fill_continuous(name = "log10(Susceptibility)",
+                        type = "viridis") +
+  #high = "#132B43", low = "#56B1F7") +
   ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Bact_timepoint * Phage_pop,
                       labeller = labeller(
                         Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
