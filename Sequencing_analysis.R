@@ -138,24 +138,28 @@ ggplot(data = mutate(mut_sum2,
        y = "Max frequency in\nphage-added populations")
 dev.off()
 
-png("./plots/mutation_frequency_simple.png", width = 6, height = 5, units = "in",
+png("./plots/mutation_frequency_simple.png", width = 6, height = 3.2, units = "in",
     res = 150)
 ggplot(data = mutate(mut_sum2,
                      pilus_related = grepl("pil|Pil", gene_product)),
        aes(y = max_freq_P, x = max_freq_NP)) +
-  geom_point(aes(color = pilus_related), alpha = 0.5, size = 2.5) +
+  geom_point(aes(color = pilus_related), alpha = 0.3, size = 2.5) +
   labs(x = "Max frequency in\nno-phage populations",
        y = "Max frequency in\nphage-added populations") +
-  scale_color_manual(name = "Pilus-related\nmutation",
-                     breaks = c(FALSE, TRUE),
-                     values = my_cols[c(5, 6)]) +
+  scale_color_manual(name = "Location of\nbacterial mutation",
+                     breaks = c(TRUE, FALSE),
+                     values = my_cols[c(6, 5)],
+                     labels = c("Mutation in\nphage receptor",
+                                "Mutation in\nother gene")) +
   scale_x_continuous(breaks = c(0, 1)) +
   scale_y_continuous(breaks = c(0, 1)) +
   theme_bw() +
+  guides(color = guide_legend(byrow = TRUE)) +
   theme(axis.title = element_text(size = 16),
         axis.text = element_text(size = 12),
         legend.title = element_text(size = 16),
-        legend.text = element_text(size = 14))
+        legend.text = element_text(size = 14),
+        legend.spacing.y = unit(0.1, "in"))
 dev.off()
 
 png("./plots/mutation_frequency_NCvsC_amongP.png", width = 6, height = 5, units = "in",
