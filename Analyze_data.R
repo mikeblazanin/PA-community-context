@@ -1626,6 +1626,21 @@ ggplot(data = mutate(
   NULL
 dev.off()
 
+png("plots/EOP_points.png", width = 10, height = 3.5, 
+    units = "in", res = 150)
+ggplot(data = filter(resis_isols_bactsum, Bact_treat_P == "P"),
+       aes(x = as.factor(Bact_timepoint), y = EOP_avg, group = Bact_pop)) +
+  geom_point(position = position_dodge(width = 0.2), alpha = 0.3) +
+  ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ .,
+                      labeller = labeller(
+                        Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                        Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria"))) +
+  labs(y = "log10(Susceptibility)") +
+  scale_y_log10() +
+  theme_bw()
+dev.off()
+
+
 ### Population dynamics vs resistance ----
 
 #Calculate average resistance w/in pops
@@ -1861,6 +1876,94 @@ ggplot(data = filter(pig_sum, Bact_pop != "Blank", Wavelength %in% c(405, 695)),
   geom_point(size = 3, alpha = 0.7, position = position_dodge(width = 0.3)) +
   facet_grid(Wavelength ~ ., scales = "free")
 
+# Biofilm ----
+
+#Data
+biofilm <- import_blockmeasures(
+  list.files(path = "./biofilm_data/", full.names = T, pattern = ".*Data.csv$"),
+  startrow = 26, endrow = 34, endcol = "M")
+biofilm <- trans_wide_to_tidy(biofilm, id_cols = "block_name",
+                              values_to = "biofilm_abs")
+biofilm$block_name <- gsub("Data$", "", biofilm$block_name)
+
+#Designs
+biofilm_designs <- import_blockdesigns(
+  list.files(path = "./biofilm_data/", full.names = T, pattern = ".*Design.csv$"),
+  join_designs = FALSE)
+biofilm_designs$block_name <- gsub("Design$", "", biofilm_designs$block_name)
+#Chank blanks to NA
+biofilm_designs <- mutate(biofilm_designs,
+                          Designs = ifelse(Designs == "W", NA, Designs))
+biofilm_designs <- separate_tidy(biofilm_designs,
+                                 "Designs",
+                                 sep = ", ",
+                                 into = c("Bact_pop", "Bact_timepoint", "Bact_treat", "Bact_isol"))
+
+#Merge
+biofilm <- merge_dfs(biofilm, biofilm_designs, drop = TRUE)
+
+biofilm <- mutate(group_by(biofilm, block_name),
+                  Biofilm_norm = biofilm_abs - biofilm_abs[Bact_pop == "Blank"])
+biofilm <- filter(biofilm, Bact_pop != "Blank")
+
+#Adjust columns for cross-compatibility
+biofilm <- mutate(biofilm,
+              Bact_isol = gsub("#", "", Bact_isol),
+              Bact_pop = gsub("P", "", Bact_pop),
+              Bact_timepoint = gsub("T", "", Bact_timepoint),
+              Bact_treat_C = factor(
+                ifelse(Bact_treat %in% c("NCP", "NN"), "NC",
+                       ifelse(Bact_treat %in% c("CNP", "CP"), "C",
+                              Bact_treat)),
+                levels = c("Anc", "pilA", "NC", "C")),
+              Bact_treat_P = factor(
+                ifelse(Bact_treat %in% c("NN", "CNP"), "NP",
+                       ifelse(Bact_treat %in% c("NCP", "CP"), "P",
+                              Bact_treat)),
+                levels = c("Anc", "pilA", "NP", "P")),
+              Bact_treat = factor(Bact_treat,
+                                  levels = c("Anc", "pilA", "NN", "CNP", "NCP", "CP")))
+
+# #Do batch correction
+# biofilm$Meas_norm_log10 <- log10(biofilm$Meas_norm)
+# biofilm_lmer <- lmer(
+#   data = biofilm,
+#   Meas_norm_log10 ~ (1|block_name) + Bact_treat + Bact_timepoint +
+#     (1|Bact_treat:Bact_pop) + (1|Bact_treat:Bact_pop:Bact_isol))
+# biofilm$Meas_norm_norm_log10 <-
+#   biofilm$Meas_norm_log10 -
+#   10**predict(biofilm_lmer,
+#           newdata = biofilm,
+#           re.form = ~ (1|block_name),
+#           random.only = TRUE)
+
+png("./plots/biofilm.png", width = 8, height = 6, units = "in",
+    res = 150)
+ggplot(data = biofilm, 
+       aes(x = Bact_timepoint, y = biofilm_abs, 
+           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
+  geom_point(size = 3, alpha = 0.7, position = position_dodge(width = 0.6)) +
+  scale_y_log10() +
+  #facet_grid(~block_name) +
+  scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                     breaks = c("Anc", "NP", "P", "pilA"),
+                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  scale_fill_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                    breaks = c("Anc", "NP", "P", "pilA"),
+                    labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  scale_shape_manual(values = c(25, 21, 23, 24), name = "Other Bacteria Added",
+                     breaks = c("Anc", "NC", "C", "pilA"),
+                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  guides(shape = guide_legend(override.aes = list(fill = "black"))) +
+  labs(x = "Timepoint (days)", y = "Absorbance") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 12),
+        strip.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
+dev.off()
+
 # Twitching ----
 twitching <- read.csv("Twitching Motility Data.csv")
 
@@ -2065,6 +2168,8 @@ isol_data <- full_join(
            colClasses = c("Bact_pop" = "character", 
                           "Bact_timepoint" = "character",
                           "Bact_isol" = "character")))
+# isol_data <- full_join(isol_data, 
+#                        dplyr::select(biofilm, !block_name & !Well))
 isol_data <- mutate(
   isol_data,
   resis = 1-clearing_avg,
