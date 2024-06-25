@@ -1937,14 +1937,40 @@ biofilm <- mutate(biofilm,
 #           re.form = ~ (1|block_name),
 #           random.only = TRUE)
 
-png("./plots/biofilm.png", width = 8, height = 6, units = "in",
+png("./plots/biofilm.png", width = 10, height = 4, units = "in",
     res = 150)
 ggplot(data = biofilm, 
        aes(x = Bact_timepoint, y = biofilm_abs, 
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 3, alpha = 0.7, position = position_dodge(width = 0.6)) +
   scale_y_log10() +
-  #facet_grid(~block_name) +
+  facet_grid(~block_name) +
+  scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                     breaks = c("Anc", "NP", "P", "pilA"),
+                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  scale_fill_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                    breaks = c("Anc", "NP", "P", "pilA"),
+                    labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  scale_shape_manual(values = c(25, 21, 23, 24), name = "Other Bacteria Added",
+                     breaks = c("Anc", "NC", "C", "pilA"),
+                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  guides(shape = guide_legend(override.aes = list(fill = "black"))) +
+  labs(x = "Timepoint (days)", y = "Absorbance") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 12),
+        strip.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
+dev.off()
+
+png("./plots/biofilm_nopops.png", width = 8, height = 6, units = "in",
+    res = 150)
+ggplot(data = biofilm, 
+       aes(x = Bact_timepoint, y = biofilm_abs, 
+           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
+  geom_point(size = 3, alpha = 0.7, position = position_dodge(width = 0.6)) +
+  scale_y_log10() +
   scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
                      breaks = c("Anc", "NP", "P", "pilA"),
                      labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
