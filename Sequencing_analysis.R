@@ -112,10 +112,111 @@ mut_sum2 <- summarize(
   max_freq_C = max(max_freq_CP, max_freq_CNP),
   max_freq_NC = max(max_freq_NCP, max_freq_NN))
 
+mutlong_B <- mutate(
+  group_by(filter(mutations_long, Samp_type == "B"),
+           across(c(-Samp_id, -Samp_type, -Timepoint, -TreatPop,
+                    -frequency, -Treat, -Pop))),
+  total_freq = sum(frequency),
+  max_freq = max(frequency),
+  nhits = n(),
+  total_freq_NN = sum(frequency[Treat == "NN"]),
+  total_freq_NCP = sum(frequency[Treat == "NCP"]),
+  total_freq_CNP = sum(frequency[Treat == "CNP"]),
+  total_freq_CP = sum(frequency[Treat == "CP"]),
+  totalfreq_diff = total_freq_CP + total_freq_NCP - total_freq_CNP - total_freq_NN,
+  totalfreq_frac = (total_freq_CP + total_freq_NCP)/total_freq,
+  max_freq_NN = max(c(0, frequency[Treat == "NN"])),
+  max_freq_NCP = max(c(0, frequency[Treat == "NCP"])),
+  max_freq_CNP = max(c(0, frequency[Treat == "CNP"])),
+  max_freq_CP = max(c(0, frequency[Treat == "CP"])),
+  max_freq_P = max(max_freq_NCP, max_freq_CP),
+  max_freq_NP = max(max_freq_CNP, max_freq_NN),
+  max_freq_C = max(max_freq_CP, max_freq_CNP),
+  max_freq_NC = max(max_freq_NCP, max_freq_NN))
+
 write.table(
   filter(mut_sum2, num_anc == 0, max_freq > 0.3,
          seq_id %in% c("NZ_KE136335.1", "NZ_KE136336.1", "NZ_KE136338.1")),
   "mutations_of_interest.tsv", sep = "\t", row.names = FALSE)
+
+write.table(
+  filter(mutlong_B, num_anc == 0, max_freq > 0.3,
+         seq_id %in% c("NZ_KE136335.1", "NZ_KE136336.1", "NZ_KE136338.1")),
+  "mutations_of_interest_long.tsv", sep = "\t", row.names = FALSE)
+
+mut_of_interest <- filter(mutlong_B, max_freq_NP == 0)
+
+ggplot(data = mut_of_interest, aes(x = Treat, y = frequency)) + 
+  geom_point(aes(color = mutation_category),
+             position = position_jitter(width = 0.2),
+             alpha = 0.5) +
+  scale_y_log10()
+
+mut_of_interest2 <- filter(mutlong_B, max_freq_NP == 0,
+                           frequency >= 0.15, Samp_type == "B")
+
+ggplot(data = mut_of_interest2,
+       aes(x = Treat, y = frequency, fill = mutation_category)) +
+  geom_col(position = "stack")
+
+mut_of_interest3 <- filter(mut_of_interest2, TreatPop != "NCP7",
+                           grepl("pil|Pil", gene_product) == TRUE)
+
+mut_of_interest3 <- mutate(
+  mut_of_interest3,
+  mutation_category2 = ifelse(
+    mutation_category == "small_indel",
+    ifelse((nchar(ref_seq) - nchar(new_seq)) %% 3 == 0, 
+           "in-frame indel", 
+           "frameshift indel"),
+    mutation_category))
+                                                       
+
+ggplot(data = mut_of_interest3,
+       aes(x = Pop, y = 1, fill = mutation_category2)) +
+  geom_col(position = "stack") +
+  facet_grid(~Treat)
+
+
+mut_of_interest3_sum_mutcag <- 
+  summarize(
+    group_by(mut_of_interest3,
+             Samp_id, Samp_type, Timepoint, TreatPop, Treat, Pop,
+             mutation_category),
+    nmuts = n())
+
+mut_of_interest3_sum_mutcag <-
+  left_join(expand.grid(
+    Treat = unique(mut_of_interest3_sum_mutcag$Treat),
+    Pop = unique(mut_of_interest3_sum_mutcag$Pop),
+    mutation_category = unique(mut_of_interest3_sum_mutcag$mutation_category)),
+    mut_of_interest3_sum_mutcag)
+mut_of_interest3_sum_mutcag <- mutate(mut_of_interest3_sum_mutcag,
+                                      nmuts = ifelse(is.na(nmuts), 0, nmuts))
+
+ggplot(data = mut_of_interest3_sum_mutcag,
+       aes(x = Treat, y = nmuts, color = mutation_category)) +
+  geom_point(position = position_jitter(width = 0.2, height = 0)) +
+  facet_wrap(~Pop)
+
+ggplot(data = mut_of_interest3_sum_mutcag,
+       aes(x = Treat, y = nmuts, color = mutation_category)) +
+  geom_point(position = position_jitter(width = 0.2, height = 0)) +
+  facet_wrap(~Pop)
+
+
+
+pop_sum_ofinterest <- summarize(
+  group_by(filter(mutlong_B, Samp_type == "B",
+                  max_freq_NP == 0),
+           Samp_id, Samp_type, Timepoint, TreatPop, Treat, Pop),
+  nmuts = n(),
+  nfixed = sum(frequency == 1))
+
+ggplot(data = pop_sum_ofinterest, aes(x = Treat, y = nfixed)) +
+  geom_point(position = position_jitter(width = 0.2, height = 0)) +
+  coord_cartesian(ylim = c(NA, 5))
+
 
 ggplot(data = mutate(mut_sum2,
                      pilus_related = grepl("pil|Pil", gene_product)),

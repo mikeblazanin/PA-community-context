@@ -1127,7 +1127,7 @@ png("plots/resis_freq_time.png", width = 8, height = 3.5, units = "in", res = 15
 ggplot(data = resis_sum_pops,
        aes(x = as.factor(Bact_timepoint), y = 1-clearing_avg,
            color = Bact_treat_P)) +
-  geom_point(position = position_jitter(width = 0.1),
+  geom_point(position = position_jitter(width = 0.1, height = 0),
              size = 3, alpha = 0.5) +
   geom_line(data = resis_sum_pops_sum,
             aes(group = Bact_treat), linewidth = 2) +
