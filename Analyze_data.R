@@ -1924,18 +1924,31 @@ biofilm <- mutate(biofilm,
               Bact_treat = factor(Bact_treat,
                                   levels = c("Anc", "pilA", "NN", "CNP", "NCP", "CP")))
 
-# #Do batch correction
-# biofilm$Meas_norm_log10 <- log10(biofilm$Meas_norm)
-# biofilm_lmer <- lmer(
-#   data = biofilm,
-#   Meas_norm_log10 ~ (1|block_name) + Bact_treat + Bact_timepoint +
-#     (1|Bact_treat:Bact_pop) + (1|Bact_treat:Bact_pop:Bact_isol))
+#Do stats/batch correction
+biofilm_factorized <- mutate(
+  biofilm,
+  Bact_timepoint <- relevel(factor(Bact_timepoint), ref = "0"),
+  Bact_treat <- relevel(factor(Bact_treat), ref = "Anc"))
+
+biofilm$biofilm_abs_log10 <- log10(biofilm$biofilm_abs)
+biofilm_lmer <- lmer(
+  data = biofilm,
+  biofilm_abs_log10 ~ (1|block_name) + Bact_treat + Bact_timepoint +
+    (1|Bact_treat:Bact_pop) + (1|Bact_treat:Bact_pop:Bact_isol))
 # biofilm$Meas_norm_norm_log10 <-
 #   biofilm$Meas_norm_log10 -
 #   10**predict(biofilm_lmer,
 #           newdata = biofilm,
 #           re.form = ~ (1|block_name),
 #           random.only = TRUE)
+
+#Do dumb stats for Abe's summer writeup
+biofilm_lm <- lm(data = filter(biofilm_factorized, Bact_treat != "pilA",
+                               Bact_timepoint != 0),
+                 biofilm_abs_log10 ~ Bact_timepoint:Bact_treat)
+anova(biofilm_lm)
+summary(biofilm_lm)
+
 
 png("./plots/biofilm.png", width = 10, height = 4, units = "in",
     res = 150)
@@ -1964,13 +1977,11 @@ ggplot(data = biofilm,
         legend.text = element_text(size = 14))
 dev.off()
 
-png("./plots/biofilm_nopops.png", width = 8, height = 6, units = "in",
-    res = 150)
-ggplot(data = biofilm, 
+
+pbio <- ggplot(data = biofilm, 
        aes(x = Bact_timepoint, y = biofilm_abs, 
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 3, alpha = 0.7, position = position_dodge(width = 0.6)) +
-  scale_y_log10() +
   scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
                      breaks = c("Anc", "NP", "P", "pilA"),
                      labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
@@ -1988,7 +1999,18 @@ ggplot(data = biofilm,
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
+
+png("./plots/biofilm_nopops_nolog.png", width = 8, height = 6, units = "in",
+    res = 150)
+print(pbio)
 dev.off()
+
+png("./plots/biofilm_nopops.png", width = 8, height = 6, units = "in",
+    res = 150)
+print(pbio +
+        scale_y_log10())
+dev.off()
+  
 
 # Twitching ----
 twitching <- read.csv("Twitching Motility Data.csv")
@@ -2016,10 +2038,12 @@ twitching <- mutate(
   cm_day = (width/2 + height/2)/2,
   Bact_treat_C = factor(ifelse(Bact_treat %in% c("NCP", "NN"), "NC",
                         ifelse(Bact_treat %in% c("CNP", "CP"), "C",
-                               Bact_treat))),
+                               Bact_treat)),
+                        levels = c("Anc", "NC", "C", "pilA")),
   Bact_treat_P = factor(ifelse(Bact_treat %in% c("NN", "CNP"), "NP",
                         ifelse(Bact_treat %in% c("NCP", "CP"), "P",
-                               Bact_treat))),
+                               Bact_treat)),
+                        c("Anc", "NP", "P", "pilA")),
   Bact_treat = factor(Bact_treat, 
                       levels = c("Anc", "NN", "CNP", "NCP", "CP", "pilA")))
 
@@ -2108,8 +2132,8 @@ ptwitching_norm2 <-
   ggplot(data = twitching_isols,
          aes(x = Bact_timepoint, y = cm_day_norm, 
              color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
-  geom_point(size = 4, alpha = 0.5,
-             position = position_dodge(width = 0.5)) +
+  geom_point(size = 3, alpha = 0.5,
+             position = position_dodge(width = 0.6)) +
   labs(x = "Timepoint", y = "Normalized Twitching Motility\n(cm/day)") +
   scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
                      breaks = c("Anc", "NP", "P", "pilA"),
