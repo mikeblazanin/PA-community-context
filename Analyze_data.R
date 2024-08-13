@@ -1942,10 +1942,10 @@ biofilm_lmer <- lmer(
 #           re.form = ~ (1|block_name),
 #           random.only = TRUE)
 
-#Do dumb stats for Abe's summer writeup
-biofilm_lm <- lm(data = filter(biofilm_factorized, Bact_treat != "pilA",
-                               Bact_timepoint != 0),
-                 biofilm_abs_log10 ~ Bact_timepoint:Bact_treat)
+#Do lazy stats for Abe's summer writeup
+biofilm_lm <- lm(data = filter(biofilm_factorized, 
+                               Bact_timepoint %in% c(1,2,4,8)),
+                 biofilm_abs_log10 ~ Bact_timepoint * Bact_treat)
 anova(biofilm_lm)
 summary(biofilm_lm)
 
@@ -2066,6 +2066,14 @@ twitching_isols <- summarize(group_by(twitching,
                                 Bact_isol),
                        cm_day = mean(cm_day),
                        cm_day_norm = mean(cm_day_norm))
+
+#Do lazy stats for Abe's summer writeup
+twitching_lm <- lm(data = filter(twitching_isols, 
+                                 Bact_timepoint %in% c(1,2,4,8)),
+                   cm_day_norm ~ Bact_timepoint * Bact_treat)
+anova(twitching_lm)
+summary(twitching_lm)
+
 
 png("./plots/motility.png", width = 8, height = 6, units = "in",
     res = 150)               
