@@ -39,6 +39,8 @@ mutations_long <- mutate(
   Treat = ifelse(Timepoint == 0, "Anc", str_extract(TreatPop, "CP|NCP|CNP|NN")),
   Pop = str_extract(TreatPop, "[:digit:]{1,2}"))
 
+
+
 mut_sum <- summarize(group_by(mutations_long, Samp_type, Timepoint, Treat, Pop, type),
                      n_type = n(),
                      fixed = sum(frequency == 1),
@@ -138,6 +140,11 @@ write.table(
   filter(mut_sum2, num_anc == 0, max_freq > 0.3,
          seq_id %in% c("NZ_KE136335.1", "NZ_KE136336.1", "NZ_KE136338.1")),
   "mutations_of_interest.tsv", sep = "\t", row.names = FALSE)
+
+write.table(
+  filter(mutlong_B,
+         seq_id %in% c("NZ_KE136335.1", "NZ_KE136336.1", "NZ_KE136338.1")),
+  "all_PA_mutations_long.tsv", sep = "\t", row.names = FALSE)
 
 write.table(
   filter(mutlong_B, num_anc == 0, max_freq > 0.3,
