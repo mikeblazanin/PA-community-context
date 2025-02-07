@@ -1889,7 +1889,7 @@ biofilm$block_name <- gsub("Data$", "", biofilm$block_name)
 #Designs
 biofilm_designs <- import_blockdesigns(
   list.files(path = "./biofilm_data/", full.names = T, pattern = ".*Design.csv$"),
-  join_designs = FALSE)
+  join_as_cols = FALSE)
 biofilm_designs$block_name <- gsub("Design$", "", biofilm_designs$block_name)
 #Chank blanks to NA
 biofilm_designs <- mutate(biofilm_designs,
