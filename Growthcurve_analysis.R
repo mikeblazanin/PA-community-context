@@ -103,6 +103,7 @@ dat <- mutate(group_by(dat, date, Well),
                 percapita = TRUE, trans_y = 'log', blank = 0))
 
 #Assess noise
+dir.create("./plots/", showWarnings = FALSE)
 for (mydate in unique(dat$date)) {
   png(paste0("./plots/sm_deriv_derivpercap_", mydate, ".png"),
       width = 4, height = 9, units = "in", res = 150)
@@ -132,14 +133,14 @@ dat_sum <- summarize(
   max_percap = max_gc(deriv_percap),
   max_dens = max_gc(sm_meas[Time_hr < 23]),
   lag = lag_time(x = Time_hr, y = sm_meas, deriv = deriv_percap,
-                 y0 = min_gc(sm_meas), warn_no_lag = FALSE),
+                 y0 = min_gc(sm_meas), blank = 0, warn_no_lag = FALSE),
   auc = auc(x = Time_hr, y = sm_meas),
   max_percap_time = Time_hr[which_max_gc(deriv_percap)],
   max_percap_dens = sm_meas[which_max_gc(deriv_percap)],
   min_dens = min_gc(sm_meas))
 
 #Batch corrections ----
-for(col in c("max_percap", "max_dens", "auc")) {
+for(col in c("max_percap", "max_dens", "auc", "lag")) {
   temp_lmer <- lmer(
     data = dat_sum,
     paste(col, "~",
@@ -366,6 +367,62 @@ ggplot(data = dat_sum,
                      labels = c("Ancestor", "No", "Yes")) +
   guides(shape = guide_legend(override.aes = list(fill = "black"))) +
   labs(x = "Timepoint (days)", y = "Lag Time (hr)") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 12),
+        strip.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
+dev.off()
+
+png("../plots/lag_norm.png", width = 10, height = 4, units = "in",
+    res = 150)
+ggplot(data = dat_sum,
+       aes(x = Bact_timepoint, y = lag_norm,
+           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
+  geom_point(size = 3, alpha = 0.5) +
+  facet_grid(~ as.numeric(Bact_pop),
+             labeller = as_labeller(function(x) {LETTERS[as.numeric(x)-2]})) +
+  theme_bw() +
+  scale_color_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
+                     breaks = c("Anc", "NP", "P"),
+                     labels = c("Ancestor", "No", "Yes")) +
+  scale_fill_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
+                    breaks = c("Anc", "NP", "P"),
+                    labels = c("Ancestor", "No", "Yes")) +
+  scale_shape_manual(values = c(25, 21, 23), name = "Other Bacteria Added",
+                     breaks = c("Anc", "NC", "C"),
+                     labels = c("Ancestor", "No", "Yes")) +
+  guides(shape = guide_legend(override.aes = list(fill = "black"))) +
+  labs(x = "Timepoint (days)", y = "Lag time (hr)") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 12),
+        strip.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        plot.subtitle = element_text(size = 16)) +
+  labs(subtitle = "Replicate Population")
+dev.off()
+
+png("../plots/lag_norm_nopops.png", width = 7, height = 4, units = "in",
+    res = 150)
+ggplot(data = dat_sum,
+       aes(x = Bact_timepoint, y = lag_norm,
+           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
+  geom_point(size = 3, alpha = 0.5, position = position_dodge(width = 0.5)) +
+  theme_bw() +
+  scale_color_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
+                     breaks = c("Anc", "NP", "P"),
+                     labels = c("Ancestor", "No", "Yes")) +
+  scale_fill_manual(values = my_cols[c(8, 2, 6)], name = "Phage Added",
+                    breaks = c("Anc", "NP", "P"),
+                    labels = c("Ancestor", "No", "Yes")) +
+  scale_shape_manual(values = c(25, 21, 23), name = "Other Bacteria Added",
+                     breaks = c("Anc", "NC", "C"),
+                     labels = c("Ancestor", "No", "Yes")) +
+  guides(shape = guide_legend(override.aes = list(fill = "black"))) +
+  labs(x = "Timepoint (days)", y = "Lag time (hr)") +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
         axis.text = element_text(size = 12),
