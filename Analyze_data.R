@@ -1899,14 +1899,14 @@ biofilm <- import_blockmeasures(
   startrow = 26, endrow = 34, endcol = "M")
 biofilm <- trans_wide_to_tidy(biofilm, id_cols = "block_name",
                               values_to = "biofilm_abs")
-biofilm$block_name <- gsub("Data$", "", biofilm$block_name)
+biofilm$block_name <- gsub(" Data$", "", biofilm$block_name)
 
 #Designs
 biofilm_designs <- import_blockdesigns(
   list.files(path = "./biofilm_data/", full.names = T, pattern = ".*Design.csv$"),
   join_as_cols = FALSE)
-biofilm_designs$block_name <- gsub("Design$", "", biofilm_designs$block_name)
-#Chank blanks to NA
+biofilm_designs$block_name <- gsub(" Design$", "", biofilm_designs$block_name)
+#Change blanks to NA
 biofilm_designs <- mutate(biofilm_designs,
                           Designs = ifelse(Designs == "W", NA, Designs))
 biofilm_designs <- separate_tidy(biofilm_designs,
@@ -1918,7 +1918,8 @@ biofilm_designs <- separate_tidy(biofilm_designs,
 biofilm <- merge_dfs(biofilm, biofilm_designs, drop = TRUE)
 
 biofilm <- mutate(group_by(biofilm, block_name),
-                  Biofilm_norm = biofilm_abs - biofilm_abs[Bact_pop == "Blank"])
+                  biofilm_norm = biofilm_abs - min(biofilm_abs), #almost always the Blank
+                  biofilm_norm = ifelse(biofilm_norm == 0, 0.001, biofilm_norm)) 
 biofilm <- filter(biofilm, Bact_pop != "Blank")
 
 #Adjust columns for cross-compatibility
@@ -1939,36 +1940,64 @@ biofilm <- mutate(biofilm,
               Bact_treat = factor(Bact_treat,
                                   levels = c("Anc", "pilA", "NN", "CNP", "NCP", "CP")))
 
+#Based on contamination, exclude NCNP Pop 9 T4 and later, CNP Pop 9 T2 and later
+biofilm <- filter(biofilm,
+              !((Bact_pop == 9 & Bact_treat == "NN" & Bact_timepoint >= 2) |
+                  (Bact_pop == 9 & Bact_treat == "CNP" & Bact_timepoint >= 2)))
+#Based on weird blank values (and we already don't have much data anyway)
+# exclude the whole 24-07-12 batch
+biofilm <- dplyr::filter(ungroup(biofilm), 
+                  block_name != "biofilm_data/2024-07-12 Abe Biofilm P9")
+
 #Do stats/batch correction
 biofilm_factorized <- mutate(
   biofilm,
   Bact_timepoint <- relevel(factor(Bact_timepoint), ref = "0"),
   Bact_treat <- relevel(factor(Bact_treat), ref = "Anc"))
 
-biofilm$biofilm_abs_log10 <- log10(biofilm$biofilm_abs)
+biofilm$biofilm_norm_log10 <- log10(biofilm$biofilm_norm)
 biofilm_lmer <- lmer(
   data = biofilm,
-  biofilm_abs_log10 ~ (1|block_name) + Bact_treat + Bact_timepoint +
+  biofilm_norm_log10 ~ (1|block_name) + Bact_treat + Bact_timepoint +
     (1|Bact_treat:Bact_pop) + (1|Bact_treat:Bact_pop:Bact_isol))
-# biofilm$Meas_norm_norm_log10 <-
-#   biofilm$Meas_norm_log10 -
-#   10**predict(biofilm_lmer,
-#           newdata = biofilm,
-#           re.form = ~ (1|block_name),
-#           random.only = TRUE)
-
-#Do lazy stats for Abe's summer writeup
-# biofilm_lm <- lm(data = filter(biofilm_factorized, 
-#                                Bact_timepoint %in% c(1,2,4,8)),
-#                  biofilm_abs_log10 ~ Bact_timepoint * Bact_treat)
-# anova(biofilm_lm)
-# summary(biofilm_lm)
-
+biofilm$biofilm_norm_log10_norm <-
+  biofilm$biofilm_norm_log10 -
+  predict(biofilm_lmer,
+          newdata = biofilm,
+          re.form = ~ (1|block_name),
+          random.only = TRUE)
 
 png("./plots/biofilm.png", width = 10, height = 4, units = "in",
     res = 150)
 ggplot(data = biofilm, 
-       aes(x = Bact_timepoint, y = biofilm_abs, 
+       aes(x = Bact_timepoint, y = biofilm_norm, 
+           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
+  geom_point(size = 3, alpha = 0.7, position = position_dodge(width = 0.6)) +
+  scale_y_log10() +
+  facet_grid(~block_name) +
+  scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                     breaks = c("Anc", "NP", "P", "pilA"),
+                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  scale_fill_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
+                    breaks = c("Anc", "NP", "P", "pilA"),
+                    labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  scale_shape_manual(values = c(25, 21, 23, 24), name = "Other Bacteria Added",
+                     breaks = c("Anc", "NC", "C", "pilA"),
+                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+  guides(shape = guide_legend(override.aes = list(fill = "black"))) +
+  labs(x = "Timepoint (days)", y = "Absorbance") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 12),
+        strip.text = element_text(size = 16),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
+dev.off()
+
+png("./plots/biofilm_norm.png", width = 10, height = 4, units = "in",
+    res = 150)
+ggplot(data = biofilm, 
+       aes(x = Bact_timepoint, y = 10**biofilm_norm_log10_norm, 
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 3, alpha = 0.7, position = position_dodge(width = 0.6)) +
   scale_y_log10() +
@@ -2241,8 +2270,11 @@ isol_data <- full_join(
            colClasses = c("Bact_pop" = "character", 
                           "Bact_timepoint" = "character",
                           "Bact_isol" = "character")))
-# isol_data <- full_join(isol_data, 
-#                        dplyr::select(biofilm, !block_name & !Well))
+isol_data <- full_join(
+  isol_data,
+  select(mutate(filter(biofilm, Bact_treat != "pilA"),
+                biofilm_block_name = block_name),
+         !block_name & !Well))
 isol_data <- mutate(
   isol_data,
   resis = 1-clearing_avg,
@@ -2254,7 +2286,8 @@ ggpairs(data = isol_data,
         columns = which(colnames(isol_data) %in% 
                           c("resis", #"cm_day_norm",  
                             "wavelength_405", "wavelength_695",
-                            "max_percap_norm", "max_dens_norm", "auc_norm")),
+                            "max_percap_norm", "max_dens_norm", "auc_norm",
+                            "lag_norm", "biofilm_norm_log10_norm")),
         upper = list(continuous = "points"))
 
 png("./plots/maxdens_405nm_treat.png", width = 5, height = 4, units = "in", res = 150)
@@ -2371,7 +2404,8 @@ pca_dat <- isol_data
 pca_cols <- which(colnames(pca_dat) %in%
                     c(#"resis", #"cm_day_norm",
                     "wavelength_405", "wavelength_695",
-                    "max_percap_norm", "max_dens_norm", "auc_norm"))
+                    "max_percap_norm", "max_dens_norm", "auc_norm", "lag_norm",
+                    "biofilm_norm_log10_norm"))
 
 pca_dat <- pca_dat[complete.cases(pca_dat[, pca_cols]), ]
 
@@ -2386,21 +2420,14 @@ replace_names = c("wavelength_405" = "w405",
                   "wavelength_695" = "w695",
                   "max_percap_norm" = "r",
                   "max_dens_norm" = "k",
-                  "auc_norm" = "auc")
+                  "auc_norm" = "auc",
+                  "lag_norm" = "lag",
+                  "biofilm_norm_log10_norm" = "biofilm")
 row.names(isol_pca$rotation) <- plyr::revalue(
   x = row.names(isol_pca$rotation), replace = replace_names)
   
 arrow_len <- 3
 pca_base <- ggplot(pca_dat, aes(x = PC1, y = PC2)) +
-  geom_segment(data = as.data.frame(isol_pca$rotation),
-               aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
-               arrow = arrow(length = unit(0.02, "npc")),
-               alpha = .5, lwd = 2, color = "red4") +
-  ggrepel::geom_text_repel(data = as.data.frame(isol_pca$rotation),
-                           aes(x = arrow_len*PC1, y = arrow_len*PC2,
-                               label = row.names(isol_pca$rotation)),
-                           size = 8, alpha = .8, color = "red4", seed = 8,
-                           min.segment.length = unit(1, "native")) +
   theme_bw() +
   labs(x = paste("PC1 (", 
                  round((100*((isol_pca$sdev)**2)/
@@ -2419,6 +2446,15 @@ pca_base <- ggplot(pca_dat, aes(x = PC1, y = PC2)) +
 png("./plots/PCA_time.png", width = 10, height = 7, units = "in", res = 150)
 pca_base + 
   geom_point(aes(color = Bact_timepoint), size = 5, alpha = 0.7) +
+  geom_segment(data = as.data.frame(isol_pca$rotation),
+               aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
+               arrow = arrow(length = unit(0.02, "npc")),
+               alpha = .5, lwd = 2, color = "red4") +
+  ggrepel::geom_text_repel(data = as.data.frame(isol_pca$rotation),
+                           aes(x = arrow_len*PC1, y = arrow_len*PC2,
+                               label = row.names(isol_pca$rotation)),
+                           size = 8, alpha = .8, color = "red4", seed = 8,
+                           min.segment.length = unit(1, "native")) +
   scale_color_manual(name = "Timepoint", 
                      breaks = c(0, 1, 2, 4, 8),
                      values = my_cols[c(8, 1, 2, 3, 7)])
@@ -2427,6 +2463,15 @@ dev.off()
 png("./plots/PCA_phagetreat.png", width = 11, height = 8, units = "in", res = 150)
 pca_base + 
   geom_point(aes(color = Bact_treat_P), size = 5, alpha = 0.7) +
+  geom_segment(data = as.data.frame(isol_pca$rotation),
+               aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
+               arrow = arrow(length = unit(0.02, "npc")),
+               alpha = .5, lwd = 2, color = "red4") +
+  ggrepel::geom_text_repel(data = as.data.frame(isol_pca$rotation),
+                           aes(x = arrow_len*PC1, y = arrow_len*PC2,
+                               label = row.names(isol_pca$rotation)),
+                           size = 8, alpha = .8, color = "red4", seed = 8,
+                           min.segment.length = unit(1, "native")) +
   scale_color_manual(name = "Phage\nTreatment", 
                      breaks = c("Anc", "NP", "P"),
                      values = my_cols[c(8, 1, 2)],
@@ -2436,6 +2481,15 @@ dev.off()
 png("./plots/PCA_resis.png", width = 11, height = 6, units = "in", res = 150)
 pca_base + 
   geom_point(aes(color = as.factor(resis_cat)), size = 5, alpha = 0.7) +
+  geom_segment(data = as.data.frame(isol_pca$rotation),
+               aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
+               arrow = arrow(length = unit(0.02, "npc")),
+               alpha = .5, lwd = 2, color = "red4") +
+  ggrepel::geom_text_repel(data = as.data.frame(isol_pca$rotation),
+                           aes(x = arrow_len*PC1, y = arrow_len*PC2,
+                               label = row.names(isol_pca$rotation)),
+                           size = 8, alpha = .8, color = "red4", seed = 8,
+                           min.segment.length = unit(1, "native")) +
   scale_color_manual(name = "Resistance", 
                      breaks = c(0, 0.5, 1),
                      values = my_cols[c(8, 1, 2)],
@@ -2446,6 +2500,15 @@ png("./plots/PCA_time&phagetreat.png", width = 11, height = 8, units = "in", res
 pca_base + 
   geom_point(aes(color = Bact_timepoint, fill = Bact_timepoint, shape = Bact_treat_C), 
              size = 5, alpha = 0.7) +
+  geom_segment(data = as.data.frame(isol_pca$rotation),
+               aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
+               arrow = arrow(length = unit(0.02, "npc")),
+               alpha = .5, lwd = 2, color = "red4") +
+  ggrepel::geom_text_repel(data = as.data.frame(isol_pca$rotation),
+                           aes(x = arrow_len*PC1, y = arrow_len*PC2,
+                               label = row.names(isol_pca$rotation)),
+                           size = 8, alpha = .8, color = "red4", seed = 8,
+                           min.segment.length = unit(1, "native")) +
   scale_color_manual(name = "Timepoint", 
                      breaks = c(0, 1, 2, 4, 8),
                      values = my_cols[c(8, 1, 2, 3, 7)]) +
@@ -2460,18 +2523,24 @@ dev.off()
 
 png("./plots/PCA_phagetreat&bacttreat.png", width = 11, height = 8, units = "in", res = 150)
 pca_base + 
+  geom_polygon(stat = "ellipse", aes(fill = Bact_treat), alpha = 0.2) +
   geom_point(aes(color = Bact_treat, fill = Bact_treat), 
-             size = 5, alpha = 0.7)
-  # scale_color_manual(name = "Timepoint", 
-  #                    breaks = c(0, 1, 2, 4, 8),
-  #                    values = my_cols[c(8, 1, 2, 3, 7)]) +
-  # scale_fill_manual(name = "Timepoint", 
-  #                   breaks = c(0, 1, 2, 4, 8),
-  #                   values = my_cols[c(8, 1, 2, 3, 7)]) +
-  # scale_shape_manual(values = c(25, 21, 23, 24), name = "Other Bacteria\nAdded",
-  #                    breaks = c("Anc", "NC", "C"),
-  #                    labels = c("Ancestor", "No", "Yes")) +
-  #guides(shape = guide_legend(override.aes = list(fill = "black")))
+             size = 5, alpha = 0.7) +
+  geom_segment(data = as.data.frame(isol_pca$rotation),
+               aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
+               arrow = arrow(length = unit(0.02, "npc")),
+               alpha = .5, lwd = 2, color = "red4") +
+  ggrepel::geom_text_repel(data = as.data.frame(isol_pca$rotation),
+                           aes(x = arrow_len*PC1, y = arrow_len*PC2,
+                               label = row.names(isol_pca$rotation)),
+                           size = 8, alpha = .8, color = "red4", seed = 8,
+                           min.segment.length = unit(1, "native")) +
+  scale_color_manual(name = "Treatments",
+                     breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
+                     values = my_cols[c(8, 7, 1, 5, 3)]) +
+  scale_fill_manual(name = "Treatments",
+                    breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
+                    values = my_cols[c(8, 7, 1, 5, 3)])
 dev.off()          
 
 png("./plots/maxdens_v_resis.png", width = 7, height = 10, units = "in", res = 300)
