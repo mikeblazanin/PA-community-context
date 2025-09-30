@@ -393,7 +393,8 @@ density <- mutate(density,
               bd = ifelse(cfu_ml == 0, TRUE, FALSE),
               cfu_ml = ifelse(cfu_ml == 0,
                               400 * 1/10**Dilution,
-                              cfu_ml))
+                              cfu_ml),
+              log_cfuml = log10(cfu_ml))
 density <- as.data.frame(density)
 
 density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("P", "NP"),
@@ -783,6 +784,20 @@ if(FALSE) {
   summary(lm(data = filter(density_mod, Bact_timepoint > 1, Bact_treat_P == "P"),
              cfu_ml ~ Bact_treat_C + Bact_timepoint:Bact_treat_C))
 }
+
+# Stats
+ggplot(data = filter(density, Timepoint > 1, Strain == "H6",
+                     Pop %in% 3:10, !is.na(cfu_ml)),
+       aes(x = Timepoint, y = cfu_ml, color = treat_C, 
+           group = paste(treat_P, treat_C, Pop, Strain))) +
+  geom_line() +
+  scale_y_log10()
+
+phagedens_lm <- lm(log_cfuml ~ as.factor(Timepoint) + as.factor(treat_C),
+                   data = filter(density, Timepoint > 1, Strain == "H6",
+                                 Pop %in% 3:10, !is.na(cfu_ml)))
+summary(phagedens_lm)
+
 
 # Resistance data ----
 
@@ -1943,11 +1958,11 @@ biofilm_lmer <- lmer(
 #           random.only = TRUE)
 
 #Do lazy stats for Abe's summer writeup
-biofilm_lm <- lm(data = filter(biofilm_factorized, 
-                               Bact_timepoint %in% c(1,2,4,8)),
-                 biofilm_abs_log10 ~ Bact_timepoint * Bact_treat)
-anova(biofilm_lm)
-summary(biofilm_lm)
+# biofilm_lm <- lm(data = filter(biofilm_factorized, 
+#                                Bact_timepoint %in% c(1,2,4,8)),
+#                  biofilm_abs_log10 ~ Bact_timepoint * Bact_treat)
+# anova(biofilm_lm)
+# summary(biofilm_lm)
 
 
 png("./plots/biofilm.png", width = 10, height = 4, units = "in",
@@ -2301,17 +2316,18 @@ dev.off()
 
 png("./plots/motility_vs_resis.png", width = 6, height = 5, units = "in",
     res = 150)
-ggplot(
-  data = mutate(
-    ungroup(isol_data),
-    resis_cat = ifelse(is.na(Plaque_morphology), "Resistant", Plaque_morphology),
-    resis_cat = plyr::revalue(resis_cat,
-                              c("Clear" = "Susceptible", "Clear?" = "Susceptible",
-                                "Cloudy" = "Partially Susceptible", 
-                                "Tiny" = "Partially Susceptible",
-                                "None" = "Resistant"))),
-       aes(x = resis_cat, y = cm_day_norm,
-           color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
+pmotil_resis <-
+  ggplot(
+    data = mutate(
+      ungroup(isol_data),
+      resis_cat = ifelse(is.na(Plaque_morphology), "Resistant", Plaque_morphology),
+      resis_cat = plyr::revalue(resis_cat,
+                                c("Clear" = "Susceptible", "Clear?" = "Susceptible",
+                                  "Cloudy" = "Partially Susceptible", 
+                                  "Tiny" = "Partially Susceptible",
+                                  "None" = "Resistant"))),
+    aes(x = resis_cat, y = cm_day_norm,
+        color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 4, alpha = 0.4, position = position_dodge(width = .75)) +
   labs(x = "", y = "Normalized Twitching Motility\n(cm/day)") +
   scale_x_discrete(limits = c("Susceptible", "Partially Susceptible",
@@ -2334,7 +2350,20 @@ ggplot(
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14),
         title = element_text(size = 20))
+print(pmotil_resis)
 dev.off()
+
+png("./plots/motility_combo.png", width = 11, height = 5, units = "in",
+    res = 150)
+cowplot::plot_grid(
+  ptwitching_norm2 + 
+    guides(shape = "none", fill = "none", color = "none") +
+    theme(axis.title.y = element_text(size = 16)),
+  pmotil_resis,
+  align = "h", axis = "tb", nrow = 1, rel_widths = c(0.4, 0.6),
+  labels = "AUTO")
+dev.off()
+
 
 ##Run PCA
 pca_dat <- isol_data
@@ -2427,7 +2456,23 @@ pca_base +
                      breaks = c("Anc", "NC", "C"),
                      labels = c("Ancestor", "No", "Yes")) +
   guides(shape = guide_legend(override.aes = list(fill = "black")))
-dev.off()           
+dev.off()
+
+png("./plots/PCA_phagetreat&bacttreat.png", width = 11, height = 8, units = "in", res = 150)
+pca_base + 
+  geom_point(aes(color = Bact_treat, fill = Bact_treat), 
+             size = 5, alpha = 0.7)
+  # scale_color_manual(name = "Timepoint", 
+  #                    breaks = c(0, 1, 2, 4, 8),
+  #                    values = my_cols[c(8, 1, 2, 3, 7)]) +
+  # scale_fill_manual(name = "Timepoint", 
+  #                   breaks = c(0, 1, 2, 4, 8),
+  #                   values = my_cols[c(8, 1, 2, 3, 7)]) +
+  # scale_shape_manual(values = c(25, 21, 23, 24), name = "Other Bacteria\nAdded",
+  #                    breaks = c("Anc", "NC", "C"),
+  #                    labels = c("Ancestor", "No", "Yes")) +
+  #guides(shape = guide_legend(override.aes = list(fill = "black")))
+dev.off()          
 
 png("./plots/maxdens_v_resis.png", width = 7, height = 10, units = "in", res = 300)
 ggplot(data = filter(isol_data, Bact_treat != "pilA"),
