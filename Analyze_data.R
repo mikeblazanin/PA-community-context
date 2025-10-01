@@ -2416,8 +2416,8 @@ pca_dat <- cbind(as.data.frame(isol_pca$x),
                  pca_dat)
 
 #Rename rotations for better plotting
-replace_names = c("wavelength_405" = "w405",
-                  "wavelength_695" = "w695",
+replace_names = c("wavelength_405" = "pyoverdin",
+                  "wavelength_695" = "pyocyanin",
                   "max_percap_norm" = "r",
                   "max_dens_norm" = "k",
                   "auc_norm" = "auc",
@@ -2441,10 +2441,12 @@ pca_base <- ggplot(pca_dat, aes(x = PC1, y = PC2)) +
         axis.text = element_text(size = 22),
         legend.title = element_text(size = 36),
         legend.text = element_text(size = 32),
-        plot.title = element_text(size = 36))
+        plot.title = element_text(size = 36),
+        strip.text = element_text(size = 36))
 
 png("./plots/PCA_time.png", width = 10, height = 7, units = "in", res = 150)
 pca_base + 
+  geom_polygon(stat = "ellipse", aes(fill = Bact_timepoint), alpha = 0.2) +
   geom_point(aes(color = Bact_timepoint), size = 5, alpha = 0.7) +
   geom_segment(data = as.data.frame(isol_pca$rotation),
                aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
@@ -2453,11 +2455,46 @@ pca_base +
   ggrepel::geom_text_repel(data = as.data.frame(isol_pca$rotation),
                            aes(x = arrow_len*PC1, y = arrow_len*PC2,
                                label = row.names(isol_pca$rotation)),
+                           size = 8, alpha = .8, color = "red4", 
+                           nudge_x = c(1, 1, 0, 0, 0, 0, 1),
+                           nudge_y = c(0, 0, 0, 0, 0, 0.2, 0),
+                           min.segment.length = unit(1, "native")) +
+  scale_color_manual(name = "Timepoint", values = c("black", viridisLite::viridis(n = 4))) +
+  scale_fill_manual(name = "Timepoint", values = c("black", viridisLite::viridis(n = 4)))
+dev.off()
+
+png("./plots/PCA_phagetreat&bacttreat_bytime.png", width = 24, height = 6, units = "in", res = 150)
+pca_base + 
+  #Code for shared polygons across all facets
+  # geom_polygon(
+  #   data = select(pca_dat, !Bact_timepoint), 
+  #   inherit.aes = FALSE, stat = "ellipse", 
+  #   aes(x = PC1, y = PC2, fill = Bact_treat), 
+  #   alpha = 0.2) +
+  geom_polygon(stat = "ellipse", aes(fill = Bact_treat), alpha = 0.2) +
+  geom_point(aes(color = Bact_treat, fill = Bact_treat), 
+             size = 5, alpha = 0.7) +
+  geom_segment(data = as.data.frame(isol_pca$rotation),
+               aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
+               arrow = arrow(length = unit(0.02, "npc")),
+               alpha = .5, lwd = 2, color = "red4") +
+  ggrepel::geom_text_repel(data = cbind(vars = row.names(isol_pca$rotation),
+                                        as.data.frame(isol_pca$rotation)),
+                           aes(x = arrow_len*PC1, y = arrow_len*PC2,
+                               label = vars),
+                           inherit.aes = FALSE,
+                           nudge_x = c(1, 1, 0, 0, 0, 0, 0.6),
+                           nudge_y = c(0, 0, 0, 0, 0, 0.2, 0),
                            size = 8, alpha = .8, color = "red4", seed = 8,
                            min.segment.length = unit(1, "native")) +
-  scale_color_manual(name = "Timepoint", 
-                     breaks = c(0, 1, 2, 4, 8),
-                     values = my_cols[c(8, 1, 2, 3, 7)])
+  facet_grid(~ Bact_timepoint,
+             labeller = labeller(Bact_timepoint = function(x){paste("Timepoint", x)})) +
+  scale_color_manual(name = "Treatments",
+                     breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
+                     values = my_cols[c(8, 7, 1, 5, 3)]) +
+  scale_fill_manual(name = "Treatments",
+                    breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
+                    values = my_cols[c(8, 7, 1, 5, 3)])
 dev.off()
 
 png("./plots/PCA_phagetreat.png", width = 11, height = 8, units = "in", res = 150)
@@ -2496,31 +2533,6 @@ pca_base +
                      labels = c("Susceptible", "Partial Resistance", "Full Resistance"))
 dev.off()                        
              
-png("./plots/PCA_time&phagetreat.png", width = 11, height = 8, units = "in", res = 150)
-pca_base + 
-  geom_point(aes(color = Bact_timepoint, fill = Bact_timepoint, shape = Bact_treat_C), 
-             size = 5, alpha = 0.7) +
-  geom_segment(data = as.data.frame(isol_pca$rotation),
-               aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
-               arrow = arrow(length = unit(0.02, "npc")),
-               alpha = .5, lwd = 2, color = "red4") +
-  ggrepel::geom_text_repel(data = as.data.frame(isol_pca$rotation),
-                           aes(x = arrow_len*PC1, y = arrow_len*PC2,
-                               label = row.names(isol_pca$rotation)),
-                           size = 8, alpha = .8, color = "red4", seed = 8,
-                           min.segment.length = unit(1, "native")) +
-  scale_color_manual(name = "Timepoint", 
-                     breaks = c(0, 1, 2, 4, 8),
-                     values = my_cols[c(8, 1, 2, 3, 7)]) +
-  scale_fill_manual(name = "Timepoint", 
-                     breaks = c(0, 1, 2, 4, 8),
-                     values = my_cols[c(8, 1, 2, 3, 7)]) +
-  scale_shape_manual(values = c(25, 21, 23, 24), name = "Other Bacteria\nAdded",
-                     breaks = c("Anc", "NC", "C"),
-                     labels = c("Ancestor", "No", "Yes")) +
-  guides(shape = guide_legend(override.aes = list(fill = "black")))
-dev.off()
-
 png("./plots/PCA_phagetreat&bacttreat.png", width = 11, height = 8, units = "in", res = 150)
 pca_base + 
   geom_polygon(stat = "ellipse", aes(fill = Bact_treat), alpha = 0.2) +
@@ -2541,7 +2553,34 @@ pca_base +
   scale_fill_manual(name = "Treatments",
                     breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
                     values = my_cols[c(8, 7, 1, 5, 3)])
-dev.off()          
+dev.off()
+
+png("./plots/PCA_time_bytreat.png", width = 16, height = 4, units = "in", res = 150)
+pca_base + 
+  geom_polygon(stat = "ellipse", aes(fill = Bact_timepoint), alpha = 0.2) +
+  # geom_polygon(
+  #   data = select(pca_dat, !Bact_treat), 
+  #   inherit.aes = FALSE, stat = "ellipse", 
+  #   aes(x = PC1, y = PC2, fill = Bact_timepoint), 
+  #   alpha = 0.2) +
+  geom_point(aes(color = Bact_timepoint), size = 5, alpha = 0.7) +
+  geom_segment(data = as.data.frame(isol_pca$rotation),
+               aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
+               arrow = arrow(length = unit(0.02, "npc")),
+               alpha = .5, lwd = 2, color = "red4") +
+  facet_grid(~ Bact_treat) +
+  # ggrepel::geom_text_repel(data = as.data.frame(isol_pca$rotation),
+  #                          aes(x = arrow_len*PC1, y = arrow_len*PC2,
+  #                              label = row.names(isol_pca$rotation)),
+  #                          size = 8, alpha = .8, color = "red4", seed = 8,
+  #                          min.segment.length = unit(1, "native")) +
+  scale_color_manual(name = "Timepoint", 
+                     breaks = c(0, 1, 2, 4, 8),
+                     values = my_cols[c(8, 1, 2, 3, 7)]) +
+  scale_fill_manual(name = "Timepoint", 
+                    breaks = c(0, 1, 2, 4, 8),
+                    values = my_cols[c(8, 1, 2, 3, 7)])
+dev.off()
 
 png("./plots/maxdens_v_resis.png", width = 7, height = 10, units = "in", res = 300)
 ggplot(data = filter(isol_data, Bact_treat != "pilA"),
