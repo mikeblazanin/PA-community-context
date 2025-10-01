@@ -134,7 +134,7 @@ dat_sum <- summarize(
   max_dens = max_gc(sm_meas[Time_hr < 23]),
   lag = lag_time(x = Time_hr, y = sm_meas, deriv = deriv_percap,
                  y0 = min_gc(sm_meas), blank = 0, warn_no_lag = FALSE),
-  auc = auc(x = Time_hr, y = sm_meas),
+  auc = auc(x = Time_hr, y = sm_meas, xlim = c(0.25, 23)),
   max_percap_time = Time_hr[which_max_gc(deriv_percap)],
   max_percap_dens = sm_meas[which_max_gc(deriv_percap)],
   min_dens = min_gc(sm_meas))
