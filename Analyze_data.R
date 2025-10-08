@@ -2288,7 +2288,8 @@ ggpairs(data = isol_data,
                             "wavelength_405", "wavelength_695",
                             "max_percap_norm", "max_dens_norm", "auc_norm",
                             "lag_norm", "biofilm_norm_log10_norm")),
-        upper = list(continuous = "points"))
+        upper = list(continuous = "smooth"),
+        lower = list(continuous = "points"))
 
 png("./plots/maxdens_405nm_treat.png", width = 5, height = 4, units = "in", res = 150)
 ggplot(data = isol_data,
@@ -2463,7 +2464,7 @@ pca_base +
   scale_fill_manual(name = "Timepoint", values = c("black", viridisLite::viridis(n = 4)))
 dev.off()
 
-png("./plots/PCA_phagetreat&bacttreat_bytime.png", width = 24, height = 6, units = "in", res = 150)
+png("./plots/PCA_phagetreat&bacttreat_bytime.png", width = 23, height = 8, units = "in", res = 150)
 pca_base + 
   #Code for shared polygons across all facets
   # geom_polygon(
@@ -2477,24 +2478,36 @@ pca_base +
   geom_segment(data = as.data.frame(isol_pca$rotation),
                aes(x = 0, y = 0, xend = arrow_len*PC1, yend = arrow_len*PC2),
                arrow = arrow(length = unit(0.02, "npc")),
-               alpha = .5, lwd = 2, color = "red4") +
-  ggrepel::geom_text_repel(data = cbind(vars = row.names(isol_pca$rotation),
+               alpha = .4, lwd = 2, color = "red4") +
+  ggrepel::geom_text_repel(data = cbind(Bact_timepoint = "0",
+                                        vars = row.names(isol_pca$rotation),
                                         as.data.frame(isol_pca$rotation)),
                            aes(x = arrow_len*PC1, y = arrow_len*PC2,
                                label = vars),
                            inherit.aes = FALSE,
                            nudge_x = c(1, 1, 0, 0, 0, 0, 0.6),
                            nudge_y = c(0, 0, 0, 0, 0, 0.2, 0),
-                           size = 8, alpha = .8, color = "red4", seed = 8,
+                           size = 8, alpha = .5, color = "red4", seed = 8,
                            min.segment.length = unit(1, "native")) +
   facet_grid(~ Bact_timepoint,
              labeller = labeller(Bact_timepoint = function(x){paste("Timepoint", x)})) +
   scale_color_manual(name = "Treatments",
-                     breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
-                     values = my_cols[c(8, 7, 1, 5, 3)]) +
+                     breaks = c("Anc", "NN", "CNP", "NCP", "CP"),
+                     labels = c("Ancestor", "No-phage, Pseudomonas-only",
+                                "No-phage, all bacteria",
+                                "Phage-added, Pseudomonas-only",
+                                "Phage-added, all bacteria"),
+                     values = my_cols[c(8, 7, 5, 1, 3)]) +
   scale_fill_manual(name = "Treatments",
-                    breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
-                    values = my_cols[c(8, 7, 1, 5, 3)])
+                     breaks = c("Anc", "NN", "CNP", "NCP", "CP"),
+                     labels = c("Ancestor", "No-phage, Pseudomonas-only",
+                                "No-phage, all bacteria",
+                                "Phage-added, Pseudomonas-only",
+                                "Phage-added, all bacteria"),
+                     values = my_cols[c(8, 7, 5, 1, 3)]) +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(ncol = 1, byrow = TRUE),
+         fill = guide_legend(ncol = 1, byrow = TRUE))
 dev.off()
 
 png("./plots/PCA_phagetreat.png", width = 11, height = 8, units = "in", res = 150)
