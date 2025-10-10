@@ -33,8 +33,10 @@ mutations_wide <-
                        !ref_read_count & !ref_read_count_basis),
               names_from = title, values_from = frequency)
                                        
-
 mutations_wide$mut_id <- 1:nrow(mutations_wide)
+mutations_wide <- mutate(mutations_wide,
+                         everabove_025 = if_any(matches("4777|5174"), ~ . > 0.25),
+                         everabove_025 = ifelse(is.na(everabove_025), FALSE, everabove_025))
 
 #Note that this has converted 'missing' rows from mutations into NAs
 # in the frequency column in mutations2
@@ -51,7 +53,28 @@ mutations2 <- separate_wider_delim(
 mutations2 <- mutate(mutations2,
                      Timepoint = gsub("T", "", Timepoint),
                      Pop = gsub("P", "", Pop),
-                     Isol = gsub("#", "", Isol),
+                     Isol = gsub("#", "", Isol))
+
+
+#Duplicating ancestral H6 rows into every pop & treatment
+mutations2 <-
+  bind_rows(
+    filter(mutations2, !(Strain == "H6" & Pop == 0)),
+    crossing(
+      Pop = unique(filter(mutations2, Strain == "H6", Pop != 0)$Pop),
+      Treat = unique(filter(mutations2, Strain == "H6", Treat != "Anc")$Treat),
+      select(filter(mutations2, Strain == "H6", Pop == 0),
+             -Pop, -Treat)))
+#Duplicating ancestral PA rows into every treatment
+mutations2 <-
+  bind_rows(
+    filter(mutations2, !(Strain == "PA" & Treat == "Anc")),
+    crossing(
+      Treat = unique(filter(mutations2, Strain == "PA", Treat != "Anc")$Treat),
+      select(filter(mutations2, Strain == "PA", Treat == "Anc"),
+             -Treat)))
+
+mutations2 <- mutate(mutations2,
                      Treat_C = factor(
                        ifelse(Treat %in% c("NCP", "NN"), "NC",
                               ifelse(Treat %in% c("CNP", "CP"), "C",
@@ -63,20 +86,24 @@ mutations2 <- mutate(mutations2,
                                      Treat)),
                        levels = c("Anc", "NP", "P")),
                      Treat = factor(Treat,
-                                    levels = c("Anc", "NN", "CNP", "NCP", "CP")))
+                                    levels = c("Anc", "NN", "CNP", "NCP", "CP")),
+                     freq_plot = ifelse(is.na(freq), 0, 
+                                        freq + runif(length(freq), 
+                                                     min = -0.05, 
+                                                     max = 0.05)))
 
 png("./plots/mut_trajectories.png", width = 10, height = 8, units = "in",
     res = 150)
 ggplot(
   data = mutate(
     filter(mutations2, Timepoint %in% c(0, 1, 2, 4, 8),
-           Strain == "PA", Isol == "Pop"),
-    freq = ifelse(is.na(freq), 0, freq + runif(length(freq), min = -0.05, max = 0.05))),
-  aes(x = Timepoint, y = freq, group = mut_id)) +
+           Strain == "PA", Isol == "Pop", everabove_025 == TRUE)),
+  aes(x = Timepoint, y = freq_plot, group = mut_id)) +
   geom_point(alpha = 0.5) +
   geom_line(alpha = 0.5) +
   facet_grid(Treat ~ Pop) +
-  coord_cartesian(ylim = c(0.1, 1))
+  #coord_cartesian(ylim = c(0.1, 1)) +
+  NULL
 dev.off()
 
 
