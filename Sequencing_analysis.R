@@ -9,12 +9,77 @@ my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
 scales::show_col(my_cols)
 
 mutations <- read.table("mutations_compare_all.tsv", sep = "\t",
-                        stringsAsFactors = FALSE, header = TRUE, quote = "")
+                        stringsAsFactors = FALSE, header = TRUE,
+                        quote = '', #don't allow quotes
+                        comment.char = "") #don't allow comments since we use # for isolates
 
-mutations_wide <- pivot_wider(mutations,
-                              names_from = title, values_from = frequency)
+#Drop columns that contain no info
+mutations <- select(mutations,
+                    !clone & !codon_position_is_indeterminate &
+                    !mutator_status & !population & !time & !treatment)
+
+#Rename seq_id values
+mutations <- mutate(mutations,
+                    seq_id = gsub("e82cc082e40344a9", "EF", seq_id),
+                    seq_id = gsub("6a49b35b19134f7e", "SA", seq_id),
+                    seq_id = gsub("PP203295", "H6_1", seq_id),
+                    seq_id = gsub("contig_", "", seq_id))
+
+
+mutations_wide <- 
+  pivot_wider(select(mutations,
+                     !multiple_polymorphic_SNPs_in_same_codon &
+                       !new_read_count & !new_read_count_basis &
+                       !ref_read_count & !ref_read_count_basis),
+              names_from = title, values_from = frequency)
+                                       
 
 mutations_wide$mut_id <- 1:nrow(mutations_wide)
+
+#Note that this has converted 'missing' rows from mutations into NAs
+# in the frequency column in mutations2
+mutations2 <- pivot_longer(mutations_wide,
+                           cols = matches("4777|5174"),
+                           names_to = "title",
+                           values_to = "freq")
+mutations2 <- separate_wider_delim(
+  mutations2,
+  cols = title,
+  delim = "_",
+  names = c("seqrun", "SeqCoastid", "Strain",
+            "Timepoint", "Pop", "Treat", "Isol"))
+mutations2 <- mutate(mutations2,
+                     Timepoint = gsub("T", "", Timepoint),
+                     Pop = gsub("P", "", Pop),
+                     Isol = gsub("#", "", Isol),
+                     Treat_C = factor(
+                       ifelse(Treat %in% c("NCP", "NN"), "NC",
+                              ifelse(Treat %in% c("CNP", "CP"), "C",
+                                     Treat)),
+                       levels = c("Anc", "NC", "C")),
+                     Treat_P = factor(
+                       ifelse(Treat %in% c("NN", "CNP"), "NP",
+                              ifelse(Treat %in% c("NCP", "CP"), "P",
+                                     Treat)),
+                       levels = c("Anc", "NP", "P")),
+                     Treat = factor(Treat,
+                                    levels = c("Anc", "NN", "CNP", "NCP", "CP")))
+
+png("./plots/mut_trajectories.png", width = 10, height = 8, units = "in",
+    res = 150)
+ggplot(
+  data = mutate(
+    filter(mutations2, Timepoint %in% c(0, 1, 2, 4, 8),
+           Strain == "PA", Isol == "Pop"),
+    freq = ifelse(is.na(freq), 0, freq + runif(length(freq), min = -0.05, max = 0.05))),
+  aes(x = Timepoint, y = freq, group = mut_id)) +
+  geom_point(alpha = 0.5) +
+  geom_line(alpha = 0.5) +
+  facet_grid(Treat ~ Pop) +
+  coord_cartesian(ylim = c(0.1, 1))
+dev.off()
+
+
 
 mutations_wide <- mutate(group_by(mutations_wide, mut_id),
                          num_anc = sum(!is.na(c(`01_B_T0_3`, `02_B_T0_4`,
