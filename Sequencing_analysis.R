@@ -1,3 +1,13 @@
+#TODO:
+# calculate everabove excluding H6 seq runs & Isol sequencing
+# somehow translate 100% frequency deletions into 0's for all the other mutations
+# focus on mutations in PA14 reference not other references?
+
+
+
+
+
+
 library(tidyr)
 library(dplyr)
 library(stringr)
@@ -25,7 +35,6 @@ mutations <- mutate(mutations,
                     seq_id = gsub("PP203295", "H6_1", seq_id),
                     seq_id = gsub("contig_", "", seq_id))
 
-
 mutations_wide <- 
   pivot_wider(select(mutations,
                      !multiple_polymorphic_SNPs_in_same_codon &
@@ -34,9 +43,6 @@ mutations_wide <-
               names_from = title, values_from = frequency)
                                        
 mutations_wide$mut_id <- 1:nrow(mutations_wide)
-mutations_wide <- mutate(mutations_wide,
-                         everabove_025 = if_any(matches("4777|5174"), ~ . > 0.25),
-                         everabove_025 = ifelse(is.na(everabove_025), FALSE, everabove_025))
 
 #Note that this has converted 'missing' rows from mutations into NAs
 # in the frequency column in mutations2
@@ -92,12 +98,17 @@ mutations2 <- mutate(mutations2,
                                                      min = -0.05, 
                                                      max = 0.05)))
 
+mutations2 <- mutate(group_by(mutations2, mut_id, Treat, Pop),
+                     everabove_025 = ifelse(any(freq > 0.25, na.rm = TRUE), TRUE, FALSE))
+
+
 png("./plots/mut_trajectories.png", width = 10, height = 8, units = "in",
     res = 150)
 ggplot(
   data = mutate(
     filter(mutations2, Timepoint %in% c(0, 1, 2, 4, 8),
-           Strain == "PA", Isol == "Pop", everabove_025 == TRUE)),
+           Strain == "PA", Isol == "Pop", everabove_025 == TRUE,
+           seq_id %in% c("PA14_1"))),
   aes(x = Timepoint, y = freq_plot, group = mut_id)) +
   geom_point(alpha = 0.5) +
   geom_line(alpha = 0.5) +
@@ -106,7 +117,8 @@ ggplot(
   NULL
 dev.off()
 
-
+test <- filter(mutations2, Strain == "PA", Isol == "Pop", Treat == "NCP",
+               Pop == 3, everabove_025 == TRUE, seq_id == "PA14_1")
 
 mutations_wide <- mutate(group_by(mutations_wide, mut_id),
                          num_anc = sum(!is.na(c(`01_B_T0_3`, `02_B_T0_4`,
