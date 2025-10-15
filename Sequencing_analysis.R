@@ -1,13 +1,9 @@
-#TODO:
+##TODO ----
 # calculate everabove excluding H6 seq runs & Isol sequencing
 # somehow translate 100% frequency deletions into 0's for all the other mutations
 # focus on mutations in PA14 reference not other references?
 
-
-
-
-
-
+##Setup ----
 library(tidyr)
 library(dplyr)
 library(stringr)
@@ -18,6 +14,7 @@ my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
              "#D55E00", "#CC79A7", "#000000")
 scales::show_col(my_cols)
 
+##Initial data reading & organization ----
 mutations <- read.table("mutations_compare_all.tsv", sep = "\t",
                         stringsAsFactors = FALSE, header = TRUE,
                         quote = '', #don't allow quotes
@@ -35,70 +32,95 @@ mutations <- mutate(mutations,
                     seq_id = gsub("PP203295", "H6_1", seq_id),
                     seq_id = gsub("contig_", "", seq_id))
 
-mutations_wide <- 
-  pivot_wider(select(mutations,
-                     !multiple_polymorphic_SNPs_in_same_codon &
-                       !new_read_count & !new_read_count_basis &
-                       !ref_read_count & !ref_read_count_basis),
-              names_from = title, values_from = frequency)
-                                       
-mutations_wide$mut_id <- 1:nrow(mutations_wide)
+#Rename frequency
+colnames(mutations)[colnames(mutations) == "frequency"] <- "freq"
 
-#Note that this has converted 'missing' rows from mutations into NAs
-# in the frequency column in mutations2
-mutations2 <- pivot_longer(mutations_wide,
-                           cols = matches("4777|5174"),
-                           names_to = "title",
-                           values_to = "freq")
-mutations2 <- separate_wider_delim(
-  mutations2,
+#Number each unique mutation (shared across samples)
+mutations <- 
+  mutate(group_by(mutations,
+                  across(-c(freq, multiple_polymorphic_SNPs_in_same_codon,
+                            new_read_count, new_read_count_basis,
+                            ref_read_count, ref_read_count_basis,
+                            title))),
+         mut_id = cur_group_id())
+
+mutations <- separate_wider_delim(
+  mutations,
   cols = title,
   delim = "_",
-  names = c("seqrun", "SeqCoastid", "Strain",
-            "Timepoint", "Pop", "Treat", "Isol"))
-mutations2 <- mutate(mutations2,
-                     Timepoint = gsub("T", "", Timepoint),
-                     Pop = gsub("P", "", Pop),
-                     Isol = gsub("#", "", Isol))
+  names = c("seqrun", "SeqCoastid", "seqtype",
+            "Timepoint", "Pop", "Treat", "Isol"),
+  cols_remove = FALSE)
+mutations <- mutate(mutations,
+                    Timepoint = gsub("T", "", Timepoint),
+                    Pop = gsub("P", "", Pop),
+                    Isol = gsub("#", "", Isol),
+                    Treat_C = factor(
+                      ifelse(Treat %in% c("NCP", "NN"), "NC",
+                             ifelse(Treat %in% c("CNP", "CP"), "C",
+                                    Treat)),
+                      levels = c("Anc", "NC", "C")),
+                    Treat_P = factor(
+                      ifelse(Treat %in% c("NN", "CNP"), "NP",
+                             ifelse(Treat %in% c("NCP", "CP"), "P",
+                                    Treat)),
+                      levels = c("Anc", "NP", "P")),
+                    Treat = factor(Treat,
+                                   levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
+#Split samples by type
+mutpop <- filter(mutations, Isol == "Pop")
+mutisol <- filter(mutations, Isol != "Pop")
+
+##Population sample analyses ----
+#For population samples, fill in all the missing mutation-sample combinations
+# with NA
+mutpop <- complete(
+  ungroup(mutpop),
+  #Create the nesting defining each unique mutation
+  nesting(aa_new_seq, aa_position, aa_ref_seq, codon_new_seq, codon_number, 
+          codon_position, codon_ref_seq, gene_name, gene_position, gene_product, 
+          gene_strand, genes_inactivated, genes_overlapping, genes_promoter, 
+          insert_position, locus_tag, locus_tags_inactivated, 
+          locus_tags_overlapping, locus_tags_promoter, mutation_category,
+          new_seq, position, position_end, position_start,
+          ref_seq, repeat_length, repeat_new_copies, repeat_ref_copies, 
+          repeat_seq, seq_id, size, snp_type, transl_table, type, mut_id),
+  #Create the nesting defining each sample
+  nesting(seqrun, SeqCoastid, seqtype, Timepoint, Pop, Treat, Isol, title,
+          Treat_C, Treat_P)
+  #Columns left out (and therefore filled in by NA by default):
+  # multiple_polymorphic_SNPs_in_same_codon,
+  # new_read_count, new_read_count_basis, 
+  # ref_read_count, ref_read_count_basis,
+  # freq
+)
 
 #Duplicating ancestral H6 rows into every pop & treatment
-mutations2 <-
+mutpop <-
   bind_rows(
-    filter(mutations2, !(Strain == "H6" & Pop == 0)),
+    filter(mutpop, !(seqtype == "H6" & Pop == 0)),
     crossing(
-      Pop = unique(filter(mutations2, Strain == "H6", Pop != 0)$Pop),
-      Treat = unique(filter(mutations2, Strain == "H6", Treat != "Anc")$Treat),
-      select(filter(mutations2, Strain == "H6", Pop == 0),
+      Pop = unique(filter(mutpop, seqtype == "H6", Pop != 0)$Pop),
+      Treat = unique(filter(mutpop, seqtype == "H6", Treat != "Anc")$Treat),
+      select(filter(mutpop, seqtype == "H6", Pop == 0),
              -Pop, -Treat)))
 #Duplicating ancestral PA rows into every treatment
-mutations2 <-
+mutpop <-
   bind_rows(
-    filter(mutations2, !(Strain == "PA" & Treat == "Anc")),
+    filter(mutpop, !(seqtype == "PA" & Treat == "Anc")),
     crossing(
-      Treat = unique(filter(mutations2, Strain == "PA", Treat != "Anc")$Treat),
-      select(filter(mutations2, Strain == "PA", Treat == "Anc"),
+      Treat = unique(filter(mutpop, seqtype == "PA", Treat != "Anc")$Treat),
+      select(filter(mutpop, seqtype == "PA", Treat == "Anc"),
              -Treat)))
 
-mutations2 <- mutate(mutations2,
-                     Treat_C = factor(
-                       ifelse(Treat %in% c("NCP", "NN"), "NC",
-                              ifelse(Treat %in% c("CNP", "CP"), "C",
-                                     Treat)),
-                       levels = c("Anc", "NC", "C")),
-                     Treat_P = factor(
-                       ifelse(Treat %in% c("NN", "CNP"), "NP",
-                              ifelse(Treat %in% c("NCP", "CP"), "P",
-                                     Treat)),
-                       levels = c("Anc", "NP", "P")),
-                     Treat = factor(Treat,
-                                    levels = c("Anc", "NN", "CNP", "NCP", "CP")),
-                     freq_plot = ifelse(is.na(freq), 0, 
-                                        freq + runif(length(freq), 
-                                                     min = -0.05, 
-                                                     max = 0.05)))
+mutpop <- mutate(mutpop,
+                 freq_plot = ifelse(is.na(freq), 0, 
+                                    freq + runif(length(freq), 
+                                                 min = -0.05, 
+                                                 max = 0.05)))
 
-mutations2 <- mutate(group_by(mutations2, mut_id, Treat, Pop),
+mutpop <- mutate(group_by(mutpop, seqtype, mut_id, Treat, Pop),
                      everabove_025 = ifelse(any(freq > 0.25, na.rm = TRUE), TRUE, FALSE))
 
 
@@ -106,8 +128,8 @@ png("./plots/mut_trajectories.png", width = 10, height = 8, units = "in",
     res = 150)
 ggplot(
   data = mutate(
-    filter(mutations2, Timepoint %in% c(0, 1, 2, 4, 8),
-           Strain == "PA", Isol == "Pop", everabove_025 == TRUE,
+    filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
+           seqtype == "PA", Isol == "Pop", everabove_025 == TRUE,
            seq_id %in% c("PA14_1"))),
   aes(x = Timepoint, y = freq_plot, group = mut_id)) +
   geom_point(alpha = 0.5) +
@@ -117,7 +139,7 @@ ggplot(
   NULL
 dev.off()
 
-test <- filter(mutations2, Strain == "PA", Isol == "Pop", Treat == "NCP",
+test <- filter(mutpop, seqtype == "PA", Isol == "Pop", Treat == "NCP",
                Pop == 3, everabove_025 == TRUE, seq_id == "PA14_1")
 
 mutations_wide <- mutate(group_by(mutations_wide, mut_id),
