@@ -96,13 +96,21 @@ mutpop <- complete(
   # freq
 )
 
+##Code for checking unique samples
+# temp <- summarize(group_by(mutpop,
+#                         seqrun, SeqCoastid, seqtype, Timepoint, Pop, Treat, Isol, title,
+#                         Treat_C, Treat_P),
+#                num_muts = n())
+# View(temp[order(temp$seqtype, temp$Timepoint, temp$Treat, as.numeric(temp$Pop)), ])
+                        
+
 #Duplicating ancestral H6 rows into every pop & treatment
 mutpop <-
   bind_rows(
     filter(mutpop, !(seqtype == "H6" & Pop == 0)),
     crossing(
-      Pop = unique(filter(mutpop, seqtype == "H6", Pop != 0)$Pop),
-      Treat = unique(filter(mutpop, seqtype == "H6", Treat != "Anc")$Treat),
+      Pop = as.character(unique(filter(mutpop, seqtype == "H6", Pop != 0)$Pop)),
+      Treat = as.character(unique(filter(mutpop, seqtype == "H6", Treat != "Anc")$Treat)),
       select(filter(mutpop, seqtype == "H6", Pop == 0),
              -Pop, -Treat)))
 #Duplicating ancestral PA rows into every treatment
@@ -110,9 +118,24 @@ mutpop <-
   bind_rows(
     filter(mutpop, !(seqtype == "PA" & Treat == "Anc")),
     crossing(
-      Treat = unique(filter(mutpop, seqtype == "PA", Treat != "Anc")$Treat),
+      Treat = as.character(unique(filter(mutpop, seqtype == "PA", Treat != "Anc")$Treat)),
       select(filter(mutpop, seqtype == "PA", Treat == "Anc"),
              -Treat)))
+
+#Fix treatment columns post-duplication
+mutpop <- mutate(mutpop,
+                    Treat_C = factor(
+                      ifelse(Treat %in% c("NCP", "NN"), "NC",
+                             ifelse(Treat %in% c("CNP", "CP"), "C",
+                                    Treat)),
+                      levels = c("Anc", "NC", "C")),
+                    Treat_P = factor(
+                      ifelse(Treat %in% c("NN", "CNP"), "NP",
+                             ifelse(Treat %in% c("NCP", "CP"), "P",
+                                    Treat)),
+                      levels = c("Anc", "NP", "P")),
+                    Treat = factor(Treat,
+                                   levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
 mutpop <- mutate(mutpop,
                  freq_plot = ifelse(is.na(freq), 0, 
@@ -121,8 +144,11 @@ mutpop <- mutate(mutpop,
                                                  max = 0.05)))
 
 mutpop <- mutate(group_by(mutpop, seqtype, mut_id, Treat, Pop),
-                     everabove_025 = ifelse(any(freq > 0.25, na.rm = TRUE), TRUE, FALSE))
+                 everabove_025 = ifelse(any(freq > 0.25, na.rm = TRUE), TRUE, FALSE),
+                 fixed = ifelse(all(!is.na(freq) & freq == 1), TRUE, FALSE))
 
+#mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
+#mut_id 11212 is fixed in pop 9 across all treatments & timepoints
 
 png("./plots/mut_trajectories.png", width = 10, height = 8, units = "in",
     res = 150)
@@ -139,9 +165,24 @@ ggplot(
   NULL
 dev.off()
 
-test <- filter(mutpop, seqtype == "PA", Isol == "Pop", Treat == "NCP",
-               Pop == 3, everabove_025 == TRUE, seq_id == "PA14_1")
+temp <- filter(mutpop, fixed == TRUE)
+View(temp[order(temp$mut_id, temp$Timepoint, temp$Treat, as.numeric(temp$Pop)),
+          c("freq", "mut_id", "Timepoint", "Treat", "Pop")])
 
+
+
+
+temp <- filter(mutpop, seqtype == "PA", Isol == "Pop", Treat == "NCP",
+               Pop == 3, everabove_025 == TRUE, seq_id == "PA14_1")
+View(temp[order(temp$mut_id, temp$Timepoint), 
+          c("freq", "mut_id", "Timepoint")])
+
+##Isolate analyses ----
+
+
+
+
+##Old code ----
 mutations_wide <- mutate(group_by(mutations_wide, mut_id),
                          num_anc = sum(!is.na(c(`01_B_T0_3`, `02_B_T0_4`,
                                               `03_B_T0_5`, `04_B_T0_6`,
