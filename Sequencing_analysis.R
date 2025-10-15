@@ -178,8 +178,28 @@ View(temp[order(temp$mut_id, temp$Timepoint),
           c("freq", "mut_id", "Timepoint")])
 
 ##Isolate analyses ----
+View(filter(mutisol[order(mutisol$gene_name, mutisol$mut_id, 
+                          mutisol$Timepoint, mutisol$Treat, 
+                          as.numeric(mutisol$Pop), mutisol$Isol), ],
+            !mut_id %in% c("2958", "3198", "7885", "11212")))
 
+View(filter(mutisol, 
+            !mut_id %in% c("2958", "3198", "7885", "11212"),
+            new_seq == ref_seq))
 
+mutisol_sum <- 
+  summarize(group_by(filter(mutisol, !mut_id %in% c("2958", "3198", "7885", "11212")), 
+                     gene_name),
+            n = n())
+
+png("./plots/isol_mut_types.png", width = 8, height = 8, units = "in",
+    res = 150)
+ggplot(data = filter(mutisol, gene_name %in% filter(mutisol_sum, n > 1)$gene_name),
+       aes(x = gene_name, fill = mutation_category)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, size = 8)) +
+  facet_grid(~ Treat)
+dev.off()
 
 
 ##Old code ----
