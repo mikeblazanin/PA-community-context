@@ -68,6 +68,12 @@ mutations <- mutate(mutations,
                     Treat = factor(Treat,
                                    levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
+#Filter out fixed-nonvariate mutations
+#mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
+#mut_id 11212 is fixed in pop 9 across all treatments & timepoints
+mutations <- filter(mutations,
+                    !mut_id %in% c("2958", "3198", "7885", "11212"))
+
 #Split samples by type
 mutpop <- filter(mutations, Isol == "Pop")
 mutisol <- filter(mutations, Isol != "Pop")
@@ -147,9 +153,6 @@ mutpop <- mutate(group_by(mutpop, seqtype, mut_id, Treat, Pop),
                  everabove_025 = ifelse(any(freq > 0.25, na.rm = TRUE), TRUE, FALSE),
                  fixed = ifelse(all(!is.na(freq) & freq == 1), TRUE, FALSE))
 
-#mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
-#mut_id 11212 is fixed in pop 9 across all treatments & timepoints
-
 png("./plots/mut_trajectories.png", width = 10, height = 8, units = "in",
     res = 150)
 ggplot(
@@ -178,6 +181,50 @@ View(temp[order(temp$mut_id, temp$Timepoint),
           c("freq", "mut_id", "Timepoint")])
 
 ##Isolate analyses ----
+mutisol <- mutate(mutisol,
+                  gene_category = case_when(
+                    grepl("pil", gene_name, ignore.case = TRUE) ~ "pilus",
+                    grepl("Wsp", gene_name) ~ "biofilm",
+                    grepl("MorA", gene_name) ~ "biofilm",
+                    TRUE ~ "other"),
+                  mutation_category2 = case_when(
+                    mutation_category == "small_indel" &
+                      (nchar(ref_seq) - nchar(new_seq)) %% 3 == 0 ~ "small_indel_inframe",
+                    mutation_category == "small_indel" &
+                      (nchar(ref_seq) - nchar(new_seq)) %% 3 != 0 ~ "small_indel_frameshift",
+                    TRUE ~ mutation_category))
+
+
+
+#Problem: we just sequenced more NCP than CP
+                    
+png("./plots/isol_mut_types.png", width = 8, height = 8, units = "in",
+    res = 150)
+ggplot(data = mutisol,
+       aes(x = gene_category, fill = mutation_category2)) +
+  geom_bar(position = "fill") +
+  theme(axis.text.x = element_text(angle = 90, size = 8)) +
+  facet_grid(~ Treat)
+dev.off()
+
+mutisol_sum <- summarize(
+  group_by(mutisol, Timepoint, Treat, Pop, Isol, Treat_C, Treat_P),
+  nmuts = n(),
+  npil = sum(gene_category == "pilus"))
+
+ggplot(data = mutisol_sum,
+       aes(x = Timepoint, y = nmuts)) +
+  geom_point(alpha = 0.5,
+             position = position_jitter(width = 0.2, height = 0)) +
+  scale_y_log10() +
+  facet_grid(~Treat)
+
+ggplot(data = mutisol_sum,
+       aes(x = Timepoint, y = npil)) +
+  geom_point(alpha = 0.5,
+             position = position_jitter(width = 0.2, height = 0)) +
+  facet_grid(~Treat)
+
 View(filter(mutisol[order(mutisol$gene_name, mutisol$mut_id, 
                           mutisol$Timepoint, mutisol$Treat, 
                           as.numeric(mutisol$Pop), mutisol$Isol), ],
@@ -186,20 +233,6 @@ View(filter(mutisol[order(mutisol$gene_name, mutisol$mut_id,
 View(filter(mutisol, 
             !mut_id %in% c("2958", "3198", "7885", "11212"),
             new_seq == ref_seq))
-
-mutisol_sum <- 
-  summarize(group_by(filter(mutisol, !mut_id %in% c("2958", "3198", "7885", "11212")), 
-                     gene_name),
-            n = n())
-
-png("./plots/isol_mut_types.png", width = 8, height = 8, units = "in",
-    res = 150)
-ggplot(data = filter(mutisol, gene_name %in% filter(mutisol_sum, n > 1)$gene_name),
-       aes(x = gene_name, fill = mutation_category)) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, size = 8)) +
-  facet_grid(~ Treat)
-dev.off()
 
 
 ##Old code ----
