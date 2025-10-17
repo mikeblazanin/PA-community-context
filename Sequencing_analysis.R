@@ -20,6 +20,15 @@ mutations <- read.table("mutations_compare_all.tsv", sep = "\t",
                         quote = '', #don't allow quotes
                         comment.char = "") #don't allow comments since we use # for isolates
 
+#Missing samples:
+# 4777_25 - AX T0 P0 Anc #0 - expected bc reference
+# 5174_58 - PA T1 P4 CP #3 - susceptible
+# 5174_64 - PA T4 P4 NCP #3 - susceptible
+# 5174_69 - PA T1 P5 NCP #1 - susceptible
+# 5174_70 - PA T1 P5 NCP #2 - resistant
+# 5174_129 - PA T8 P10 CP #1 - resistant
+# 5174_134 - PA T0 P3 Anc #1 - expected bc reference
+
 #Drop columns that contain no info
 mutations <- select(mutations,
                     !clone & !codon_position_is_indeterminate &
@@ -181,6 +190,16 @@ View(temp[order(temp$mut_id, temp$Timepoint),
           c("freq", "mut_id", "Timepoint")])
 
 ##Isolate analyses ----
+mutisol <- left_join(
+  mutisol,
+  select(
+    mutate(read.csv("aggregate_resis_sum_data.csv", stringsAsFactors = FALSE,
+                    colClasses = "character"),
+           Treat = Bact_treat, Treat_C = Bact_treat_C, Treat_P = Bact_treat_P,
+           Timepoint = Bact_timepoint, Pop = Bact_pop, Isol = Bact_isol),
+    Treat, Treat_C, Treat_P, Timepoint, Pop, Isol, clearing_avg,
+    EOP_avg, Plaque_morphology))
+
 mutisol <- mutate(mutisol,
                   gene_category = case_when(
                     grepl("pil", gene_name, ignore.case = TRUE) ~ "pilus",
@@ -192,11 +211,26 @@ mutisol <- mutate(mutisol,
                       (nchar(ref_seq) - nchar(new_seq)) %% 3 == 0 ~ "small_indel_inframe",
                     mutation_category == "small_indel" &
                       (nchar(ref_seq) - nchar(new_seq)) %% 3 != 0 ~ "small_indel_frameshift",
-                    TRUE ~ mutation_category))
+                    TRUE ~ mutation_category),
+                  resis_cat = case_when(
+                    Plaque_morphology %in% c("Cloudy", "Tiny") ~ "part_resis",
+                    Plaque_morphology == "None" ~ "full_resis"
+                  ))
 
+nice_isoltable <- 
+  select(ungroup(mutisol),
+         Timepoint, Treat, Pop, Isol,
+         gene_name, aa_new_seq, aa_ref_seq, 
+         new_seq, ref_seq, repeat_length, repeat_new_copies, 
+         repeat_ref_copies, repeat_seq, mutation_category2)
+nice_isoltable <-
+  nice_isoltable[order(nice_isoltable$Timepoint,
+                       nice_isoltable$Treat,
+                       as.numeric(nice_isoltable$Pop),
+                       nice_isoltable$Isol), ]
+write.csv(x = nice_isoltable, file = "isolmuts.csv", row.names = FALSE)
 
-
-#Problem: we just sequenced more NCP than CP
+#Note: we just sequenced more NCP than CP
                     
 png("./plots/isol_mut_types.png", width = 8, height = 8, units = "in",
     res = 150)
@@ -206,6 +240,19 @@ ggplot(data = mutisol,
   theme(axis.text.x = element_text(angle = 90, size = 8)) +
   facet_grid(~ Treat)
 dev.off()
+
+ggplot(data = filter(mutisol),
+       aes(x = resis_cat, fill = mutation_category2)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, size = 8)) +
+  facet_grid(gene_category ~ Treat)
+
+ggplot(data = filter(mutisol),
+       aes(x = resis_cat, fill = mutation_category2)) +
+  geom_bar(position = "fill") +
+  theme(axis.text.x = element_text(angle = 90, size = 8)) +
+  facet_grid(gene_category ~ Treat)
+
 
 mutisol_sum <- summarize(
   group_by(mutisol, Timepoint, Treat, Pop, Isol, Treat_C, Treat_P),
