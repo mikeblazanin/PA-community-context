@@ -1024,6 +1024,10 @@ resis_isols <- mutate(
   Plaque_morphology = ifelse(is.na(Plaque_morphology), 
                              ifelse(clearing2 == 0, "None", "Clear?"),
                              Plaque_morphology))
+#At this point, all the NA EOP2_plot values are for one of:
+# Phages that don't exist bc extinction
+# Bact Pop 3 T0 #3 which we couldn't recover from frozen
+# NP treatments
 
 #Calculate average for ea bact isol across phages
 resis_isols_bactsum <- summarize(
@@ -1048,9 +1052,23 @@ resis_isols <-
                    Bact_treat, Bact_treat_C, Bact_treat_P, Bact_timepoint,
                    Bact_pop, Bact_isol,
                    Bact_isol_forplotting))
-                  
+
+#The columns that contain useful data here:
+# EOP2_plotting - EOP data with bd data (NA's in EOP2) filled in as the lowest
+#                 EOP in the dataset
+# clearing2 - binary of whether EOP is above detection or not
+# Plaque_morphology - categorical that works well for resistance categories
+#                     Clear are susceptible, Clear? are NP treats we never
+#                     went back to check, Cloudy or Tiny are part-resis
+#                     None are resis
+#                     Note: this works even better than EOP, because EOP for
+#                     clear vs cloudy strongly overlap, and even average EOP
+#                     for ea bact isol overlaps slightly between clear and
+#                     cloudy/tiny
+
 #Write copy to file
 write.csv(resis_isols, "aggregate_resis_data.csv", row.names = FALSE)
+write.csv(resis_isols_bactsum, "aggregate_resis_sum_data.csv", row.names = FALSE)
 
 resis_isols_bactsum_undup <- summarize(
   group_by(mutate(resis_isols_bactsum, 
@@ -1090,6 +1108,18 @@ resis_sum_pops_sum <- summarize(group_by(resis_sum_pops,
                                          Bact_treat, Bact_treat_C,
                                          Bact_treat_P, Bact_timepoint),
                                 clearing_avg = mean(clearing_avg))
+
+ggplot(data = mutate(resis_isols,
+                     Plaq_morph = ifelse(Bact_timepoint == 0, "Anc", Plaque_morphology)), 
+       aes(x = Plaq_morph, y = EOP2_plot)) + 
+  geom_point(position = position_jitter(width = 0.2), alpha = 0.5) + 
+  scale_y_log10()
+
+ggplot(data = mutate(resis_isols_bactsum_undup,
+                     Plaq_morph = ifelse(Bact_timepoint == 0, "Anc", Plaque_morphology)), 
+       aes(x = Plaq_morph, y = EOP_avg)) + 
+  geom_point(position = position_jitter(width = 0.2), alpha = 0.5) + 
+  scale_y_log10()
 
 png("plots/resis_grid.png", width = 8, height = 5, units = "in", res = 150)
 ggplot(data = resis_isols,
