@@ -1,6 +1,6 @@
 ##TODO ----
-# calculate everabove excluding H6 seq runs & Isol sequencing
-# somehow translate 100% frequency deletions into 0's for all the other mutations
+# somehow translate 100% frequency deletions into 0's for all the other mutations?
+# calculate change in frequency to id muts that increase rapidly, then look into func
 # focus on mutations in PA14 reference not other references?
 # plot mutation trajectories excluding those that appear in control treatments
 # calculate average coverage depth of each sample
@@ -9,6 +9,7 @@
 # Plot only pilus & color pilus mutants in trajectories by gene or mutation
 # Add other gene categories in trajectories plot
 # Investigate other top freq muts and color in categories
+# ML to predict treatment? phage density?
 
 
 ##Setup ----
@@ -95,8 +96,11 @@ mutpop <- mutate(
   mutpop,
   gene_category = case_when(
     grepl("pil", gene_name, ignore.case = TRUE) ~ "pilus",
+    grepl("CupB3", gene_name) ~ "pilus",
     grepl("Wsp", gene_name) ~ "biofilm",
     grepl("MorA", gene_name) ~ "biofilm",
+    grepl("LasR", gene_name) ~ "biofilm",
+    grepl("Mut", gene_name) ~ "mutator",
     TRUE ~ "other"))
 
 #For population samples, fill in all the missing mutation-sample combinations
@@ -172,9 +176,11 @@ mutpop <- mutate(mutpop,
 
 mutpop <- mutate(group_by(mutpop, seqtype, mut_id, Treat, Pop),
                  everabove_025 = ifelse(any(freq > 0.25, na.rm = TRUE), TRUE, FALSE),
+                 everabove_010 = ifelse(any(freq > 0.1, na.rm = TRUE), TRUE, FALSE),
+                 everabove_005 = ifelse(any(freq > 0.05, na.rm = TRUE), TRUE, FALSE),
                  fixed = ifelse(all(!is.na(freq) & freq == 1), TRUE, FALSE))
 
-png("./plots/mut_trajectories.png", width = 12, height = 7, units = "in",
+png("./plots/mut_trajectories_above025.png", width = 12, height = 7, units = "in",
     res = 150)
 ggplot(
   data = mutate(
@@ -188,10 +194,77 @@ ggplot(
   facet_grid(Treat ~ Pop) +
   #coord_cartesian(ylim = c(0.1, 1)) +
   scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-  scale_color_manual(breaks = c("pilus", "biofilm", "other"),
-                     values = my_cols[c(6, 5, 8)]) +
-  scale_alpha_manual(breaks = c("pilus", "biofilm", "other"),
-                     values = c(0.7, 0.7, 0.3)) +
+  scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                     values = my_cols[c(6, 5, 3, 8)]) +
+  scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                     values = c(0.7, 0.7, 0.7, 0.3)) +
+  theme_bw() +
+  NULL
+dev.off()
+
+png("./plots/mut_trajectories_above010.png", width = 12, height = 7, units = "in",
+    res = 150)
+ggplot(
+  data = mutate(
+    filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
+           seqtype == "PA", Isol == "Pop", everabove_010 == TRUE,
+           seq_id %in% c("PA14_1"))),
+  aes(x = as.numeric(Timepoint), y = freq_plot, group = mut_id, 
+      color = gene_category)) +
+  #geom_point(aes(alpha = gene_category)) +
+  geom_line(aes(alpha = gene_category)) +
+  facet_grid(Treat ~ Pop) +
+  #coord_cartesian(ylim = c(0.1, 1)) +
+  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+  scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                     values = my_cols[c(6, 5, 3, 8)]) +
+  scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                     values = c(0.8, 0.8, 0.8, 0.15)) +
+  theme_bw() +
+  NULL
+dev.off()
+
+png("./plots/mut_trajectories_above005.png", width = 12, height = 7, units = "in",
+    res = 150)
+ggplot(
+  data = mutate(
+    filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
+           seqtype == "PA", Isol == "Pop", everabove_005 == TRUE,
+           seq_id %in% c("PA14_1"))),
+  aes(x = as.numeric(Timepoint), y = freq_plot, group = mut_id, 
+      color = gene_category)) +
+  #geom_point(aes(alpha = gene_category)) +
+  geom_line(aes(alpha = gene_category)) +
+  facet_grid(Treat ~ Pop) +
+  #coord_cartesian(ylim = c(0.1, 1)) +
+  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+  scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                     values = my_cols[c(6, 5, 3, 8)]) +
+  scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                     values = c(0.8, 0.8, 0.8, 0.15)) +
+  theme_bw() +
+  NULL
+dev.off()
+
+png("./plots/mut_trajectories_all_noother.png", width = 12, height = 7, units = "in",
+    res = 150)
+ggplot(
+  data = mutate(
+    filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
+           gene_category != "other",
+           seqtype == "PA", Isol == "Pop",
+           seq_id %in% c("PA14_1"))),
+  aes(x = as.numeric(Timepoint), y = freq_plot, group = mut_id, 
+      color = gene_category)) +
+  #geom_point(aes(alpha = gene_category)) +
+  geom_line(aes(alpha = gene_category)) +
+  facet_grid(Treat ~ Pop) +
+  #coord_cartesian(ylim = c(0.1, 1)) +
+  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+  scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                     values = my_cols[c(6, 5, 3, 8)]) +
+  scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                     values = c(0.8, 0.8, 0.8, 0.15)) +
   theme_bw() +
   NULL
 dev.off()
@@ -210,33 +283,10 @@ ggplot(
   facet_grid(Treat ~ Pop) +
   #coord_cartesian(ylim = c(0.1, 1)) +
   scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-  scale_color_manual(breaks = c("pilus", "biofilm", "other"),
-                     values = my_cols[c(6, 5, 8)]) +
-  scale_alpha_manual(breaks = c("pilus", "biofilm", "other"),
-                     values = c(0.8, 0.8, 0.15)) +
-  theme_bw() +
-  NULL
-dev.off()
-
-png("./plots/mut_trajectories_all_nother.png", width = 12, height = 7, units = "in",
-    res = 150)
-ggplot(
-  data = mutate(
-    filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
-           gene_category != "other",
-           seqtype == "PA", Isol == "Pop",
-           seq_id %in% c("PA14_1"))),
-  aes(x = as.numeric(Timepoint), y = freq_plot, group = mut_id, 
-      color = gene_category)) +
-  #geom_point(aes(alpha = gene_category)) +
-  geom_line(aes(alpha = gene_category)) +
-  facet_grid(Treat ~ Pop) +
-  #coord_cartesian(ylim = c(0.1, 1)) +
-  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-  scale_color_manual(breaks = c("pilus", "biofilm", "other"),
-                     values = my_cols[c(6, 5, 8)]) +
-  scale_alpha_manual(breaks = c("pilus", "biofilm", "other"),
-                     values = c(0.8, 0.8, 0.15)) +
+  scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                     values = my_cols[c(6, 5, 3, 8)]) +
+  scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                     values = c(0.8, 0.8, 0.8, 0.15)) +
   theme_bw() +
   NULL
 dev.off()
@@ -263,30 +313,34 @@ View(temp[order(temp$mut_id, temp$Timepoint),
 # 5174_70 - PA T1 P5 NCP #2 - resistant
 # 5174_129 - PA T8 P10 CP #1 - resistant
 
-#Filter out fixed-nonvariate mutations
-#mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
-#mut_id 11212 is fixed in pop 9 across all treatments & timepoints
-mutisol <- filter(mutisol, !mut_id %in% c("2958", "3198", "7885", "11212"))
-
 #Filter out sample that had 0 coverage (so mutation is a full-genome deletion)
 mutisol <- filter(mutisol, title != "5174_67_PA_T8_P4_NCP_#5")
 
 mutisol <- left_join(
   mutisol,
   select(
-    mutate(read.csv("aggregate_resis_sum_data.csv", stringsAsFactors = FALSE,
+    mutate(read.csv("aggregate_isolate_data.csv", stringsAsFactors = FALSE,
                     colClasses = "character"),
            Treat = Bact_treat, Treat_C = Bact_treat_C, Treat_P = Bact_treat_P,
            Timepoint = Bact_timepoint, Pop = Bact_pop, Isol = Bact_isol),
-    Treat, Treat_C, Treat_P, Timepoint, Pop, Isol, clearing_avg,
-    EOP_avg, Plaque_morphology))
+    Treat, Treat_C, Treat_P, Timepoint, Pop, Isol, 
+    clearing_avg, EOP_avg, Plaque_morphology, resis, resis_cat,
+    cm_day, cm_day_norm, twitch_cat,
+    wavelength_405, wavelength_695,
+    max_percap, max_dens, lag, auc, max_percap_time, max_percap_dens, min_dens,
+    max_percap_norm, max_dens_norm, auc_norm, lag_norm,
+    biofilm_abs, biofilm_norm, biofilm_norm_log10, 
+    biofilm_norm_log10_norm, biofilm_block_name))
 
 mutisol <- mutate(
   mutisol,
   gene_category = case_when(
     grepl("pil", gene_name, ignore.case = TRUE) ~ "pilus",
+    grepl("CupB3", gene_name) ~ "pilus",
     grepl("Wsp", gene_name) ~ "biofilm",
     grepl("MorA", gene_name) ~ "biofilm",
+    grepl("LasR", gene_name) ~ "biofilm",
+    grepl("Mut", gene_name) ~ "mutator",
     TRUE ~ "other"),
   mutation_category2 = case_when(
     mutation_category == "small_indel" & grepl("intergenic", gene_position) ~
@@ -298,17 +352,12 @@ mutisol <- mutate(
     TRUE ~ mutation_category),
   mutation_category3 = case_when(
     mutation_category2 %in% 
-      c("large_deletion", "small_indel_frameshift", "snp_nonsense") ~ "Loss of function",
+      c("large_deletion", "small_indel_frameshift", "snp_nonsense") ~ "loss of function",
     mutation_category2 %in% c("small_indel_inframe") ~ mutation_category2,
     mutation_category2 %in% c("small_indel_intergenic", "snp_intergenic") ~ "intergenic",
-    mutation_category2 %in% c("snp_nonsense", "snp_nonsynonymous") ~ "Other change",
-    mutation_category2 %in% c("snp_synonymous") ~ "Silent",
+    mutation_category2 %in% c("snp_nonsense", "snp_nonsynonymous") ~ "other change",
+    mutation_category2 %in% c("snp_synonymous") ~ "silent",
     TRUE ~ "NA"),
-  resis_cat = case_when(
-    Plaque_morphology %in% c("Cloudy", "Tiny") ~ "part_resis",
-    Plaque_morphology == "None" ~ "full_resis",
-    Plaque_morphology == "Clear" ~ "suscep",
-    TRUE ~ "nomatch"),
   gene_short = coalesce(
     # 1) Capitalized short symbol at end, e.g. "… PilT" or "… PilY1"
     str_extract(gene_name, "([A-Z][A-Za-z0-9]+)$"),
@@ -317,6 +366,7 @@ mutisol <- mutate(
     # 3) As a final fallback use the provided gene_name column
     gene_name),
   concise_mut = case_when(
+    mut_id %in% c("2958", "3198", "7885", "11212") ~ "", #(ancestral mutations)
     grepl("snp", mutation_category) ~
       ifelse(grepl("intergenic", gene_position),
              paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
@@ -339,31 +389,37 @@ mutisol <- mutate(
   )
 
 nice_isoltable <- 
-  pivot_wider(select(ungroup(mutisol),
-                     Timepoint, Treat, Pop, Isol, Treat_C, Treat_P,
-                     clearing_avg, EOP_avg, Plaque_morphology,
-                     resis_cat, gene_category, concise_mut),
-              names_from = gene_category,
-              names_prefix = "mut_in_",
-              values_from = concise_mut,
-              values_fn = function(x) {paste0(x, collapse = "; ")})
-nice_isoltable2 <- 
   pivot_wider(
     select(
       mutate(ungroup(mutisol),
-             mut_w_categ = paste0(mutation_category2, " (", gene_short, ")")),
+             mut_combin = ifelse(
+               mut_id %in% c("2958", "3198", "7885", "11212"),
+               NA,
+               paste0(mutation_category2, " [", concise_mut, "]"))),
       Timepoint, Treat, Pop, Isol, Treat_C, Treat_P,
-      clearing_avg, EOP_avg, Plaque_morphology,
-      resis_cat, gene_category, mut_w_categ),
+      clearing_avg, EOP_avg, Plaque_morphology, resis_cat, 
+      twitch_cat,
+      gene_category, mut_combin),
     names_from = gene_category,
     names_prefix = "mut_in_",
-    values_from = mut_w_categ,
-    values_fn = function(x) {paste0(x, collapse = "; ")})
+    values_from = mut_combin,
+    values_fn = function(x) {
+      if(!all(is.na(x))) {paste0(x[!is.na(x)], collapse = "; ")} else {(NA)}})
 
-write.csv(x = nice_isoltable, file = "nice_isolmuts.csv", row.names = FALSE)
-write.csv(x = nice_isoltable2, file = "nice_isolmuts2.csv", row.names = FALSE)
+write.csv(x = nice_isoltable[order(nice_isoltable$resis_cat,
+                                   nice_isoltable$Timepoint,
+                                   nice_isoltable$Treat_P, 
+                                   nice_isoltable$Treat_C,
+                                   nice_isoltable$Pop,
+                                   nice_isoltable$Isol), ],
+          file = "nice_isolmuts.csv", row.names = FALSE)
 
-#Note: we just sequenced more NCP than CP
+#Filter out fixed-nonvariate mutations
+#mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
+#mut_id 11212 is fixed in pop 9 across all treatments & timepoints
+mutisol <- filter(mutisol, !mut_id %in% c("2958", "3198", "7885", "11212"))
+
+#Note: we sequenced more NCP isols than CP
                     
 png("./plots/isol_mut_types.png", width = 8, height = 8, units = "in",
     res = 150)
@@ -394,6 +450,18 @@ ggplot(data = filter(mutisol),
 
 ggplot(data = filter(mutisol),
        aes(x = resis_cat, fill = mutation_category3)) +
+  geom_bar(position = "fill") +
+  theme(axis.text.x = element_text(angle = 90, size = 8)) +
+  facet_grid(gene_category ~ Treat)
+
+ggplot(data = filter(mutisol, gene_category == "pilus"),
+       aes(x = twitch_cat, fill = mutation_category3)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, size = 8)) +
+  facet_grid(gene_category ~ Treat)
+
+ggplot(data = filter(mutisol, gene_category == "pilus"),
+       aes(x = twitch_cat, fill = mutation_category3)) +
   geom_bar(position = "fill") +
   theme(axis.text.x = element_text(angle = 90, size = 8)) +
   facet_grid(gene_category ~ Treat)

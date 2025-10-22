@@ -1053,14 +1053,17 @@ resis_isols <-
                    Bact_pop, Bact_isol,
                    Bact_isol_forplotting))
 
-#The columns that contain useful data here:
-# EOP2_plotting - EOP data with bd data (NA's in EOP2) filled in as the lowest
-#                 EOP in the dataset
-# clearing2 - binary of whether EOP is above detection or not
-# Plaque_morphology - categorical that works well for resistance categories
-#                     Clear are susceptible, Clear? are NP treats we never
-#                     went back to check, Cloudy or Tiny are part-resis
-#                     None are resis
+#The columns that contain useful data in resis_isols/resis_isols_bactsum:
+# EOP2_plot/EOP_avg 
+#                     EOP data with bd data (NA's in EOP2) filled in as the lowest
+#                     EOP in the dataset
+# clearing2/clearing_avg
+#                     binary of whether EOP is above detection or not
+# Plaque_morphology
+#                     categorical that works well for resistance categories
+#                     'Clear' are susceptible, 'Clear?' are NP treats we never
+#                     went back to check, 'Cloudy' or 'Tiny' are part-resis
+#                     'None' are resis
 #                     Note: this works even better than EOP, because EOP for
 #                     clear vs cloudy strongly overlap, and even average EOP
 #                     for ea bact isol overlaps slightly between clear and
@@ -1068,7 +1071,6 @@ resis_isols <-
 
 #Write copy to file
 write.csv(resis_isols, "aggregate_resis_data.csv", row.names = FALSE)
-write.csv(resis_isols_bactsum, "aggregate_resis_sum_data.csv", row.names = FALSE)
 
 resis_isols_bactsum_undup <- summarize(
   group_by(mutate(resis_isols_bactsum, 
@@ -1109,6 +1111,8 @@ resis_sum_pops_sum <- summarize(group_by(resis_sum_pops,
                                          Bact_treat_P, Bact_timepoint),
                                 clearing_avg = mean(clearing_avg))
 
+
+
 ggplot(data = mutate(resis_isols,
                      Plaq_morph = ifelse(Bact_timepoint == 0, "Anc", Plaque_morphology)), 
        aes(x = Plaq_morph, y = EOP2_plot)) + 
@@ -1120,6 +1124,15 @@ ggplot(data = mutate(resis_isols_bactsum_undup,
        aes(x = Plaq_morph, y = EOP_avg)) + 
   geom_point(position = position_jitter(width = 0.2), alpha = 0.5) + 
   scale_y_log10()
+
+summarize(
+  group_by(
+    mutate(resis_isols_bactsum_undup, 
+           Plaq_morph = ifelse(Bact_timepoint == 0, "Anc", Plaque_morphology)), 
+    Plaq_morph), 
+  max_eop = max(EOP_avg, na.rm = TRUE), 
+  min_eop = min(EOP_avg, na.rm = TRUE), 
+  avg_eop = mean(EOP_avg, na.rm = TRUE))
 
 png("plots/resis_grid.png", width = 8, height = 5, units = "in", res = 150)
 ggplot(data = resis_isols,
@@ -2208,6 +2221,10 @@ ptwitching_norm <-
 print(ptwitching_norm)
 dev.off()
 
+summarize(group_by(twitching_isols, Bact_treat_P, Bact_timepoint),
+          across(cm_day_norm,
+                 list(min = min, max = max, mean = mean)))
+
 png("./plots/motility_norm_nopops.png", width = 7, height = 5, units = "in",
     res = 150)               
 ptwitching_norm2 <-
@@ -2308,9 +2325,18 @@ isol_data <- full_join(
 isol_data <- mutate(
   isol_data,
   resis = 1-clearing_avg,
-  resis_cat = ifelse(Plaque_morphology %in% c("Clear", "Clear?"), 0,
-                     ifelse(Plaque_morphology == "None", 1, 0.5)))
+  resis_cat = case_when(
+    Plaque_morphology %in% c("Cloudy", "Tiny") ~ "part",
+    Plaque_morphology == "None" ~ "resis",
+    Plaque_morphology %in% c("Clear", "Clear?") ~ "suscep",
+    TRUE ~ "nomatch"),
+  resis_cat = factor(resis_cat, levels = c("suscep", "part", "resis", "nomatch")),
+  twitch_cat = case_when(
+    cm_day_norm < 0.5 ~ "none",
+    cm_day_norm > 0.7 ~ "full",
+    cm_day_norm >= 0.5 & cm_day_norm <= 0.7 ~ "intermediate"))
 
+write.csv(isol_data, "aggregate_isolate_data.csv", row.names = FALSE)
 
 ggpairs(data = isol_data,
         columns = which(colnames(isol_data) %in% 
@@ -2384,12 +2410,10 @@ pmotil_resis <-
   ggplot(
     data = mutate(
       ungroup(isol_data),
-      resis_cat = ifelse(is.na(Plaque_morphology), "Resistant", Plaque_morphology),
       resis_cat = plyr::revalue(resis_cat,
-                                c("Clear" = "Susceptible", "Clear?" = "Susceptible",
-                                  "Cloudy" = "Partially Susceptible", 
-                                  "Tiny" = "Partially Susceptible",
-                                  "None" = "Resistant"))),
+                                c("suscep" = "Susceptible", 
+                                  "part" = "Partially Susceptible", 
+                                  "resis" = "Resistant"))),
     aes(x = resis_cat, y = cm_day_norm,
         color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 4, alpha = 0.4, position = position_dodge(width = .75)) +
@@ -2571,7 +2595,7 @@ pca_base +
                            size = 8, alpha = .8, color = "red4", seed = 8,
                            min.segment.length = unit(1, "native")) +
   scale_color_manual(name = "Resistance", 
-                     breaks = c(0, 0.5, 1),
+                     breaks = c("suscep", "part", "resis"),
                      values = my_cols[c(8, 1, 2)],
                      labels = c("Susceptible", "Partial Resistance", "Full Resistance"))
 dev.off()                        
