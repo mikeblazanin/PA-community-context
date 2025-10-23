@@ -65,7 +65,7 @@ mutations <- separate_wider_delim(
             "Timepoint", "Pop", "Treat", "Isol"),
   cols_remove = FALSE)
 mutations <- mutate(mutations,
-                    Timepoint = gsub("T", "", Timepoint),
+                    Timepoint = as.numeric(gsub("T", "", Timepoint)),
                     Pop = gsub("P", "", Pop),
                     Isol = gsub("#", "", Isol),
                     Treat_C = factor(
@@ -155,39 +155,41 @@ mutpop <-
 
 #Fix treatment columns post-duplication
 mutpop <- mutate(mutpop,
-                    Treat_C = factor(
-                      ifelse(Treat %in% c("NCP", "NN"), "NC",
-                             ifelse(Treat %in% c("CNP", "CP"), "C",
-                                    Treat)),
-                      levels = c("Anc", "NC", "C")),
-                    Treat_P = factor(
-                      ifelse(Treat %in% c("NN", "CNP"), "NP",
-                             ifelse(Treat %in% c("NCP", "CP"), "P",
-                                    Treat)),
-                      levels = c("Anc", "NP", "P")),
-                    Treat = factor(Treat,
-                                   levels = c("Anc", "NN", "CNP", "NCP", "CP")))
-
-mutpop <- mutate(mutpop,
-                 freq_plot = ifelse(is.na(freq), 0, 
-                                    freq + runif(length(freq), 
-                                                 min = -0.05, 
-                                                 max = 0.05)))
+                 freq_0 = ifelse(is.na(freq), 0, freq),
+                 freq_01 = ifelse(freq_0 == 0, 0.01, freq_0),
+                 Treat_C = factor(
+                   ifelse(Treat %in% c("NCP", "NN"), "NC",
+                          ifelse(Treat %in% c("CNP", "CP"), "C",
+                                 Treat)),
+                   levels = c("Anc", "NC", "C")),
+                 Treat_P = factor(
+                   ifelse(Treat %in% c("NN", "CNP"), "NP",
+                          ifelse(Treat %in% c("NCP", "CP"), "P",
+                                 Treat)),
+                   levels = c("Anc", "NP", "P")),
+                 Treat = factor(Treat,
+                                levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
 mutpop <- mutate(group_by(mutpop, seqtype, mut_id, Treat, Pop),
-                 everabove_025 = ifelse(any(freq > 0.25, na.rm = TRUE), TRUE, FALSE),
-                 everabove_010 = ifelse(any(freq > 0.1, na.rm = TRUE), TRUE, FALSE),
-                 everabove_005 = ifelse(any(freq > 0.05, na.rm = TRUE), TRUE, FALSE),
-                 fixed = ifelse(all(!is.na(freq) & freq == 1), TRUE, FALSE))
+                 everabove_025 = any(freq_0 > 0.25, na.rm = TRUE),
+                 everabove_010 = any(freq_0 > 0.1, na.rm = TRUE),
+                 everabove_005 = any(freq_0 > 0.05, na.rm = TRUE),
+                 fixed = all(freq_0 == 1))
 
+mutpop <- mutate(
+  group_by(mutpop, mut_id, seqtype, Treat, Pop),
+  freq_change = (freq_0 - lag(freq_0, order_by = Timepoint)),
+  abs_freq_rate =
+    (freq_0 - lag(freq_0, order_by = Timepoint))/
+    (Timepoint - lag(Timepoint, order_by = Timepoint)),
+  rel_freq_rate = abs_freq_rate/freq_01)
+                   
 png("./plots/mut_trajectories_above025.png", width = 12, height = 7, units = "in",
     res = 150)
 ggplot(
-  data = mutate(
-    filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
-           seqtype == "PA", Isol == "Pop", everabove_025 == TRUE,
-           seq_id %in% c("PA14_1"))),
-  aes(x = as.numeric(Timepoint), y = freq_plot, group = mut_id, 
+  data = filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
+                seqtype == "PA", everabove_025 == TRUE, seq_id %in% c("PA14_1")),
+  aes(x = as.numeric(Timepoint), y = freq_0, group = mut_id, 
       color = gene_category)) +
   geom_point(aes(alpha = gene_category)) +
   geom_line(aes(alpha = gene_category)) +
@@ -205,11 +207,9 @@ dev.off()
 png("./plots/mut_trajectories_above010.png", width = 12, height = 7, units = "in",
     res = 150)
 ggplot(
-  data = mutate(
-    filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
-           seqtype == "PA", Isol == "Pop", everabove_010 == TRUE,
-           seq_id %in% c("PA14_1"))),
-  aes(x = as.numeric(Timepoint), y = freq_plot, group = mut_id, 
+  data = filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
+                seqtype == "PA", everabove_010 == TRUE, seq_id %in% c("PA14_1")),
+  aes(x = as.numeric(Timepoint), y = freq_0, group = mut_id, 
       color = gene_category)) +
   #geom_point(aes(alpha = gene_category)) +
   geom_line(aes(alpha = gene_category)) +
@@ -227,11 +227,9 @@ dev.off()
 png("./plots/mut_trajectories_above005.png", width = 12, height = 7, units = "in",
     res = 150)
 ggplot(
-  data = mutate(
-    filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
-           seqtype == "PA", Isol == "Pop", everabove_005 == TRUE,
-           seq_id %in% c("PA14_1"))),
-  aes(x = as.numeric(Timepoint), y = freq_plot, group = mut_id, 
+  data = filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
+                seqtype == "PA", everabove_005 == TRUE, seq_id %in% c("PA14_1")),
+  aes(x = as.numeric(Timepoint), y = freq_0, group = mut_id, 
       color = gene_category)) +
   #geom_point(aes(alpha = gene_category)) +
   geom_line(aes(alpha = gene_category)) +
@@ -249,12 +247,10 @@ dev.off()
 png("./plots/mut_trajectories_all_noother.png", width = 12, height = 7, units = "in",
     res = 150)
 ggplot(
-  data = mutate(
-    filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
-           gene_category != "other",
-           seqtype == "PA", Isol == "Pop",
-           seq_id %in% c("PA14_1"))),
-  aes(x = as.numeric(Timepoint), y = freq_plot, group = mut_id, 
+  data = filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
+                gene_category != "other",
+                seqtype == "PA", seq_id %in% c("PA14_1")),
+  aes(x = as.numeric(Timepoint), y = freq_0, group = mut_id, 
       color = gene_category)) +
   #geom_point(aes(alpha = gene_category)) +
   geom_line(aes(alpha = gene_category)) +
@@ -272,11 +268,29 @@ dev.off()
 png("./plots/mut_trajectories_all.png", width = 12, height = 7, units = "in",
     res = 150)
 ggplot(
-  data = mutate(
-    filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
-           seqtype == "PA", Isol == "Pop",
-           seq_id %in% c("PA14_1"))),
-  aes(x = as.numeric(Timepoint), y = freq_plot, group = mut_id, 
+  data = filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
+                seqtype == "PA", seq_id %in% c("PA14_1")),
+  aes(x = as.numeric(Timepoint), y = freq_0, group = mut_id, 
+      color = gene_category)) +
+  #geom_point(aes(alpha = gene_category)) +
+  geom_line(aes(alpha = gene_category)) +
+  facet_grid(Treat ~ Pop) +
+  #coord_cartesian(ylim = c(0.1, 1)) +
+  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+  scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                     values = my_cols[c(6, 5, 3, 8)]) +
+  scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                     values = c(0.8, 0.8, 0.8, 0.15)) +
+  theme_bw() +
+  NULL
+dev.off()
+
+png("./plots/mut_changes_above010.png", width = 12, height = 7, units = "in",
+    res = 150)
+ggplot(
+  data = filter(mutpop, Timepoint %in% c(0, 1, 2, 4, 8),
+                seqtype == "PA", everabove_010 == TRUE, seq_id %in% c("PA14_1")),
+  aes(x = as.numeric(Timepoint), y = rel_freq_rate, group = mut_id, 
       color = gene_category)) +
   #geom_point(aes(alpha = gene_category)) +
   geom_line(aes(alpha = gene_category)) +
