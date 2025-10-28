@@ -9,10 +9,8 @@
 # Investigate other top freq muts and color in categories
 # ML to predict treatment? phage density?
 # ML on mutisol to id treatment? sensitivity to phage? twitching?
-# PCA to look for clustering of treatments
 # PCA to look at mutisol
 # Notes for PCA
-#   use gene_name as the columns
 #   perhaps cast mutation_type into binary columns so it can be used too?
 #   convert deletions into mutations at each gene covered by the deletion
 #   by referencing the annotations file
@@ -33,8 +31,11 @@ my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
              "#D55E00", "#CC79A7", "#000000")
 scales::show_col(my_cols)
 
+#Global settings
+make_slowplots <- FALSE
+
 ##Coverage analysis ----
-covdat <- read.table("all_depths.txt", sep = "\t",
+covdat <- read.table("all_depths.txt", sep = "\t", comment.char = "",
                      stringsAsFactors = FALSE, header = TRUE)
 colnames(covdat)[1:2] <- c("title", "seq_id")
 covdat <- separate_wider_delim(covdat, 
@@ -44,6 +45,10 @@ covdat <- separate_wider_delim(covdat,
                                          "Timepoint", "Pop", "Treat", "Isol"),
                                cols_remove = FALSE)
 covdat <- mutate(covdat,
+                 seq_id = gsub("e82cc082e40344a9", "EF", seq_id),
+                 seq_id = gsub("6a49b35b19134f7e", "SA", seq_id),
+                 seq_id = gsub("PP203295", "H6_1", seq_id),
+                 seq_id = gsub("contig_", "", seq_id),
                  Timepoint = as.numeric(gsub("T", "", Timepoint)),
                  Pop = gsub("P", "", Pop),
                  Isol = gsub("#", "", Isol),
@@ -61,21 +66,27 @@ covdat <- mutate(covdat,
                                 levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
 
-ggplot(data = filter(covdat, Isol == "Pop"),
-       aes(x = seq_id, y = coverage)) +
+ggplot(data = filter(covdat, Isol == "Pop", seqtype == "PA"),
+       aes(x = seq_id, y = meandepth)) +
   geom_point(alpha = 0.2) +
-  theme(axis.text.x = element_text(angle = 90))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0)) +
+  scale_y_log10()
 
 ggplot(data = filter(covdat, seq_id == "PA14_1", Isol == "Pop"),
-       aes(x = Timepoint, y = coverage)) +
-  geom_point(alpha = 0.5) +
-  facet_grid(~ Treat)
+       aes(x = Timepoint, y = meandepth, color = Treat)) +
+  geom_point(alpha = 0.5, position = position_dodge(width = 0.3)) +
+  scale_y_log10()
+
+head(sort(filter(covdat, seq_id == "PA14_1", Isol == "Pop")$meandepth))
 
 ggplot(data = filter(covdat, Isol != "Pop"),
-       aes(x = seq_id, y = coverage)) +
+       aes(x = paste0("T", Timepoint, " ", Treat, " P", Pop, " ", Isol),
+           y = meandepth)) +
   geom_point(alpha = 0.2) +
-  theme(axis.text.x = element_text(angle = 90))
-
+  theme(axis.text.x = element_text(size = 6, angle = 90, vjust = 0))
+filter(covdat, seq_id == "PA14_1", Isol != "Pop",
+       meandepth == min(filter(covdat, seq_id == "PA14_1", Isol != "Pop")$meandepth))
+  
 ##Initial data reading & organization ----
 mutations <- read.table("mutations_compare_all.tsv", sep = "\t",
                         stringsAsFactors = FALSE, header = TRUE,
@@ -333,35 +344,37 @@ pilus_pcadat <- select(
          gene_category == "pilus"),
   Timepoint, Pop, Treat, freq0, gene_name)
 pilus_pcadat <-
-  filter(group_by(pilus_pcadat, gene_name), any(freq0 > 0))
+  filter(group_by(pilus_pcadat, gene_name), any(freq0 >= 0.1))
 pilus_pcadat$Treat[pilus_pcadat$Timepoint == 0] <- "Anc"
 pilus_pcadat <-
   summarize(group_by(pilus_pcadat, 
                      Timepoint, Pop, Treat, gene_name),
-            pooledfreq = max(freq0))
+            pooledfreq = max(freq0),
+            pooledfreq = ifelse(pooledfreq < 0.1, 0, pooledfreq))
 pilus_pcadat <- pivot_wider(ungroup(pilus_pcadat),
     names_from = gene_name, values_from = pooledfreq)
 pilus_pca <- prcomp(select(pilus_pcadat, !c(Timepoint, Pop, Treat)),
-                    center = TRUE, scale = TRUE, retx = TRUE)
+                    retx = TRUE)
 pilus_pcadat <- cbind(as.data.frame(pilus_pca$x), pilus_pcadat)
 
 #All-data PCA
 pcadat <- select(
   filter(ungroup(mutpop), seqtype == "PA", seq_id == "PA14_1"),
   Timepoint, Pop, Treat, freq0, gene_name)
-pcadat <- filter(group_by(pcadat, gene_name), any(freq0 > 0))
+pcadat <- filter(group_by(pcadat, gene_name), any(freq0 >= 0.1))
 pcadat$Treat[pcadat$Timepoint == 0] <- "Anc"
 pcadat <-
   summarize(group_by(pcadat, Timepoint, Pop, Treat, gene_name),
-            pooledfreq = max(freq0))
+            pooledfreq = max(freq0),
+            pooledfreq = ifelse(pooledfreq < 0.1, 0, pooledfreq))
 pcadat <- pivot_wider(ungroup(pcadat),
                       names_from = gene_name, values_from = pooledfreq)
 mypca <- prcomp(select(pcadat, !c(Timepoint, Pop, Treat)),
-                center = TRUE, scale = TRUE, retx = TRUE)
+                retx = TRUE)
 pcadat <- cbind(as.data.frame(mypca$x), pcadat)
 
 
-png("./plots/pilus_pca.png", width = 10, height = 3, units = "in",
+png("./plots/pca_pilusmuts.png", width = 10, height = 3, units = "in",
     res = 150)
 ggplot(pilus_pcadat, aes(x = PC1, y = PC2, color = as.factor(Treat))) +
   geom_polygon(data = filter(pilus_pcadat, Treat %in% c("Anc", "NCP", "CP")),
@@ -386,7 +399,7 @@ ggplot(pilus_pcadat, aes(x = PC1, y = PC2, color = as.factor(Treat))) +
   NULL
 dev.off()
 
-png("./plots/alldata_pca.png", width = 10, height = 3, units = "in",
+png("./plots/pca_allmuts.png", width = 10, height = 3, units = "in",
     res = 150)
 ggplot(pcadat, aes(x = PC1, y = PC2, color = as.factor(Treat))) +
   geom_polygon(stat = "ellipse", aes(fill = as.factor(Treat)), alpha = 0.2) +
@@ -410,221 +423,236 @@ ggplot(pcadat, aes(x = PC1, y = PC2, color = as.factor(Treat))) +
   NULL
 dev.off()
          
+if (make_slowplots) {
+  png("./plots/manhattan.png", width = 8, height = 6, units = "in",
+      res = 150)
+  print(
+    ggplot(data = mut_sum,
+         aes(x = position, y = avg_freq, color = gene_category)) +
+    geom_point() +
+    facet_grid(Treat ~ .)
+  )
+  dev.off()
 
-png("./plots/manhattan.png", width = 8, height = 6, units = "in",
-    res = 150)
-ggplot(data = mut_sum,
-       aes(x = position, y = avg_freq, color = gene_category)) +
-  geom_point() +
-  facet_grid(Treat ~ .)
-dev.off()
-
-ggplot(data = filter(mutpop, freq0 > 0, seqtype == "PA", seq_id == "PA14_1"), 
-       aes(x = freq0)) +
-  geom_histogram() +
-  facet_grid(Treat * Timepoint ~ Pop, scales = "free_y") +
-  scale_x_log10()
-
-
-# png("./plots/mut_trajectories_above025.png", width = 12, height = 7, units = "in",
-#     res = 150)
-# ggplot(
-#   data = filter(mutpop, seqtype == "PA", everabove_025 == TRUE, seq_id %in% c("PA14_1")),
-#   aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
-#       color = gene_category)) +
-#   geom_point(aes(alpha = gene_category)) +
-#   geom_line(aes(alpha = gene_category)) +
-#   facet_grid(Treat ~ Pop) +
-#   #coord_cartesian(ylim = c(0.1, 1)) +
-#   scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-#   scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-#                      values = my_cols[c(6, 5, 3, 8)]) +
-#   scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-#                      values = c(0.7, 0.7, 0.7, 0.3)) +
-#   theme_bw() +
-#   NULL
-# dev.off()
-
-png("./plots/mut_trajectories_above010.png", width = 12, height = 7, units = "in",
-    res = 150)
-ggplot(
-  data = filter(mutpop, seqtype == "PA", everabove_010 == TRUE, 
-                seq_id %in% c("PA14_1")),
-  aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
-      color = gene_category)) +
-  #geom_point(aes(alpha = gene_category)) +
-  geom_line(aes(alpha = gene_category)) +
-  facet_grid(Treat ~ Pop) +
-  #coord_cartesian(ylim = c(0.1, 1)) +
-  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-  scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-                     values = my_cols[c(6, 5, 3, 8)]) +
-  scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-                     values = c(0.8, 0.8, 0.8, 0.15)) +
-  theme_bw() +
-  NULL
-dev.off()
-
-png("./plots/mut_trajectories_above005.png", width = 12, height = 7, units = "in",
-    res = 150)
-ggplot(
-  data = filter(mutpop, seqtype == "PA", everabove_005 == TRUE, 
-                seq_id %in% c("PA14_1")),
-  aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
-      color = gene_category)) +
-  #geom_point(aes(alpha = gene_category)) +
-  geom_line(aes(alpha = gene_category)) +
-  facet_grid(Treat ~ Pop) +
-  #coord_cartesian(ylim = c(0.1, 1)) +
-  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-  scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-                     values = my_cols[c(6, 5, 3, 8)]) +
-  scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-                     values = c(0.8, 0.8, 0.8, 0.15)) +
-  theme_bw() +
-  NULL
-dev.off()
-
-everabove_010_noanc
-
-png("./plots/mut_trajectories_above010_noanc.png", width = 12, height = 7, units = "in",
-    res = 150)
-ggplot(
-  data = filter(mutpop, seqtype == "PA", everabove_010_noanc == TRUE, 
-                seq_id %in% c("PA14_1")),
-  aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
-      color = gene_category)) +
-  #geom_point(aes(alpha = gene_category)) +
-  geom_line(lwd = 1.1, aes(alpha = gene_category)) +
-  facet_grid(Treat ~ Pop) +
-  #coord_cartesian(ylim = c(0.1, 1)) +
-  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-  scale_color_manual(breaks = c("biofilm", "flagella", "LasA/LasB", "QS",
-                                "T6SS", "pilus", "TPS system", "other"),
-                     values = my_cols) +
-  scale_alpha_manual(breaks = c("biofilm", "flagella", "LasA/LasB", "QS",
-                                "T6SS", "pilus", "TPS system", "other"),
-                     values = c(rep(0.6, 7), 0.1)) +
-  theme_bw() +
-  NULL
-dev.off()
-
-png("./plots/mut_trajectories_above005_noanc.png", width = 12, height = 7, units = "in",
-    res = 150)
-ggplot(
-  data = filter(mutpop, seqtype == "PA", everabove_005_noanc == TRUE, 
-                seq_id %in% c("PA14_1")),
-  aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
-      color = gene_category)) +
-  #geom_point(aes(alpha = gene_category)) +
-  geom_line(aes(alpha = gene_category)) +
-  facet_grid(Treat ~ Pop) +
-  #coord_cartesian(ylim = c(0.1, 1)) +
-  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-  scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-                     values = my_cols[c(6, 5, 3, 8)]) +
-  scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-                     values = c(0.8, 0.8, 0.8, 0.15)) +
-  theme_bw() +
-  NULL
-dev.off()
-
-png("./plots/mut_trajectories_all_noother.png", width = 12, height = 7, units = "in",
-    res = 150)
-ggplot(
-  data = filter(mutpop, gene_category != "other",
-                seqtype == "PA", seq_id %in% c("PA14_1")),
-  aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
-      color = gene_category)) +
-  #geom_point(aes(alpha = gene_category)) +
-  geom_line(aes(alpha = gene_category)) +
-  facet_grid(Treat ~ Pop) +
-  #coord_cartesian(ylim = c(0.1, 1)) +
-  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-  scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-                     values = my_cols[c(6, 5, 3, 8)]) +
-  scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-                     values = c(0.8, 0.8, 0.8, 0.15)) +
-  theme_bw() +
-  NULL
-dev.off()
-
-png("./plots/mut_trajectories_all.png", width = 12, height = 7, units = "in",
-    res = 150)
-ggplot(
-  data = filter(mutpop, seqtype == "PA", seq_id %in% c("PA14_1")),
-  aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
-      color = gene_category)) +
-  #geom_point(aes(alpha = gene_category)) +
-  geom_line(aes(alpha = gene_category)) +
-  facet_grid(Treat ~ Pop) +
-  #coord_cartesian(ylim = c(0.1, 1)) +
-  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-  scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-                     values = my_cols[c(6, 5, 3, 8)]) +
-  scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-                     values = c(0.8, 0.8, 0.8, 0.15)) +
-  theme_bw() +
-  NULL
-dev.off()
-
-png("./plots/mut_changes_above010_noanc.png", width = 12, height = 7, units = "in",
-    res = 150)
-ggplot(
-  data = filter(mutpop, seqtype == "PA", everabove_010_noanc == TRUE, 
-                seq_id %in% c("PA14_1")),
-  aes(x = as.numeric(Timepoint), y = rel_freq_rate, group = mut_id, 
-      color = gene_category)) +
-  geom_point(aes(alpha = gene_category)) +
-  geom_line(aes(alpha = gene_category)) +
-  facet_grid(Treat ~ Pop) +
-  #coord_cartesian(ylim = c(0.1, 1)) +
-  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-  scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-                     values = my_cols[c(6, 5, 3, 8)]) +
-  scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-                     values = c(0.8, 0.8, 0.8, 0.15)) +
-  theme_bw() +
-  NULL
-dev.off()
-
-png("./plots/mut_freqs.png", width = 12, height = 7, units = "in",
-    res = 150)
-ggplot(data = filter(mutpop, #gene_category != "other", 
-                     seq_id %in% c("PA14_1"), seqtype == "PA"),
-       aes(x = as.factor(Timepoint), y = freq0, fill = gene_category)) +
-  geom_bar(stat = "identity", position = "stack") +
-  facet_grid(Treat ~ Pop) +
-  # scale_fill_manual(breaks = c("biofilm", "flagella", "LasA/LasB", "QS",
-  #                               "T6SS", "pilus", "TPS system", "other"),
-  #                    values = my_cols) +
-  NULL
-dev.off()
-
-ggplot(
-  data = filter(mutpop, seqtype == "PA", gene_category == "pilus",
-                seq_id %in% c("PA14_1")),
-  aes(x = as.numeric(Timepoint), y = freq0, group = gene_name, 
-      color = as.factor(gene_name))) +
-  geom_line() +
-  facet_grid(Treat ~ Pop) +
-  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-  theme_bw() +
-  NULL
+  ggplot(data = filter(mutpop, freq0 > 0, seqtype == "PA", seq_id == "PA14_1"), 
+         aes(x = freq0)) +
+    geom_histogram() +
+    facet_grid(Treat * Timepoint ~ Pop, scales = "free_y") +
+    scale_x_log10()
 
 
+  # png("./plots/mut_trajectories_above025.png", width = 12, height = 7, units = "in",
+  #     res = 150)
+  # ggplot(
+  #   data = filter(mutpop, seqtype == "PA", everabove_025 == TRUE, seq_id %in% c("PA14_1")),
+  #   aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
+  #       color = gene_category)) +
+  #   geom_point(aes(alpha = gene_category)) +
+  #   geom_line(aes(alpha = gene_category)) +
+  #   facet_grid(Treat ~ Pop) +
+  #   #coord_cartesian(ylim = c(0.1, 1)) +
+  #   scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+  #   scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+  #                      values = my_cols[c(6, 5, 3, 8)]) +
+  #   scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+  #                      values = c(0.7, 0.7, 0.7, 0.3)) +
+  #   theme_bw() +
+  #   NULL
+  # dev.off()
 
-temp <- filter(mutpop, fixed == TRUE)
-View(temp[order(temp$mut_id, temp$Timepoint, temp$Treat, as.numeric(temp$Pop)),
-          c("freq", "mut_id", "Timepoint", "Treat", "Pop")])
+  png("./plots/mut_trajectories_above010.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(
+      data = filter(mutpop, seqtype == "PA", everabove_010 == TRUE, 
+                    seq_id %in% c("PA14_1")),
+      aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
+          color = gene_category)) +
+      #geom_point(aes(alpha = gene_category)) +
+      geom_line(aes(alpha = gene_category)) +
+      facet_grid(Treat ~ Pop) +
+      #coord_cartesian(ylim = c(0.1, 1)) +
+      scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+      scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                         values = my_cols[c(6, 5, 3, 8)]) +
+      scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                         values = c(0.8, 0.8, 0.8, 0.15)) +
+      theme_bw() +
+      NULL
+  )
+  dev.off()
+
+  png("./plots/mut_trajectories_above005.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+  ggplot(
+    data = filter(mutpop, seqtype == "PA", everabove_005 == TRUE, 
+                  seq_id %in% c("PA14_1")),
+    aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
+        color = gene_category)) +
+    #geom_point(aes(alpha = gene_category)) +
+    geom_line(aes(alpha = gene_category)) +
+    facet_grid(Treat ~ Pop) +
+    #coord_cartesian(ylim = c(0.1, 1)) +
+    scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+    scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                       values = my_cols[c(6, 5, 3, 8)]) +
+    scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                       values = c(0.8, 0.8, 0.8, 0.15)) +
+    theme_bw() +
+    NULL
+  )
+  dev.off()
+
+  everabove_010_noanc
+
+  png("./plots/mut_trajectories_above010_noanc.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+  ggplot(
+    data = filter(mutpop, seqtype == "PA", everabove_010_noanc == TRUE, 
+                  seq_id %in% c("PA14_1")),
+    aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
+        color = gene_category)) +
+    #geom_point(aes(alpha = gene_category)) +
+    geom_line(lwd = 1.1, aes(alpha = gene_category)) +
+    facet_grid(Treat ~ Pop) +
+    #coord_cartesian(ylim = c(0.1, 1)) +
+    scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+    scale_color_manual(breaks = c("biofilm", "flagella", "LasA/LasB", "QS",
+                                  "T6SS", "pilus", "TPS system", "other"),
+                       values = my_cols) +
+    scale_alpha_manual(breaks = c("biofilm", "flagella", "LasA/LasB", "QS",
+                                  "T6SS", "pilus", "TPS system", "other"),
+                       values = c(rep(0.6, 7), 0.1)) +
+    theme_bw() +
+    NULL
+  )
+  dev.off()
+
+  png("./plots/mut_trajectories_above005_noanc.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(
+      data = filter(mutpop, seqtype == "PA", everabove_005_noanc == TRUE, 
+                    seq_id %in% c("PA14_1")),
+      aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
+          color = gene_category)) +
+      #geom_point(aes(alpha = gene_category)) +
+      geom_line(aes(alpha = gene_category)) +
+      facet_grid(Treat ~ Pop) +
+      #coord_cartesian(ylim = c(0.1, 1)) +
+      scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+      scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                         values = my_cols[c(6, 5, 3, 8)]) +
+      scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                         values = c(0.8, 0.8, 0.8, 0.15)) +
+      theme_bw() +
+      NULL
+  )
+  dev.off()
+
+  png("./plots/mut_trajectories_all_noother.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(
+      data = filter(mutpop, gene_category != "other",
+                    seqtype == "PA", seq_id %in% c("PA14_1")),
+      aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
+          color = gene_category)) +
+      #geom_point(aes(alpha = gene_category)) +
+      geom_line(aes(alpha = gene_category)) +
+      facet_grid(Treat ~ Pop) +
+      #coord_cartesian(ylim = c(0.1, 1)) +
+      scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+      scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                         values = my_cols[c(6, 5, 3, 8)]) +
+      scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                         values = c(0.8, 0.8, 0.8, 0.15)) +
+      theme_bw() +
+      NULL
+  )
+  dev.off()
+
+  png("./plots/mut_trajectories_all.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(
+      data = filter(mutpop, seqtype == "PA", seq_id %in% c("PA14_1")),
+      aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
+          color = gene_category)) +
+      #geom_point(aes(alpha = gene_category)) +
+      geom_line(aes(alpha = gene_category)) +
+      facet_grid(Treat ~ Pop) +
+      #coord_cartesian(ylim = c(0.1, 1)) +
+      scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+      scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                         values = my_cols[c(6, 5, 3, 8)]) +
+      scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                         values = c(0.8, 0.8, 0.8, 0.15)) +
+      theme_bw() +
+      NULL
+  )
+  dev.off()
+
+  png("./plots/mut_changes_above010_noanc.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+  ggplot(
+    data = filter(mutpop, seqtype == "PA", everabove_010_noanc == TRUE, 
+                  seq_id %in% c("PA14_1")),
+    aes(x = as.numeric(Timepoint), y = rel_freq_rate, group = mut_id, 
+        color = gene_category)) +
+    geom_point(aes(alpha = gene_category)) +
+    geom_line(aes(alpha = gene_category)) +
+    facet_grid(Treat ~ Pop) +
+    #coord_cartesian(ylim = c(0.1, 1)) +
+    scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+    scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                       values = my_cols[c(6, 5, 3, 8)]) +
+    scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+                       values = c(0.8, 0.8, 0.8, 0.15)) +
+    theme_bw() +
+    NULL
+  )
+  dev.off()
+
+  png("./plots/mut_freqs.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(data = filter(mutpop, #gene_category != "other", 
+                         seq_id %in% c("PA14_1"), seqtype == "PA"),
+           aes(x = as.factor(Timepoint), y = freq0, fill = gene_category)) +
+      geom_bar(stat = "identity", position = "stack") +
+      facet_grid(Treat ~ Pop) +
+      # scale_fill_manual(breaks = c("biofilm", "flagella", "LasA/LasB", "QS",
+      #                               "T6SS", "pilus", "TPS system", "other"),
+      #                    values = my_cols) +
+      NULL
+  )
+  dev.off()
+
+  ggplot(
+    data = filter(mutpop, seqtype == "PA", gene_category == "pilus",
+                  seq_id %in% c("PA14_1")),
+    aes(x = as.numeric(Timepoint), y = freq0, group = gene_name, 
+        color = as.factor(gene_name))) +
+    geom_line() +
+    facet_grid(Treat ~ Pop) +
+    scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+    theme_bw() +
+    NULL
+}
 
 
-
-
-temp <- filter(mutpop, seqtype == "PA", Isol == "Pop", Treat == "NCP",
-               Pop == 3, everabove_025 == TRUE, seq_id == "PA14_1")
-View(temp[order(temp$mut_id, temp$Timepoint), 
-          c("freq", "mut_id", "Timepoint")])
+# temp <- filter(mutpop, fixed == TRUE)
+# View(temp[order(temp$mut_id, temp$Timepoint, temp$Treat, as.numeric(temp$Pop)),
+#           c("freq", "mut_id", "Timepoint", "Treat", "Pop")])
+# 
+# temp <- filter(mutpop, seqtype == "PA", Isol == "Pop", Treat == "NCP",
+#                Pop == 3, everabove_025 == TRUE, seq_id == "PA14_1")
+# View(temp[order(temp$mut_id, temp$Timepoint), 
+#           c("freq", "mut_id", "Timepoint")])
 
 ##Isolate analyses ----
 
