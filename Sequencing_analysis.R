@@ -17,6 +17,7 @@
 # Calculate diversity metrics of each pop-timepoint
 # Compare mutations from isolates to mutations in mutpop
 #   (i.e. where are all the background/ancestral mutations in isolates?)
+# Nucelotide diversity, fst, parallel selection, correlated coevol mutation, outlier analysis
 
 
 
