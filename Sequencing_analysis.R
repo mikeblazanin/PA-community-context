@@ -1,9 +1,6 @@
 ##TODO ----
 # somehow translate 100% frequency deletions into 0's for all the other mutations?
 # plot mutation trajectories excluding those that appear in control treatments
-# calculate average coverage depth of each sample
-# calculate coverage across the genome
-# What's coverage at T4 vs other timepoints?
 # Plot only pilus & color pilus mutants in trajectories by gene or mutation
 # Add other gene categories in trajectories plot
 # Investigate other top freq muts and color in categories
@@ -12,12 +9,19 @@
 # PCA to look at mutisol
 # Notes for PCA
 #   perhaps cast mutation_type into binary columns so it can be used too?
+#   rather than mutation_type, just divide into larger categories:
+#     breaking - deletion, frameshift, nonsense
+#     modifying - inframe, nonsyn
+#     intergenic - intergenic
+#     silent - synonymous
 #   convert deletions into mutations at each gene covered by the deletion
 #   by referencing the annotations file
 # Calculate diversity metrics of each pop-timepoint
 # Compare mutations from isolates to mutations in mutpop
 #   (i.e. where are all the background/ancestral mutations in isolates?)
-# Nucelotide diversity, fst, parallel selection, correlated coevol mutation, outlier analysis
+# Nucelotide diversity, fst, parallel selection, correlated coevol mutation, 
+#   outlier analysis
+# Discriminant analysis to look for diff genes
 
 
 
@@ -339,6 +343,24 @@ mut_sum <- summarize(
            gene_category, Treat, Treat_C, Treat_P),
   avg_freq = mean(freq0))
 
+#Pilus mutations
+mutpop_pil <- filter(mutpop, seqtype == "PA", seq_id == "PA14_1",
+                  everabove_010_noanc == TRUE, gene_category == "pilus",
+                  gene_name != "type 4b pilus Flp biogenesis protein TadZ")
+mutpop_pil <- pivot_wider(
+  select(ungroup(mutpop_pil),
+         -seqrun, -SeqCoastid, -title,
+         -multiple_polymorphic_SNPs_in_same_codon,
+         -new_read_count, -new_read_count_basis, 
+         -ref_read_count, -ref_read_count_basis,
+         -freq, -freq01, -fixed, -freq_change, -abs_freq_rate, -rel_freq_rate),
+  names_from = Timepoint, values_from = freq0, names_prefix = "T")
+
+View(arrange(select(mutpop_pil, T0, T1, T2, T4, T8, Treat, Pop, mut_id, gene_name,
+            everything()),
+            Pop, Treat, gene_name, mut_id))
+
+
 #Pilus-only PCA
 pilus_pcadat <- select(
   filter(ungroup(mutpop), seqtype == "PA", seq_id == "PA14_1", 
@@ -591,6 +613,29 @@ if (make_slowplots) {
                          values = my_cols[c(6, 5, 3, 8)]) +
       scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
                          values = c(0.8, 0.8, 0.8, 0.15)) +
+      theme_bw() +
+      NULL
+  )
+  dev.off()
+  
+  png("./plots/mut_trajectories_pilus.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(
+      data = filter(mutpop, seqtype == "PA", seq_id == "PA14_1",
+                    everabove_010_noanc == TRUE, gene_category == "pilus",
+                    gene_name != "type 4b pilus Flp biogenesis protein TadZ"),
+      aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
+          color = gene_name)) +
+      #geom_point(aes(alpha = gene_category)) +
+      geom_line() +
+      facet_grid(Treat ~ Pop) +
+      #coord_cartesian(ylim = c(0.1, 1)) +
+      scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+      # scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+      #                    values = my_cols[c(6, 5, 3, 8)]) +
+      # scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+      #                    values = c(0.8, 0.8, 0.8, 0.15)) +
       theme_bw() +
       NULL
   )

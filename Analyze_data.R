@@ -579,7 +579,7 @@ png("plots/density_phage.png", width = 7, height = 5, units = "in",
 ggplot(
   data = filter(density, Strain == "H6", Pop %in% 3:10, !is.na(cfu_ml),
                 !(Pop == 9 & treat_P == "NP")),
-  aes(x = Timepoint, y = cfu_ml, color = Strain)) +
+  aes(x = Timepoint, y = cfu_ml, color = as.factor(Pop))) +
   #geom_point(aes(shape = bd)) + 
   geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
   #geom_line(data = density_sum, lwd = 2, alpha = 0.8) +
@@ -595,11 +595,12 @@ ggplot(
                      breaks = 10**c(2, 6, 10),
                      labels = scales::trans_format("log10", scales::math_format(10^.x))) +
   labs(y = "Density (cfu/mL or pfu/mL)", x = "Timepoint (days)") +
-  scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
-                     labels = c("P. aeruginosa", "S. aureus",
-                                "E. faecalis", "A. xylosoxidans",
-                                "Phage H6"),
-                     values = my_cols[c(3, 1, 2, 7, 8)]) +
+  # scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+  #                    labels = c("P. aeruginosa", "S. aureus",
+  #                               "E. faecalis", "A. xylosoxidans",
+  #                               "Phage H6"),
+  #                    values = my_cols[c(3, 1, 2, 7, 8)]) +
+  scale_color_manual(values = my_cols) +
   theme_bw() +
   theme(axis.title = element_text(size = 16),
         axis.text = element_text(size = 14),
