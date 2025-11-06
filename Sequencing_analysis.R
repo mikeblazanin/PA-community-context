@@ -347,18 +347,57 @@ mut_sum <- summarize(
 mutpop_pil <- filter(mutpop, seqtype == "PA", seq_id == "PA14_1",
                   everabove_010_noanc == TRUE, gene_category == "pilus",
                   gene_name != "type 4b pilus Flp biogenesis protein TadZ")
-mutpop_pil <- pivot_wider(
-  select(ungroup(mutpop_pil),
+mutpop_pil <- mutate(mutpop_pil, 
+                     lfreq01 = log10(freq01),
+                     freq_cat = as.numeric(cut(freq0,
+                                    breaks = c(0, 0.03, 0.1, 0.32, 1),
+                                    include.lowest = TRUE)))
+
+mutpop_pil_w <- pivot_wider(
+  select(mutpop_pil,
          -seqrun, -SeqCoastid, -title,
          -multiple_polymorphic_SNPs_in_same_codon,
          -new_read_count, -new_read_count_basis, 
          -ref_read_count, -ref_read_count_basis,
-         -freq, -freq01, -fixed, -freq_change, -abs_freq_rate, -rel_freq_rate),
-  names_from = Timepoint, values_from = freq0, names_prefix = "T")
+         -freq, -freq0, -freq01, -freq_cat,
+         -fixed, -freq_change, -abs_freq_rate, -rel_freq_rate),
+  names_from = Timepoint, values_from = lfreq01, names_prefix = "T")
 
-View(arrange(select(mutpop_pil, T0, T1, T2, T4, T8, Treat, Pop, mut_id, gene_name,
+View(arrange(select(mutpop_pil_w, T0, T1, T2, T4, T8, Treat, Pop, mut_id, gene_name,
             everything()),
-            Pop, Treat, gene_name, mut_id))
+            Pop, gene_name, mut_id, Treat))
+
+mutpop_pil_comp <-
+  summarize(group_by(mutpop_pil,
+                     across(-c(Treat, Treat_C, Treat_P, title,
+                               seqrun, SeqCoastid, title,
+                               multiple_polymorphic_SNPs_in_same_codon,
+                               new_read_count, new_read_count_basis, 
+                               ref_read_count, ref_read_count_basis,
+                               freq, freq0, freq01, fixed, freq_change, 
+                               abs_freq_rate, rel_freq_rate, 
+                               lfreq01, freq_cat))),
+            diff_f = ifelse(any(Treat == "CP"), freq_cat[Treat == "CP"], 1) - 
+              ifelse(any(Treat == "NCP"), freq_cat[Treat == "NCP"], 1))
+
+print(
+  ggplot(
+    data = mutpop_pil_comp,
+    aes(x = as.numeric(Timepoint), y = diff_f, group = mut_id, 
+        color = gene_name)) +
+    #geom_point(aes(alpha = gene_category)) +
+    geom_line(position = position_jitter(width = 0, height = 0.2)) +
+    facet_grid( ~ Pop) +
+    #coord_cartesian(ylim = c(0.1, 1)) +
+    scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+    # scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+    #                    values = my_cols[c(6, 5, 3, 8)]) +
+    # scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+    #                    values = c(0.8, 0.8, 0.8, 0.15)) +
+    theme_bw() +
+    NULL
+)
+
 
 
 #Pilus-only PCA
