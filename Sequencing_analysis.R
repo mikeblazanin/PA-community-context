@@ -22,6 +22,7 @@
 # Nucelotide diversity, fst, parallel selection, correlated coevol mutation, 
 #   outlier analysis
 # Discriminant analysis to look for diff genes
+# Use coverage to estimate density & compare with plating
 
 
 
@@ -311,6 +312,8 @@ mutpop <- mutate(
 #Helix-turn-helix domain-containing protein runs from 4629721	to 4630503
 #Gap is 4629530 - 4629720
 
+png("./plots/mut_trajectories_mystery1.png", width = 10, height = 7, units = "in",
+    res = 150)
 ggplot(
   data = filter(mutpop, seqtype == "PA", gene_category == "mystery_1",
                 seq_id %in% c("PA14_1")),
@@ -320,7 +323,9 @@ ggplot(
   facet_grid(Treat ~ Pop) +
   scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
   theme_bw() +
+  guides(color = "none") +
   NULL
+dev.off()
 
 #Top hits that I haven't yet understood the function of:
 #Thioredoxin family protein/Helix-turn-helix domain-containing protein 
@@ -758,7 +763,8 @@ mutisol <- left_join(
     mutate(read.csv("aggregate_isolate_data.csv", stringsAsFactors = FALSE,
                     colClasses = "character"),
            Treat = Bact_treat, Treat_C = Bact_treat_C, Treat_P = Bact_treat_P,
-           Timepoint = Bact_timepoint, Pop = Bact_pop, Isol = Bact_isol),
+           Timepoint = as.numeric(Bact_timepoint), 
+           Pop = Bact_pop, Isol = Bact_isol),
     Treat, Treat_C, Treat_P, Timepoint, Pop, Isol, 
     clearing_avg, EOP_avg, Plaque_morphology, resis, resis_cat,
     cm_day, cm_day_norm, twitch_cat,
@@ -789,9 +795,8 @@ mutisol <- mutate(
   mutation_category3 = case_when(
     mutation_category2 %in% 
       c("large_deletion", "small_indel_frameshift", "snp_nonsense") ~ "loss of function",
-    mutation_category2 %in% c("small_indel_inframe") ~ mutation_category2,
     mutation_category2 %in% c("small_indel_intergenic", "snp_intergenic") ~ "intergenic",
-    mutation_category2 %in% c("snp_nonsense", "snp_nonsynonymous") ~ "other change",
+    mutation_category2 %in% c("small_indel_inframe", "snp_nonsynonymous") ~ "other change",
     mutation_category2 %in% c("snp_synonymous") ~ "silent",
     TRUE ~ "NA"),
   gene_short = coalesce(
@@ -884,11 +889,14 @@ ggplot(data = filter(mutisol),
   theme(axis.text.x = element_text(angle = 90, size = 8)) +
   facet_grid(gene_category ~ Treat)
 
+png("./plots/isol_mut_types3.png", width = 8, height = 6, units = "in",
+    res = 150)
 ggplot(data = filter(mutisol),
        aes(x = resis_cat, fill = mutation_category3)) +
   geom_bar(position = "fill") +
   theme(axis.text.x = element_text(angle = 90, size = 8)) +
   facet_grid(gene_category ~ Treat)
+dev.off()
 
 ggplot(data = filter(mutisol, gene_category == "pilus"),
        aes(x = twitch_cat, fill = mutation_category3)) +
