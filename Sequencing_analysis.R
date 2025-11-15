@@ -82,20 +82,43 @@ covdat <- mutate(covdat,
                                  Treat)),
                    levels = c("Anc", "NP", "P")),
                  Treat = factor(Treat,
-                                levels = c("Anc", "NN", "CNP", "NCP", "CP")))
+                                levels = c("Anc", "NN", "CNP", "NCP", "CP")),
+                 included_in_treat = 
+                   Strain == "PA" |
+                   (Strain %in% c("SA", "EF", "AX") & Treat_C == "C") |
+                   (Strain == "H6" & Treat_P == "P"))
 
 covbysp <- 
   summarize(
     group_by(
       filter(covdat, Isol == "Pop", seqtype == "PA"),
-      Strain, seq_id, Timepoint, Pop, Treat, Treat_C, Treat_P),
+      Strain, seq_id, Timepoint, Pop, Treat, Treat_C, Treat_P, endpos,
+      included_in_treat),
     totbases = meandepth * endpos)
 covbysp <- 
-  summarize(group_by(covbysp, Strain, Timepoint, Pop, Treat, Treat_C, Treat_P),
-            totbases = sum(totbases))
+  summarize(group_by(covbysp, Strain, Timepoint, Pop, Treat, Treat_C, Treat_P,
+                     included_in_treat),
+            totbases = weighted.mean(x = totbases, w = endpos))
 covbysp <-
-  mutate(group_by(covbysp, Timepoint, Pop, Treat, Treat_C, Treat_P),
+  mutate(group_by(covbysp, Timepoint, Pop, Treat, Treat_C, Treat_P,
+                  included_in_treat),
          rel_freq = totbases/sum(totbases))
+
+cfudensity <- readRDS("density.rds")
+cfudensity <- mutate(cfudensity,
+                     Treat_C = treat_C, Treat_P = treat_P,
+                     Treat = paste0(Treat_C, Treat_P),
+                     Treat = ifelse(Treat == "NCNP", "NN", Treat),
+                     Pop = as.character(Pop))
+cfudensity <- mutate(group_by(cfudensity,
+                              Timepoint, Pop, Treat, Treat_C, Treat_P),
+                     rel_freq_cfu = cfu_ml/sum(cfu_ml))
+covbysp <- left_join(covbysp,
+                    select(cfudensity,
+                           Timepoint, Pop, Treat, Treat_C, Treat_P,
+                           Strain, cfu_ml, rel_freq_cfu))
+covbysp <- mutate(covbysp,
+                  rel_freq_cfu = ifelse(is.na(rel_freq_cfu), 0, rel_freq_cfu))
 
 ggplot(data = filter(covdat, Isol == "Pop", seqtype == "PA"),
        aes(x = seq_id, y = meandepth)) +
@@ -170,7 +193,29 @@ ggplot(
         #legend.position = c(0.3, 0.6),
         legend.background = element_rect(color = "black"))
 dev.off()
-          
+
+ggplot(data = filter(covbysp, Timepoint != 0),
+       aes(x = log10(rel_freq), y = log10(rel_freq_cfu), 
+           color = Strain, fill = Strain, shape = included_in_treat)) +
+  geom_point() +
+  facet_wrap(~ Timepoint) +
+  scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                     labels = c("P. aeruginosa", "S. aureus",
+                                "E. faecalis", "A. xylosoxidans",
+                                "Phage H6"),
+                     values = my_cols[c(3, 1, 2, 7, 8)]) +
+  scale_fill_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                     labels = c("P. aeruginosa", "S. aureus",
+                                "E. faecalis", "A. xylosoxidans",
+                                "Phage H6"),
+                     values = my_cols[c(3, 1, 2, 7, 8)]) +
+  scale_shape_manual(values = c(16, 4),
+                     breaks = c(TRUE, FALSE)) +
+  scale_x_continuous(labels = math_format(10^.x)) +
+  scale_y_continuous(labels = math_format(10^.x)) +
+  geom_abline(slope = 1, intercept = 0) +
+  labs(x = "Frequency (metagenomics)", y = "Frequency (CFU or PFU)")
+
 
 
 ##Initial data reading & organization ----

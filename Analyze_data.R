@@ -402,6 +402,8 @@ density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("P", "NP"),
 density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("C", "NC"),
                     mut_col = "treat_C")
 
+saveRDS(density, file = "density.rds")
+
 #Change factor orders
 density <- mutate(density,
                   treat_C = factor(treat_C, levels = c("NC", "C")),
