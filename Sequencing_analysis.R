@@ -1,29 +1,34 @@
 ##TODO ----
-# somehow translate 100% frequency deletions into 0's for all the other mutations?
-# plot mutation trajectories excluding those that appear in control treatments
-# Plot only pilus & color pilus mutants in trajectories by gene or mutation
-# Add other gene categories in trajectories plot
-# Investigate other top freq muts and color in categories
-# ML to predict treatment? phage density?
-# ML on mutisol to id treatment? sensitivity to phage? twitching?
-# PCA to look at mutisol
-# Notes for PCA
-#   perhaps cast mutation_type into binary columns so it can be used too?
-#   rather than mutation_type, just divide into larger categories:
-#     breaking - deletion, frameshift, nonsense
-#     modifying - inframe, nonsyn
-#     intergenic - intergenic
-#     silent - synonymous
-#   convert deletions into mutations at each gene covered by the deletion
-#   by referencing the annotations file
-# Calculate diversity metrics of each pop-timepoint
+#Best ideas
+# Plot twitching/resis y by mut-muttype combo x
+# PCA mutisol
+# Convert big deletions into deletions at ea gene via annotations file
+# PCA but casting paste(gene_name, mutation_cat3 a la mutisol)
+# Diversity metrics of each pop-timepoint
 # Compare mutations from isolates to mutations in mutpop
 #   (i.e. where are all the background/ancestral mutations in isolates?)
-# Nucelotide diversity, fst, parallel selection, correlated coevol mutation, 
-#   outlier analysis
-# Discriminant analysis to look for diff genes
-# Use coverage to estimate density & compare with plating
+# Look at pilus structure & where genes act in pilus construction
+# ID genes mutated more highly in one treat vs others
+# Look for dift fates of phages depending on initial inocula 3-10 & pilus muts
+# Is there anything in commong among the populations where phage went ~extinct?
+#  Some way those 5 pops cluster?
+# How often are the same gene targeted with different mutations?
+# fst
+# parallel selection - Toby
+# outlier analysis - Chelsea/Toby
 
+#Good ideas
+# ML on mutpop to predict treatment or phage density
+# ML on mutisol to predict treatment or resistance or twitching
+# Use coverage to estimate density & compare with plating
+# Mutations associated with phage density
+
+#Other ideas
+# plot mutation trajectories excluding those that appear in control treatments
+# translate 100% frequency deletions into 0's for all the other mutations
+# Discriminant analysis to look for diff genes
+# ID mutations that are moving together
+# correlated coevol mutation
 
 
 ##Setup ----
@@ -31,6 +36,7 @@ library(tidyr)
 library(dplyr)
 library(stringr)
 library(ggplot2)
+library(scales)
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -55,6 +61,13 @@ covdat <- mutate(covdat,
                  seq_id = gsub("6a49b35b19134f7e", "SA", seq_id),
                  seq_id = gsub("PP203295", "H6_1", seq_id),
                  seq_id = gsub("contig_", "", seq_id),
+                 Strain = case_when(
+                   str_starts(seq_id, "EF_") ~ "EF",
+                   str_starts(seq_id, "SA_") ~ "SA",
+                   str_starts(seq_id, "AX1_") ~ "AX",
+                   seq_id == "H6_1" ~ "H6",
+                   seq_id == "PA14_1" ~ "PA",
+                   TRUE ~ "unknown"),
                  Timepoint = as.numeric(gsub("T", "", Timepoint)),
                  Pop = gsub("P", "", Pop),
                  Isol = gsub("#", "", Isol),
@@ -71,6 +84,18 @@ covdat <- mutate(covdat,
                  Treat = factor(Treat,
                                 levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
+covbysp <- 
+  summarize(
+    group_by(
+      filter(covdat, Isol == "Pop", seqtype == "PA"),
+      Strain, seq_id, Timepoint, Pop, Treat, Treat_C, Treat_P),
+    totbases = meandepth * endpos)
+covbysp <- 
+  summarize(group_by(covbysp, Strain, Timepoint, Pop, Treat, Treat_C, Treat_P),
+            totbases = sum(totbases))
+covbysp <-
+  mutate(group_by(covbysp, Timepoint, Pop, Treat, Treat_C, Treat_P),
+         rel_freq = totbases/sum(totbases))
 
 ggplot(data = filter(covdat, Isol == "Pop", seqtype == "PA"),
        aes(x = seq_id, y = meandepth)) +
@@ -92,7 +117,62 @@ ggplot(data = filter(covdat, Isol != "Pop"),
   theme(axis.text.x = element_text(size = 6, angle = 90, vjust = 0))
 filter(covdat, seq_id == "PA14_1", Isol != "Pop",
        meandepth == min(filter(covdat, seq_id == "PA14_1", Isol != "Pop")$meandepth))
-  
+
+png("./plots/coverage_bactseq.png", width = 14, height = 10, units = "in",
+    res = 150)
+ggplot(data = filter(covdat, Isol == "Pop", seqtype == "PA"),
+       aes(x = Timepoint, y = meandepth, color = Treat)) +
+  geom_point(alpha = 0.5, position = position_dodge(width = 0.3)) +
+  scale_y_log10() +
+  facet_wrap(~ seq_id) +
+  geom_hline(yintercept = 10, lty = 2)
+dev.off()
+
+png("./plots/coverage_phageseq.png", width = 10, height = 7, units = "in",
+    res = 150)
+ggplot(data = filter(covdat, Isol == "Pop", seqtype == "H6",
+                     seq_id %in% c("H6_1", "PA14_1")),
+       aes(x = Timepoint, y = meandepth, color = Treat)) +
+  geom_point(alpha = 0.5, position = position_dodge(width = 0.3)) +
+  scale_y_log10(breaks = c(0.01, 1, 100), labels = c(0.01, 1, 100)) +
+  facet_wrap(~ seq_id) +
+  geom_hline(yintercept = 10, lty = 2)
+dev.off()
+
+png("./plots/freq_fromseq.png", width = 10, height = 7, units = "in",
+    res = 150)
+ggplot(
+  data = filter(covbysp, Treat != "Anc"),
+  aes(x = Timepoint, y = log10(rel_freq), color = Strain)) +
+  geom_point(position = position_jitter(width = 0.05, height = 0),
+             alpha = 0.3) + 
+  geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
+  facet_grid(Treat_C ~ Treat_P,
+             labeller = labeller(Treat_P = c("P" = "Phage Added",
+                                             "NP" = "No Phage"),
+                                 Treat_C = c("C" = "All Bacteria",
+                                             "NC" = "Only Pseudomonas"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
+                     limits = c(0, NA)) +
+  scale_y_continuous(labels = math_format(10^.x)) +
+  labs(y = "Frequency", x = "Timepoint (days)") +
+  scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                     labels = c("P. aeruginosa", "S. aureus",
+                                "E. faecalis", "A. xylosoxidans",
+                                "Phage H6"),
+                     values = my_cols[c(3, 1, 2, 7, 8)]) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 10),
+        strip.text =  element_text(size = 12.5),
+        #legend.position = c(0.3, 0.6),
+        legend.background = element_rect(color = "black"))
+dev.off()
+          
+
+
 ##Initial data reading & organization ----
 mutations <- read.table("mutations_compare_all.tsv", sep = "\t",
                         stringsAsFactors = FALSE, header = TRUE,
@@ -732,6 +812,54 @@ if (make_slowplots) {
     scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
     theme_bw() +
     NULL
+  
+  png("./plots/mut_trajectories_H6.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(
+      data = filter(mutpop, seq_id == "H6_1", 
+                    !(mutation_category == "large_deletion" & size == "57534")),
+      aes(x = as.numeric(Timepoint), y = freq0, group = mut_id)) +
+      #geom_point() +
+      geom_line() +
+      facet_grid(seqtype*Treat ~ Pop) +
+      scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+      theme_bw() +
+      NULL
+  )
+  dev.off()
+  
+  png("./plots/mut_trajectories_SA.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(
+      data = filter(mutpop, str_starts(seq_id, "SA_")
+                    !(mutation_category == "large_deletion" & size == "57534")),
+      aes(x = as.numeric(Timepoint), y = freq0, group = mut_id)) +
+      #geom_point() +
+      geom_line() +
+      facet_grid(seqtype*Treat ~ Pop) +
+      scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+      theme_bw() +
+      NULL
+  )
+  dev.off()
+  
+  png("./plots/mut_trajectories_AX.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(
+      data = filter(mutpop, seq_id == "H6_1", 
+                    !(mutation_category == "large_deletion" & size == "57534")),
+      aes(x = as.numeric(Timepoint), y = freq0, group = mut_id)) +
+      #geom_point() +
+      geom_line() +
+      facet_grid(seqtype*Treat ~ Pop) +
+      scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+      theme_bw() +
+      NULL
+  )
+  dev.off()
 }
 
 
@@ -799,6 +927,22 @@ mutisol <- mutate(
     mutation_category2 %in% c("small_indel_inframe", "snp_nonsynonymous") ~ "other change",
     mutation_category2 %in% c("snp_synonymous") ~ "silent",
     TRUE ~ "NA"),
+  pilmut_struc = ifelse(
+    gene_category == "pilus",
+    case_when(
+      grepl("PilS", gene_name), ~ "unknown",
+      grepl("PilB", gene_name), ~ "motor",
+      grepl("PilC", gene_name), ~ "motor",
+      grepl("PilF", gene_name), ~ "OMP",
+      grepl("PilN", gene_name), ~ "alignment",
+      grepl("PilO", gene_name), ~ "alignment",
+      grepl("PilQ", gene_name), ~ "OMP",
+      grepl("RcpA", gene_name), ~ "unknown",
+      grepl("PilM", gene_name), ~ "alignment",
+      grepl("PilT", gene_name), ~ "motor",
+      grepl("TadZ", gene_name), ~ "unknown",
+      TRUE ~ "tbd"),
+    NA),
   gene_short = coalesce(
     # 1) Capitalized short symbol at end, e.g. "… PilT" or "… PilY1"
     str_extract(gene_name, "([A-Z][A-Za-z0-9]+)$"),
