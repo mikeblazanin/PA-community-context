@@ -10,7 +10,7 @@
 # Look at pilus structure & where genes act in pilus construction
 # ID genes mutated more highly in one treat vs others
 # Look for dift fates of phages depending on initial inocula 3-10 & pilus muts
-# Is there anything in commong among the populations where phage went ~extinct?
+# Is there anything in common among the populations where phage went ~extinct?
 #  Some way those 5 pops cluster?
 # How often are the same gene targeted with different mutations?
 # fst
@@ -20,7 +20,6 @@
 #Good ideas
 # ML on mutpop to predict treatment or phage density
 # ML on mutisol to predict treatment or resistance or twitching
-# Use coverage to estimate density & compare with plating
 # Mutations associated with phage density
 
 #Other ideas
@@ -110,9 +109,10 @@ cfudensity <- mutate(cfudensity,
                      Treat = paste0(Treat_C, Treat_P),
                      Treat = ifelse(Treat == "NCNP", "NN", Treat),
                      Pop = as.character(Pop))
+#We're missing T2 CP3 CP4 CP5 AX
 cfudensity <- mutate(group_by(cfudensity,
                               Timepoint, Pop, Treat, Treat_C, Treat_P),
-                     rel_freq_cfu = cfu_ml/sum(cfu_ml))
+                     rel_freq_cfu = cfu_ml/sum(cfu_ml, na.rm = TRUE))
 covbysp <- left_join(covbysp,
                     select(cfudensity,
                            Timepoint, Pop, Treat, Treat_C, Treat_P,
@@ -194,11 +194,14 @@ ggplot(
         legend.background = element_rect(color = "black"))
 dev.off()
 
-ggplot(data = filter(covbysp, Timepoint != 0),
-       aes(x = log10(rel_freq), y = log10(rel_freq_cfu), 
-           color = Strain, fill = Strain, shape = included_in_treat)) +
+ggplot(data = arrange(
+  filter(covbysp, Timepoint != 0,
+         !(Timepoint == 2 & Treat == "CP" & Pop %in% c(3, 4, 5) & Strain == "AX")),
+  Timepoint),
+  aes(x = log10(rel_freq), y = log10(rel_freq_cfu), 
+      color = Strain, fill = Strain, shape = included_in_treat)) +
   geom_point() +
-  facet_wrap(~ Timepoint) +
+  geom_path(aes(group = paste(Pop, Treat, Strain))) +
   scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
                      labels = c("P. aeruginosa", "S. aureus",
                                 "E. faecalis", "A. xylosoxidans",
@@ -216,7 +219,36 @@ ggplot(data = filter(covbysp, Timepoint != 0),
   geom_abline(slope = 1, intercept = 0) +
   labs(x = "Frequency (metagenomics)", y = "Frequency (CFU or PFU)")
 
-
+ggplot(data = arrange(
+  filter(covbysp, Timepoint != 0,
+         !(Timepoint == 2 & Treat == "CP" & Pop %in% c(3, 4, 5) & Strain == "AX")),
+  Timepoint),
+  aes(x = Timepoint, y = log10(rel_freq_cfu/rel_freq), color = Strain)) +
+  geom_point(position = position_jitter(width = 0.05, height = 0),
+             alpha = 0.3) + 
+  geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
+  facet_grid(Treat_C ~ Treat_P,
+             labeller = labeller(Treat_P = c("P" = "Phage Added",
+                                             "NP" = "No Phage"),
+                                 Treat_C = c("C" = "All Bacteria",
+                                             "NC" = "Only Pseudomonas"))) +
+  scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
+                     limits = c(0, NA)) +
+  scale_y_continuous(labels = math_format(10^.x)) +
+  labs(y = "CFU frequency:Metagenomic frequency", x = "Timepoint (days)") +
+  scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                     labels = c("P. aeruginosa", "S. aureus",
+                                "E. faecalis", "A. xylosoxidans",
+                                "Phage H6"),
+                     values = my_cols[c(3, 1, 2, 7, 8)]) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 10),
+        strip.text =  element_text(size = 12.5),
+        #legend.position = c(0.3, 0.6),
+        legend.background = element_rect(color = "black"))
 
 ##Initial data reading & organization ----
 mutations <- read.table("mutations_compare_all.tsv", sep = "\t",
@@ -276,19 +308,9 @@ mutations <- mutate(mutations,
                     Treat = factor(Treat,
                                    levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
-#Split samples by type
-mutpop <- filter(mutations, Isol == "Pop")
-mutisol <- filter(mutations, Isol != "Pop")
-
-##Population sample analyses ----
-
-#Filter out fixed-nonvariate mutations
-#mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
-#mut_id 11212 is fixed in pop 9 across all treatments & timepoints
-mutpop <- filter(mutpop, !mut_id %in% c("2958", "3198", "7885", "11212"))
-
-mutpop <- mutate(
-  mutpop,
+##Shared analysis labeling ----
+mutations <- mutate(
+  ungroup(mutations),
   gene_category = case_when(
     grepl("pil", gene_name, ignore.case = TRUE) ~ "pilus",
     grepl("CupB3", gene_name) ~ "pilus",
@@ -308,7 +330,78 @@ mutpop <- mutate(
     grepl("Tse", gene_name) ~ "T6SS",
     grepl("flagella", gene_name) ~ "flagella",
     grepl("Thioredoxin family protein/Helix-turn-helix domain-containing protein", gene_name) ~ "mystery_1",
-    TRUE ~ "other"))
+    TRUE ~ "other"),
+  mutation_category2 = case_when(
+    mutation_category == "small_indel" & grepl("intergenic", gene_position) ~
+      "small_indel_intergenic",
+    mutation_category == "small_indel" & grepl("coding", gene_position) &
+      (nchar(ref_seq) - nchar(new_seq)) %% 3 == 0 ~ "small_indel_inframe",
+    mutation_category == "small_indel" & grepl("coding", gene_position) &
+      (nchar(ref_seq) - nchar(new_seq)) %% 3 != 0 ~ "small_indel_frameshift",
+    TRUE ~ mutation_category),
+  mutation_category3 = case_when(
+    mutation_category2 %in% 
+      c("large_deletion", "small_indel_frameshift", "snp_nonsense") ~ "loss of function",
+    mutation_category2 %in% c("small_indel_intergenic", "snp_intergenic") ~ "intergenic",
+    mutation_category2 %in% c("small_indel_inframe", "snp_nonsynonymous") ~ "nonsyn change",
+    mutation_category2 %in% c("snp_synonymous") ~ "silent",
+    TRUE ~ "NA"),
+  pilmut_struc = ifelse(
+    gene_category == "pilus",
+    case_when(
+      grepl("PilS", gene_name) ~ "unknown",
+      grepl("PilB", gene_name) ~ "motor",
+      grepl("PilC", gene_name) ~ "motor",
+      grepl("PilF", gene_name) ~ "OMP",
+      grepl("PilN", gene_name) ~ "alignment",
+      grepl("PilO", gene_name) ~ "alignment",
+      grepl("PilQ", gene_name) ~ "OMP",
+      grepl("RcpA", gene_name) ~ "unknown",
+      grepl("PilM", gene_name) ~ "alignment",
+      grepl("PilT", gene_name) ~ "motor",
+      grepl("TadZ", gene_name) ~ "unknown",
+      TRUE ~ "tbd"),
+    NA),
+  gene_short = coalesce(
+    # 1) Capitalized short symbol at end, e.g. "… PilT" or "… PilY1"
+    str_extract(gene_name, "([A-Z][A-Za-z0-9]+)$"),
+    # 2) Gene token immediately following "protein"
+    str_extract(gene_name, "(?i)\\bPil[A-Za-z0-9]*(?=$|/)"),
+    # 3) As a final fallback use the provided gene_name column
+    gene_name),
+  concise_mut = case_when(
+    mut_id %in% c("2958", "3198", "7885", "11212") ~ "", #(ancestral mutations)
+    grepl("snp", mutation_category) ~
+      ifelse(grepl("intergenic", gene_position),
+             paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
+             paste0(gene_short, " (", aa_ref_seq, "->", aa_new_seq, ")")),
+    mutation_category == "small_indel" & type == "DEL" ~
+      ifelse(grepl("intergenic", gene_position),
+             paste0(gene_short, " (intergenic ", size, "bp DEL)"),
+             paste0(gene_short, " (", size, "bp DEL)")),
+    mutation_category == "small_indel" & type == "INS" ~
+      ifelse(grepl("intergenic", gene_position),
+             paste0(gene_short, " (intergenic ", length(new_seq), "bp INS)"),
+             paste0(gene_short, " (", length(new_seq), "bp INS)")),
+    mutation_category == "small_indel" & type == "SUB" ~
+      ifelse(grepl("intergenic", gene_position),
+             paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
+             paste0(gene_short, " (nt ", ref_seq, "->", new_seq, ")")),
+    mutation_category == "large_deletion" ~
+      paste0(gene_short, " (", size, "bp DEL)"),
+    TRUE ~ "nomatch")
+)
+
+#Split samples by type ----
+mutpop <- filter(mutations, Isol == "Pop")
+mutisol <- filter(mutations, Isol != "Pop")
+
+##Population sample analyses ----
+
+#Filter out fixed-nonvariate mutations
+#mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
+#mut_id 11212 is fixed in pop 9 across all treatments & timepoints
+mutpop <- filter(mutpop, !mut_id %in% c("2958", "3198", "7885", "11212"))
 
 #For population samples, fill in all the missing mutation-sample combinations
 # with NA
@@ -323,7 +416,8 @@ mutpop <- complete(
           new_seq, position, position_end, position_start,
           ref_seq, repeat_length, repeat_new_copies, repeat_ref_copies, 
           repeat_seq, seq_id, size, snp_type, transl_table, type, mut_id, 
-          gene_category),
+          gene_category, mutation_category2, mutation_category3,
+          pilmut_struc, gene_short, concise_mut),
   #Create the nesting defining each sample
   nesting(seqrun, SeqCoastid, seqtype, Timepoint, Pop, Treat, Isol, title,
           Treat_C, Treat_P)
@@ -809,6 +903,34 @@ if (make_slowplots) {
       NULL
   )
   dev.off()
+  
+  png("./plots/mut_freqs_pilus.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(
+      data = filter(mutpop, seqtype == "PA", seq_id == "PA14_1",
+                    everabove_010_noanc == TRUE, gene_category == "pilus",
+                    gene_name != "type 4b pilus Flp biogenesis protein TadZ"),
+      aes(x = gene_name, y = freq0, color = Pop, group = Pop,
+          shape = mutation_category3)) +
+      geom_point(alpha = 0.5, position = position_dodge(width = 0.5)) +
+      facet_grid(Treat ~ .) +
+      #coord_cartesian(ylim = c(0.1, 1)) +
+      #scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+      # scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+      #                    values = my_cols[c(6, 5, 3, 8)]) +
+      # scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
+      #                    values = c(0.8, 0.8, 0.8, 0.15)) +
+      theme_bw() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+      NULL
+  )
+  dev.off()
+  
+  tmp <- filter(mutpop, seqtype == "PA", seq_id == "PA14_1",
+         everabove_010_noanc == TRUE, gene_category == "pilus",
+         gene_name != "type 4b pilus Flp biogenesis protein TadZ")
+  View(filter(tmp, is.na(mutation_category3)))
 
   png("./plots/mut_changes_above010_noanc.png", width = 12, height = 7, units = "in",
       res = 150)
@@ -878,7 +1000,7 @@ if (make_slowplots) {
       res = 150)
   print(
     ggplot(
-      data = filter(mutpop, str_starts(seq_id, "SA_")
+      data = filter(mutpop, str_starts(seq_id, "SA_") &
                     !(mutation_category == "large_deletion" & size == "57534")),
       aes(x = as.numeric(Timepoint), y = freq0, group = mut_id)) +
       #geom_point() +
@@ -946,77 +1068,6 @@ mutisol <- left_join(
     max_percap_norm, max_dens_norm, auc_norm, lag_norm,
     biofilm_abs, biofilm_norm, biofilm_norm_log10, 
     biofilm_norm_log10_norm, biofilm_block_name))
-
-mutisol <- mutate(
-  mutisol,
-  gene_category = case_when(
-    grepl("pil", gene_name, ignore.case = TRUE) ~ "pilus",
-    grepl("CupB3", gene_name) ~ "pilus",
-    grepl("Wsp", gene_name) ~ "biofilm",
-    grepl("MorA", gene_name) ~ "biofilm",
-    grepl("LasR", gene_name) ~ "biofilm",
-    grepl("Mut", gene_name) ~ "mutator",
-    TRUE ~ "other"),
-  mutation_category2 = case_when(
-    mutation_category == "small_indel" & grepl("intergenic", gene_position) ~
-      "small_indel_intergenic",
-    mutation_category == "small_indel" & grepl("coding", gene_position) &
-      (nchar(ref_seq) - nchar(new_seq)) %% 3 == 0 ~ "small_indel_inframe",
-    mutation_category == "small_indel" & grepl("coding", gene_position) &
-      (nchar(ref_seq) - nchar(new_seq)) %% 3 != 0 ~ "small_indel_frameshift",
-    TRUE ~ mutation_category),
-  mutation_category3 = case_when(
-    mutation_category2 %in% 
-      c("large_deletion", "small_indel_frameshift", "snp_nonsense") ~ "loss of function",
-    mutation_category2 %in% c("small_indel_intergenic", "snp_intergenic") ~ "intergenic",
-    mutation_category2 %in% c("small_indel_inframe", "snp_nonsynonymous") ~ "other change",
-    mutation_category2 %in% c("snp_synonymous") ~ "silent",
-    TRUE ~ "NA"),
-  pilmut_struc = ifelse(
-    gene_category == "pilus",
-    case_when(
-      grepl("PilS", gene_name), ~ "unknown",
-      grepl("PilB", gene_name), ~ "motor",
-      grepl("PilC", gene_name), ~ "motor",
-      grepl("PilF", gene_name), ~ "OMP",
-      grepl("PilN", gene_name), ~ "alignment",
-      grepl("PilO", gene_name), ~ "alignment",
-      grepl("PilQ", gene_name), ~ "OMP",
-      grepl("RcpA", gene_name), ~ "unknown",
-      grepl("PilM", gene_name), ~ "alignment",
-      grepl("PilT", gene_name), ~ "motor",
-      grepl("TadZ", gene_name), ~ "unknown",
-      TRUE ~ "tbd"),
-    NA),
-  gene_short = coalesce(
-    # 1) Capitalized short symbol at end, e.g. "… PilT" or "… PilY1"
-    str_extract(gene_name, "([A-Z][A-Za-z0-9]+)$"),
-    # 2) Gene token immediately following "protein"
-    str_extract(gene_name, "(?i)\\bPil[A-Za-z0-9]*(?=$|/)"),
-    # 3) As a final fallback use the provided gene_name column
-    gene_name),
-  concise_mut = case_when(
-    mut_id %in% c("2958", "3198", "7885", "11212") ~ "", #(ancestral mutations)
-    grepl("snp", mutation_category) ~
-      ifelse(grepl("intergenic", gene_position),
-             paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
-             paste0(gene_short, " (", aa_ref_seq, "->", aa_new_seq, ")")),
-    mutation_category == "small_indel" & type == "DEL" ~
-      ifelse(grepl("intergenic", gene_position),
-             paste0(gene_short, " (intergenic ", size, "bp DEL)"),
-             paste0(gene_short, " (", size, "bp DEL)")),
-    mutation_category == "small_indel" & type == "INS" ~
-      ifelse(grepl("intergenic", gene_position),
-             paste0(gene_short, " (intergenic ", length(new_seq), "bp INS)"),
-             paste0(gene_short, " (", length(new_seq), "bp INS)")),
-    mutation_category == "small_indel" & type == "SUB" ~
-      ifelse(grepl("intergenic", gene_position),
-             paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
-             paste0(gene_short, " (nt ", ref_seq, "->", new_seq, ")")),
-    mutation_category == "large_deletion" ~
-      paste0(gene_short, " (", size, "bp DEL)"),
-    TRUE ~ "nomatch")
-  )
 
 nice_isoltable <- 
   pivot_wider(
