@@ -1,6 +1,5 @@
 ##TODO ----
 #Best ideas
-# Plot twitching/resis y by mut-muttype combo x
 # PCA mutisol
 # Convert big deletions into deletions at ea gene via annotations file
 # PCA but casting paste(gene_name, mutation_cat3 a la mutisol)
@@ -915,12 +914,6 @@ if (make_slowplots) {
           shape = mutation_category3)) +
       geom_point(alpha = 0.5, position = position_dodge(width = 0.5)) +
       facet_grid(Treat ~ .) +
-      #coord_cartesian(ylim = c(0.1, 1)) +
-      #scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-      # scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-      #                    values = my_cols[c(6, 5, 3, 8)]) +
-      # scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-      #                    values = c(0.8, 0.8, 0.8, 0.15)) +
       theme_bw() +
       theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
       NULL
@@ -1177,6 +1170,71 @@ View(filter(mutisol[order(mutisol$gene_name, mutisol$mut_id,
 View(filter(mutisol, 
             !mut_id %in% c("2958", "3198", "7885", "11212"),
             new_seq == ref_seq))
+
+png("./plots/isol_pilmuts_byresis.png", width = 8, height = 10, units = "in",
+    res = 150)
+print(
+  ggplot(
+    data = filter(mutisol, gene_category == "pilus"),
+    aes(x = gene_name, y = resis_cat, color = Pop, fill = Pop,
+        group = Pop, shape = mutation_category3)) +
+    geom_point(alpha = 0.5, 
+               position = position_jitterdodge(jitter.width = 0,
+                                               jitter.height = 0.05,
+                                               dodge.width = 0.6)) +
+    facet_grid(Treat ~ .) +
+    scale_shape_manual(values = 21:24) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 75, hjust = 1)) +
+    NULL
+)
+dev.off()
+
+png("./plots/isol_pilmuts_bytwitch.png", width = 8, height = 10, units = "in",
+    res = 150)
+print(
+  ggplot(
+    data = filter(mutisol, gene_category == "pilus"),
+    aes(x = gene_name, y = twitch_cat, color = Pop, fill = Pop,
+        group = Pop, shape = mutation_category3)) +
+    geom_point(alpha = 0.5, 
+               position = position_jitterdodge(jitter.width = 0,
+                                               jitter.height = 0.05,
+                                               dodge.width = 0.6)) +
+    facet_grid(Treat ~ .) +
+    scale_shape_manual(values = 21:24) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 75, hjust = 1)) +
+    NULL
+)
+dev.off()
+
+print(
+  ggplot(
+    data = filter(mutisol, gene_category == "pilus"),
+    aes(x = gene_name, y = as.numeric(auc_norm), color = Pop, fill = Pop,
+        group = Pop, shape = mutation_category3)) +
+    geom_point(alpha = 0.5) +
+    facet_grid(~ Treat) +
+    scale_shape_manual(values = 21:24) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 75, hjust = 1)) +
+    NULL
+)
+
+print(
+  ggplot(
+    data = filter(mutisol, gene_category == "pilus"),
+    aes(x = gene_name, y = as.numeric(lag_norm), color = Pop, fill = Pop,
+        group = Pop, shape = mutation_category3)) +
+    geom_point(alpha = 0.5) +
+    facet_grid(~ Treat) +
+    scale_shape_manual(values = 21:24) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 75, hjust = 1)) +
+    NULL
+)
+
 
 
 ##Old code ----
