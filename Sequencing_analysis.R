@@ -380,8 +380,8 @@ mutations <- mutate(
              paste0(gene_short, " (", size, "bp DEL)")),
     mutation_category == "small_indel" & type == "INS" ~
       ifelse(grepl("intergenic", gene_position),
-             paste0(gene_short, " (intergenic ", length(new_seq), "bp INS)"),
-             paste0(gene_short, " (", length(new_seq), "bp INS)")),
+             paste0(gene_short, " (intergenic ", nchar(new_seq), "bp INS)"),
+             paste0(gene_short, " (", nchar(new_seq), "bp INS)")),
     mutation_category == "small_indel" & type == "SUB" ~
       ifelse(grepl("intergenic", gene_position),
              paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
@@ -492,13 +492,13 @@ mutpop <- mutate(group_by(mutpop, seqtype, mut_id, Treat, Pop),
 #             mut_id, Timepoint, freq, freq0, freq01, freq_change, abs_freq_rate,
 #             rel_freq_rate))
 
-mutpop <- mutate(
-  group_by(mutpop, mut_id, seqtype, Treat, Pop),
-  freq_change = (freq01 - lag(freq01, order_by = Timepoint)),
-  abs_freq_rate =
-    (freq01 - lag(freq01, order_by = Timepoint))/
-    (Timepoint - lag(Timepoint, order_by = Timepoint)),
-  rel_freq_rate = abs_freq_rate/lag(freq01, order_by = Timepoint))
+# mutpop <- mutate(
+#   group_by(mutpop, mut_id, seqtype, Treat, Pop),
+#   freq_change = (freq01 - lag(freq01, order_by = Timepoint)),
+#   abs_freq_rate =
+#     (freq01 - lag(freq01, order_by = Timepoint))/
+#     (Timepoint - lag(Timepoint, order_by = Timepoint)),
+#   rel_freq_rate = abs_freq_rate/lag(freq01, order_by = Timepoint))
 
 # top_muts <- slice_max(
 #   group_by(
@@ -1032,6 +1032,130 @@ if (make_slowplots) {
 # View(temp[order(temp$mut_id, temp$Timepoint), 
 #           c("freq", "mut_id", "Timepoint")])
 
+## Comparing isolate vs population sequencing ----
+
+#For isolate samples, fill in all the missing mutation-sample combinations
+# with NA
+mutcomp <- 
+  complete(
+    ungroup(mutate(mutisol, freq = 1)),
+    #Create the nesting defining each unique mutation
+    nesting(aa_new_seq, aa_position, aa_ref_seq, codon_new_seq, codon_number, 
+            codon_position, codon_ref_seq, gene_name, gene_position, gene_product, 
+            gene_strand, genes_inactivated, genes_overlapping, genes_promoter, 
+            insert_position, locus_tag, locus_tags_inactivated, 
+            locus_tags_overlapping, locus_tags_promoter, mutation_category,
+            new_seq, position, position_end, position_start,
+            ref_seq, repeat_length, repeat_new_copies, repeat_ref_copies, 
+            repeat_seq, seq_id, size, snp_type, transl_table, type, mut_id, 
+            gene_category, mutation_category2, mutation_category3,
+            pilmut_struc, gene_short, concise_mut),
+    #Create the nesting defining each population
+    nesting(seqrun, SeqCoastid, seqtype, Timepoint, Pop, Treat, Isol, title,
+            Treat_C, Treat_P)
+    #Columns left out (and therefore filled in by NA by default):
+    # multiple_polymorphic_SNPs_in_same_codon,
+    # new_read_count, new_read_count_basis, 
+    # ref_read_count, ref_read_count_basis,
+    # freq
+  )
+
+mutcomp <-
+  select(mutcomp,
+         -c(title, multiple_polymorphic_SNPs_in_same_codon,
+            new_read_count, new_read_count_basis,
+            ref_read_count, ref_read_count_basis,
+            seqrun, SeqCoastid))
+mutcomp <- 
+  mutate(ungroup(mutcomp),
+         freq0 = ifelse(is.na(freq), 0, freq))
+
+mutcomp <-
+  summarize(
+    group_by(mutcomp,
+             aa_new_seq, aa_position, aa_ref_seq, codon_new_seq, codon_number, 
+             codon_position, codon_ref_seq, gene_name, gene_position, gene_product, 
+             gene_strand, genes_inactivated, genes_overlapping, genes_promoter, 
+             insert_position, locus_tag, locus_tags_inactivated, 
+             locus_tags_overlapping, locus_tags_promoter, mutation_category,
+             new_seq, position, position_end, position_start,
+             ref_seq, repeat_length, repeat_new_copies, repeat_ref_copies, 
+             repeat_seq, seq_id, size, snp_type, transl_table, type, mut_id, 
+             gene_category, mutation_category2, mutation_category3,
+             pilmut_struc, gene_short, concise_mut,
+             seqtype, Timepoint, Pop, Treat, Treat_C, Treat_P),
+    isolfreq = mean(freq0))
+
+mutcomp <-
+  full_join(
+    mutcomp,
+    select(mutpop,
+           -c(multiple_polymorphic_SNPs_in_same_codon,
+              new_read_count, new_read_count_basis,
+              ref_read_count, ref_read_count_basis,
+              seqrun, SeqCoastid,
+              Isol, title)))
+
+tmp <- filter(mutcomp, seqtype == "PA", seq_id == "PA14_1",
+              everabove_010_noanc == TRUE | isolfreq > 0, 
+              gene_category == "pilus", Treat %in% c("NCP", "CP"))
+
+
+png("./plots/isolmut_vs_popmut_pilus.png", width = 16, height = 8, units = "in",
+    res = 150)
+ggplot(tmp,
+  aes(x = Timepoint, y = freq0, color = gene_name,
+      group = mut_id)) +
+  geom_line() +
+  geom_point(alpha = 0.5, aes(size = isolfreq)) +
+  facet_grid(Treat ~ Pop) +
+  scale_size_continuous(breaks = c(0, 0.5, 1),
+                        range = c(0, 4))
+dev.off()
+
+
+tmp <- filter(mutcomp, seqtype == "PA", seq_id == "PA14_1",
+              everabove_010_noanc == TRUE | isolfreq > 0, 
+              Treat %in% c("NCP", "CP"))
+
+png("./plots/isolmut_vs_popmut.png", width = 16, height = 8, units = "in",
+    res = 150)
+ggplot(tmp,
+       aes(x = Timepoint, y = freq0, color = gene_name,
+           group = mut_id)) +
+  geom_line() +
+  geom_point(alpha = 0.5, aes(size = isolfreq)) +
+  facet_grid(Treat ~ Pop) +
+  scale_size_continuous(breaks = c(0, 0.5, 1),
+                        range = c(0, 4)) +
+  guides(color = "none")
+dev.off()
+
+
+View(
+  select(
+    filter(mutisol,
+           !mut_id %in% c("2958", "3198", "7885", "11212")),
+    Timepoint, Treat, Pop, Isol, Treat_C, Treat_P,
+    clearing_avg, EOP_avg, Plaque_morphology, resis_cat, 
+    twitch_cat,
+    gene_category, concise_mut, freq0))
+
+ggplot(data = filter(mutisol,
+                     !mut_id %in% c("2958", "3198", "7885", "11212")),
+       aes(x = freq0)) +
+  geom_histogram()
+
+
+ggplot(data = mutisol2_sum,
+       aes(x = isolavg_freq, y = freq0, color = gene_name)) +
+  geom_point(alpha = 0.5) +
+  facet_grid(Treat ~ Pop) +
+  theme() +
+  guides(color = "none")
+
+
+
 ##Isolate analyses ----
 
 ##Note: five isolates have only the four shared fixed mutations 
@@ -1061,6 +1185,7 @@ mutisol <- left_join(
     max_percap_norm, max_dens_norm, auc_norm, lag_norm,
     biofilm_abs, biofilm_norm, biofilm_norm_log10, 
     biofilm_norm_log10_norm, biofilm_block_name))
+
 
 nice_isoltable <- 
   pivot_wider(
@@ -1234,6 +1359,8 @@ print(
     theme(axis.text.x = element_text(angle = 75, hjust = 1)) +
     NULL
 )
+
+
 
 
 
