@@ -583,7 +583,9 @@ mutpop_pil_w <- pivot_wider(
          -new_read_count, -new_read_count_basis, 
          -ref_read_count, -ref_read_count_basis,
          -freq, -freq0, -freq01, -freq_cat,
-         -fixed, -freq_change, -abs_freq_rate, -rel_freq_rate),
+         -fixed
+         #-freq_change, -abs_freq_rate, -rel_freq_rate
+         ),
   names_from = Timepoint, values_from = lfreq01, names_prefix = "T")
 
 View(arrange(select(mutpop_pil_w, T0, T1, T2, T4, T8, Treat, Pop, mut_id, gene_name,
@@ -1096,10 +1098,43 @@ mutcomp <-
               seqrun, SeqCoastid,
               Isol, title)))
 
-tmp <- filter(mutcomp, seqtype == "PA", seq_id == "PA14_1",
-              everabove_010_noanc == TRUE | isolfreq > 0, 
-              gene_category == "pilus", Treat %in% c("NCP", "CP"))
+#Re-run crossing to fill in all the missing mutation-sample combinations
+# with NA
+mutcomp <- 
+  complete(
+    ungroup(mutcomp),
+    #Create the nesting defining each unique mutation
+    nesting(aa_new_seq, aa_position, aa_ref_seq, codon_new_seq, codon_number, 
+            codon_position, codon_ref_seq, gene_name, gene_position, gene_product, 
+            gene_strand, genes_inactivated, genes_overlapping, genes_promoter, 
+            insert_position, locus_tag, locus_tags_inactivated, 
+            locus_tags_overlapping, locus_tags_promoter, mutation_category,
+            new_seq, position, position_end, position_start,
+            ref_seq, repeat_length, repeat_new_copies, repeat_ref_copies, 
+            repeat_seq, seq_id, size, snp_type, transl_table, type, mut_id, 
+            gene_category, mutation_category2, mutation_category3,
+            pilmut_struc, gene_short, concise_mut),
+    #Create the nesting defining each population
+    nesting(seqtype, Timepoint, Pop, Treat,
+            Treat_C, Treat_P)
+    #Columns left out (and therefore filled in by NA by default):
+    # isolfreq, freq, freq0, freq01,
+    # everabove-s, fixed
+  )
 
+mutcomp <- 
+  mutate(ungroup(mutcomp),
+         freq0 = ifelse(is.na(freq), 0, freq))
+
+mutcomp <- mutate(
+  group_by(mutcomp, seqtype, mut_id, Treat, Pop),
+  everabove_010_orisolmut = 
+    any((!is.na(everabove_010) & everabove_010 == TRUE) | 
+          (!is.na(isolfreq) & isolfreq > 0)))
+
+tmp <- filter(mutcomp, seqtype == "PA", seq_id == "PA14_1",
+              everabove_010_orisolmut == TRUE, 
+              gene_category == "pilus", Treat %in% c("NCP", "CP"))
 
 png("./plots/isolmut_vs_popmut_pilus.png", width = 16, height = 8, units = "in",
     res = 150)
@@ -1115,31 +1150,29 @@ dev.off()
 
 
 tmp <- filter(mutcomp, seqtype == "PA", seq_id == "PA14_1",
-              everabove_010_noanc == TRUE | isolfreq > 0, 
+              everabove_010_orisolmut == TRUE, 
               Treat %in% c("NCP", "CP"))
 
 png("./plots/isolmut_vs_popmut.png", width = 16, height = 8, units = "in",
     res = 150)
 ggplot(tmp,
-       aes(x = Timepoint, y = freq0, color = gene_name,
+       aes(x = Timepoint, y = freq0, color = gene_category,
            group = mut_id)) +
   geom_line() +
   geom_point(alpha = 0.5, aes(size = isolfreq)) +
   facet_grid(Treat ~ Pop) +
   scale_size_continuous(breaks = c(0, 0.5, 1),
-                        range = c(0, 4)) +
-  guides(color = "none")
+                        range = c(0, 4))
 dev.off()
 
-
-View(
-  select(
-    filter(mutisol,
-           !mut_id %in% c("2958", "3198", "7885", "11212")),
-    Timepoint, Treat, Pop, Isol, Treat_C, Treat_P,
-    clearing_avg, EOP_avg, Plaque_morphology, resis_cat, 
-    twitch_cat,
-    gene_category, concise_mut, freq0))
+# View(
+#   select(
+#     filter(mutisol,
+#            !mut_id %in% c("2958", "3198", "7885", "11212")),
+#     Timepoint, Treat, Pop, Isol, Treat_C, Treat_P,
+#     clearing_avg, EOP_avg, Plaque_morphology, resis_cat, 
+#     twitch_cat,
+#     gene_category, concise_mut, freq0))
 
 ggplot(data = filter(mutisol,
                      !mut_id %in% c("2958", "3198", "7885", "11212")),
