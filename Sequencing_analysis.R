@@ -1,11 +1,11 @@
 ##TODO ----
 #Best ideas
+# run isols in polym mode, try to figure out contamination (where are bg muts
+#  (in isols!?!)
 # PCA mutisol
 # Convert big deletions into deletions at ea gene via annotations file
 # PCA but casting paste(gene_name, mutation_cat3 a la mutisol)
 # Diversity metrics of each pop-timepoint
-# Compare mutations from isolates to mutations in mutpop
-#   (i.e. where are all the background/ancestral mutations in isolates?)
 # Look at pilus structure & where genes act in pilus construction
 # ID genes mutated more highly in one treat vs others
 # Look for dift fates of phages depending on initial inocula 3-10 & pilus muts
@@ -311,9 +311,7 @@ mutations <- mutate(mutations,
 mutations <- mutate(
   ungroup(mutations),
   gene_category = case_when(
-    grepl("pil", gene_name, ignore.case = TRUE) ~ "pilus",
     grepl("CupB3", gene_name) ~ "pilus",
-    grepl("pilus", gene_name) ~ "pilus",
     grepl("Wsp", gene_name) ~ "biofilm",
     grepl("MorA", gene_name) ~ "biofilm",
     grepl("RhlR", gene_name) ~ "QS",
@@ -327,8 +325,13 @@ mutations <- mutate(
     grepl("type VI", gene_name) ~ "T6SS",
     grepl("Type VI", gene_name) ~ "T6SS",
     grepl("Tse", gene_name) ~ "T6SS",
+    grepl("T2SS", gene_name) ~ "T2SS",
+    grepl("type II secretion system", gene_name) ~ "T2SS",
     grepl("flagella", gene_name) ~ "flagella",
     grepl("Thioredoxin family protein/Helix-turn-helix domain-containing protein", gene_name) ~ "mystery_1",
+    grepl("FimX", gene_name) ~ "pilus",
+    grepl("pil", gene_name, ignore.case = TRUE) ~ "pilus",
+    grepl("pilus", gene_name) ~ "pilus",
     TRUE ~ "other"),
   mutation_category2 = case_when(
     mutation_category == "small_indel" & grepl("intergenic", gene_position) ~
@@ -348,17 +351,41 @@ mutations <- mutate(
   pilmut_struc = ifelse(
     gene_category == "pilus",
     case_when(
-      grepl("PilS", gene_name) ~ "unknown",
-      grepl("PilB", gene_name) ~ "motor",
-      grepl("PilC", gene_name) ~ "motor",
-      grepl("PilF", gene_name) ~ "OMP",
-      grepl("PilN", gene_name) ~ "alignment",
-      grepl("PilO", gene_name) ~ "alignment",
-      grepl("PilQ", gene_name) ~ "OMP",
-      grepl("RcpA", gene_name) ~ "unknown",
-      grepl("PilM", gene_name) ~ "alignment",
-      grepl("PilT", gene_name) ~ "motor",
+      grepl("4b", gene_name) ~ "4b",
+      grepl("IVB", gene_name) ~ "4b",
       grepl("TadZ", gene_name) ~ "unknown",
+      grepl("PilT", gene_name) ~ "motor",
+      grepl("PilB", gene_name) ~ "motor",
+      grepl("PilQ", gene_name) ~ "OMP",
+      grepl("PilS", gene_name) ~ "regulatory",
+      grepl("PilM", gene_name) ~ "alignment_sc",
+      grepl("PilC", gene_name) ~ "motor",
+      grepl("pilC", gene_name) ~ "motor",
+      grepl("PilN", gene_name) ~ "alignment_sc",
+      grepl("PilZ", gene_name) ~ "motor",
+      grepl("TadG", gene_name) ~ "unknown",
+      grepl("PilU", gene_name) ~ "motor",
+      grepl("PilR", gene_name) ~ "regulatory",
+      grepl("PilO", gene_name) ~ "alignment_sc",
+      grepl("FimV", gene_name) ~ "OMP",
+      grepl("PilJ", gene_name) ~ "regulatory",
+      grepl("PilF", gene_name) ~ "OMP",
+      grepl("PilY1", gene_name) ~ "fiber",
+      grepl("CupB3", gene_name) ~ "usher_chaperone_assembly",
+      grepl("FimV", gene_name) ~ "OMP",
+      grepl("PilV", gene_name) ~ "fiber",
+      grepl("PilG", gene_name) ~ "regulatory",
+      grepl("PilK", gene_name) ~ "tbd",
+      grepl("PilP", gene_name) ~ "alignment_sc",
+      grepl("PilD", gene_name) ~ "usher_chaperone_assembly",
+      grepl("PilE", gene_name) ~ "fiber",
+      grepl("PilX", gene_name) ~ "fiber",
+      grepl("FleP", gene_name) ~ "regulatory",
+      grepl("PilM", gene_name) ~ "alignment",
+      grepl("PilR", gene_name) ~ "regulatory",
+      grepl("PilP", gene_name) ~ "alignment_sc",
+      grepl("PilZ", gene_name) ~ "motor",
+      grepl("FimL", gene_name) ~ "regulatory",
       TRUE ~ "tbd"),
     NA),
   gene_short = coalesce(
@@ -1139,13 +1166,12 @@ tmp <- filter(mutcomp, seqtype == "PA", seq_id == "PA14_1",
 png("./plots/isolmut_vs_popmut_pilus.png", width = 16, height = 8, units = "in",
     res = 150)
 ggplot(tmp,
-  aes(x = Timepoint, y = freq0, color = gene_name,
-      group = mut_id)) +
+  aes(x = Timepoint, y = freq0, color = gene_name, fill = gene_name,
+      shape = resis_cat, group = mut_id)) +
   geom_line() +
   geom_point(alpha = 0.5, aes(size = isolfreq)) +
   facet_grid(Treat ~ Pop) +
-  scale_size_continuous(breaks = c(0, 0.5, 1),
-                        range = c(0, 4))
+  scale_size_continuous(breaks = c(0, 0.5, 1), range = c(0, 4))
 dev.off()
 
 
@@ -1199,25 +1225,7 @@ ggplot(data = mutisol2_sum,
 # 5174_70 - PA T1 P5 NCP #2 - resistant
 # 5174_129 - PA T8 P10 CP #1 - resistant
 
-#Filter out sample that had 0 coverage (so mutation is a full-genome deletion)
-mutisol <- filter(mutisol, title != "5174_67_PA_T8_P4_NCP_#5")
 
-mutisol <- left_join(
-  mutisol,
-  select(
-    mutate(read.csv("aggregate_isolate_data.csv", stringsAsFactors = FALSE,
-                    colClasses = "character"),
-           Treat = Bact_treat, Treat_C = Bact_treat_C, Treat_P = Bact_treat_P,
-           Timepoint = as.numeric(Bact_timepoint), 
-           Pop = Bact_pop, Isol = Bact_isol),
-    Treat, Treat_C, Treat_P, Timepoint, Pop, Isol, 
-    clearing_avg, EOP_avg, Plaque_morphology, resis, resis_cat,
-    cm_day, cm_day_norm, twitch_cat,
-    wavelength_405, wavelength_695,
-    max_percap, max_dens, lag, auc, max_percap_time, max_percap_dens, min_dens,
-    max_percap_norm, max_dens_norm, auc_norm, lag_norm,
-    biofilm_abs, biofilm_norm, biofilm_norm_log10, 
-    biofilm_norm_log10_norm, biofilm_block_name))
 
 
 nice_isoltable <- 
@@ -1393,8 +1401,24 @@ print(
     NULL
 )
 
-
-
+png("./plots/isol_pilstruc_byresis.png", width = 10, height = 7, units = "in",
+    res = 150)
+print(
+  ggplot(
+    data = filter(mutisol, gene_category == "pilus"),
+    aes(x = gene_name, y = resis_cat, color = Pop, fill = Pop,
+        group = Pop, shape = mutation_category3)) +
+    geom_point(alpha = 0.5, 
+               position = position_jitterdodge(jitter.width = 0,
+                                               jitter.height = 0.05,
+                                               dodge.width = 0.6)) +
+    facet_grid(Treat ~ pilmut_struc, scales = "free_x") +
+    scale_shape_manual(values = 21:24) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 75, hjust = 1)) +
+    NULL
+)
+dev.off()
 
 
 ##Old code ----
