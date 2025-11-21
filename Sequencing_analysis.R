@@ -250,6 +250,37 @@ ggplot(data = arrange(
         legend.background = element_rect(color = "black"))
 
 ##Initial data reading & organization ----
+mutcols <- 
+  c("aa_new_seq", "aa_position", "aa_ref_seq", "codon_new_seq", "codon_number", 
+    "codon_position", "codon_ref_seq", "gene_name", "gene_position", 
+    "gene_product", "gene_strand", "genes_inactivated", "genes_overlapping", 
+    "genes_promoter", "insert_position", "locus_tag", "locus_tags_inactivated",
+    "locus_tags_overlapping", "locus_tags_promoter", "mutation_category",
+    "new_seq", "position", "position_end", "position_start",
+    "ref_seq", "repeat_length", "repeat_new_copies", "repeat_ref_copies",
+    "repeat_seq", "seq_id", "size", "snp_type", "transl_table", "type", "mut_id",
+    "gene_category", "mutation_category2", "mutation_category3",
+    "pilmut_struc", "gene_short", "concise_mut", "mut_combin")
+sampcols <- c("seqrun", "SeqCoastid", "seqtype", "Timepoint", "Pop", "Treat", 
+              "Isol", "title", "Treat_C", "Treat_P",
+              "clearing_avg", "EOP_avg", "Plaque_morphology", "resis", 
+              "resis_cat", "cm_day", "cm_day_norm", "twitch_cat",
+              "wavelength_405", "wavelength_695",
+              "max_percap", "max_dens", "lag", "auc", "max_percap_time", 
+              "max_percap_dens", "min_dens",
+              "max_percap_norm", "max_dens_norm", "auc_norm", "lag_norm",
+              "biofilm_abs", "biofilm_norm", "biofilm_norm_log10",
+              "biofilm_norm_log10_norm", "biofilm_block_name")
+mut_and_samp_cols <- 
+  c("multiple_polymorphic_SNPs_in_same_codon",
+    "new_read_count", "new_read_count_basis",
+    "ref_read_count", "ref_read_count_basis",
+    "freq", "freq0", "freq01",
+    "everabove_025", "everabove_010", "everabove_005", 
+    "everabove_010_noanc", "everabove_005_noanc", "fixed",
+    "freq_change", "abs_freq_rate", "rel_freq_rate", "lfreq01", "freq_cat",
+    "isolfreq", "everabove_010_orisolmut")
+
 mutations <- read.table("mutations_compare_all.tsv", sep = "\t",
                         stringsAsFactors = FALSE, header = TRUE,
                         quote = '', #don't allow quotes
@@ -275,13 +306,8 @@ mutations <- mutate(mutations,
 colnames(mutations)[colnames(mutations) == "frequency"] <- "freq"
 
 #Number each unique mutation (shared across samples)
-mutations <- 
-  mutate(group_by(mutations,
-                  across(-c(freq, multiple_polymorphic_SNPs_in_same_codon,
-                            new_read_count, new_read_count_basis,
-                            ref_read_count, ref_read_count_basis,
-                            title))),
-         mut_id = cur_group_id())
+mutations <- mutate(group_by(mutations, across(any_of(mutcols))),
+                    mut_id = cur_group_id())
 
 mutations <- separate_wider_delim(
   mutations,
@@ -422,6 +448,25 @@ mutations <- mutate(
 mutpop <- filter(mutations, Isol == "Pop")
 mutisol <- filter(mutations, Isol != "Pop")
 
+##Isolate samples merge with phenotype data ----
+#Filter out sample that had 0 coverage (so mutation is a full-genome deletion)
+mutisol <- filter(mutisol, title != "5174_67_PA_T8_P4_NCP_#5")
+
+mutisol <- left_join(
+  mutisol,
+  select(
+    mutate(
+      filter(read.csv("aggregate_isolate_data.csv", stringsAsFactors = FALSE,
+                      colClasses = "character"),
+             Bact_timepoint != "pilA"),
+      Treat = Bact_treat, 
+      Treat_C = Bact_treat_C, 
+      Treat_P = Bact_treat_P,
+      Timepoint = as.numeric(Bact_timepoint), 
+      Pop = Bact_pop, Isol = Bact_isol),
+    any_of(sampcols))
+)
+
 ##Population sample analyses ----
 
 #Filter out fixed-nonvariate mutations
@@ -433,25 +478,10 @@ mutpop <- filter(mutpop, !mut_id %in% c("2958", "3198", "7885", "11212"))
 # with NA
 mutpop <- complete(
   ungroup(mutpop),
-  #Create the nesting defining each unique mutation
-  nesting(aa_new_seq, aa_position, aa_ref_seq, codon_new_seq, codon_number, 
-          codon_position, codon_ref_seq, gene_name, gene_position, gene_product, 
-          gene_strand, genes_inactivated, genes_overlapping, genes_promoter, 
-          insert_position, locus_tag, locus_tags_inactivated, 
-          locus_tags_overlapping, locus_tags_promoter, mutation_category,
-          new_seq, position, position_end, position_start,
-          ref_seq, repeat_length, repeat_new_copies, repeat_ref_copies, 
-          repeat_seq, seq_id, size, snp_type, transl_table, type, mut_id, 
-          gene_category, mutation_category2, mutation_category3,
-          pilmut_struc, gene_short, concise_mut),
-  #Create the nesting defining each sample
-  nesting(seqrun, SeqCoastid, seqtype, Timepoint, Pop, Treat, Isol, title,
-          Treat_C, Treat_P)
+  nesting(!!!syms(intersect(mutcols, colnames(mutpop)))),
+  nesting(!!!syms(intersect(sampcols, colnames(mutpop))))
   #Columns left out (and therefore filled in by NA by default):
-  # multiple_polymorphic_SNPs_in_same_codon,
-  # new_read_count, new_read_count_basis, 
-  # ref_read_count, ref_read_count_basis,
-  # freq
+  # mut_and_samp_cols
 )
 
 ##Code for checking unique samples
@@ -497,7 +527,11 @@ mutpop <- mutate(mutpop,
                  Treat = factor(Treat,
                                 levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
-mutpop <- mutate(group_by(mutpop, seqtype, mut_id, Treat, Pop),
+mutations <- mutate(group_by(mutations, across(any_of(mutcols))),
+                    mut_id = cur_group_id())
+
+mutpop <- mutate(group_by(mutpop, 
+                          across(any_of(c(mutcols, "seqtype", "Treat", "Pop")))),
                  #everabove_025 = any(freq0 > 0.25, na.rm = TRUE),
                  everabove_010 = any(freq0 > 0.1, na.rm = TRUE),
                  everabove_005 = any(freq0 > 0.05, na.rm = TRUE),
@@ -582,15 +616,7 @@ dev.off()
 
 mut_sum <- summarize(
   group_by(filter(mutpop, seqtype == "PA", seq_id == "PA14_1"),
-           aa_new_seq, aa_position, aa_ref_seq, codon_new_seq, codon_number, 
-           codon_position, codon_ref_seq, gene_name, gene_position, gene_product, 
-           gene_strand, genes_inactivated, genes_overlapping, genes_promoter, 
-           insert_position, locus_tag, locus_tags_inactivated, 
-           locus_tags_overlapping, locus_tags_promoter, mutation_category,
-           new_seq, position, position_end, position_start,
-           ref_seq, repeat_length, repeat_new_copies, repeat_ref_copies, 
-           repeat_seq, seq_id, size, snp_type, transl_table, type, mut_id, 
-           gene_category, Treat, Treat_C, Treat_P),
+           across(any_of(c(mutcols, "Treat", "Treat_C", "Treat_P")))),
   avg_freq = mean(freq0))
 
 #Pilus mutations
@@ -605,14 +631,10 @@ mutpop_pil <- mutate(mutpop_pil,
 
 mutpop_pil_w <- pivot_wider(
   select(mutpop_pil,
-         -seqrun, -SeqCoastid, -title,
-         -multiple_polymorphic_SNPs_in_same_codon,
-         -new_read_count, -new_read_count_basis, 
-         -ref_read_count, -ref_read_count_basis,
-         -freq, -freq0, -freq01, -freq_cat,
-         -fixed
-         #-freq_change, -abs_freq_rate, -rel_freq_rate
-         ),
+         any_of(c(
+           mutcols, 
+           setdiff(sampcols, c("seqrun", "SeqCoastid", "title")),
+           "lfreq01"))),
   names_from = Timepoint, values_from = lfreq01, names_prefix = "T")
 
 View(arrange(select(mutpop_pil_w, T0, T1, T2, T4, T8, Treat, Pop, mut_id, gene_name,
@@ -621,14 +643,10 @@ View(arrange(select(mutpop_pil_w, T0, T1, T2, T4, T8, Treat, Pop, mut_id, gene_n
 
 mutpop_pil_comp <-
   summarize(group_by(mutpop_pil,
-                     across(-c(Treat, Treat_C, Treat_P, title,
-                               seqrun, SeqCoastid, title,
-                               multiple_polymorphic_SNPs_in_same_codon,
-                               new_read_count, new_read_count_basis, 
-                               ref_read_count, ref_read_count_basis,
-                               freq, freq0, freq01, fixed, freq_change, 
-                               abs_freq_rate, rel_freq_rate, 
-                               lfreq01, freq_cat))),
+                     across(!any_of(
+                       c("Treat", "Treat_C", "Treat_P",
+                         "seqrun", "SeqCoastid", "title",
+                         mut_and_samp_cols)))),
             diff_f = ifelse(any(Treat == "CP"), freq_cat[Treat == "CP"], 1) - 
               ifelse(any(Treat == "NCP"), freq_cat[Treat == "NCP"], 1))
 
@@ -1069,24 +1087,11 @@ mutcomp <-
   complete(
     ungroup(mutate(mutisol, freq = 1)),
     #Create the nesting defining each unique mutation
-    nesting(aa_new_seq, aa_position, aa_ref_seq, codon_new_seq, codon_number, 
-            codon_position, codon_ref_seq, gene_name, gene_position, gene_product, 
-            gene_strand, genes_inactivated, genes_overlapping, genes_promoter, 
-            insert_position, locus_tag, locus_tags_inactivated, 
-            locus_tags_overlapping, locus_tags_promoter, mutation_category,
-            new_seq, position, position_end, position_start,
-            ref_seq, repeat_length, repeat_new_copies, repeat_ref_copies, 
-            repeat_seq, seq_id, size, snp_type, transl_table, type, mut_id, 
-            gene_category, mutation_category2, mutation_category3,
-            pilmut_struc, gene_short, concise_mut),
+    nesting(!!!syms(intersect(mutcols, colnames(mutisol)))),
     #Create the nesting defining each population
-    nesting(seqrun, SeqCoastid, seqtype, Timepoint, Pop, Treat, Isol, title,
-            Treat_C, Treat_P)
+    nesting(!!!syms(intersect(sampcols, colnames(mutisol))))
     #Columns left out (and therefore filled in by NA by default):
-    # multiple_polymorphic_SNPs_in_same_codon,
-    # new_read_count, new_read_count_basis, 
-    # ref_read_count, ref_read_count_basis,
-    # freq
+    # mut_and_samp_cols
   )
 
 mutcomp <-
