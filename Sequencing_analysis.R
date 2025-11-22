@@ -2,6 +2,8 @@
 #Best ideas
 # run isols in polym mode, try to figure out contamination (where are bg muts
 #  (in isols!?!)
+# compare pilus gene size to # of muts
+# why are cov-based densities of other bact higher in NC treats?
 # PCA mutisol
 # Convert big deletions into deletions at ea gene via annotations file
 # PCA but casting paste(gene_name, mutation_cat3 a la mutisol)
@@ -119,135 +121,143 @@ covbysp <- left_join(covbysp,
 covbysp <- mutate(covbysp,
                   rel_freq_cfu = ifelse(is.na(rel_freq_cfu), 0, rel_freq_cfu))
 
-ggplot(data = filter(covdat, Isol == "Pop", seqtype == "PA"),
-       aes(x = seq_id, y = meandepth)) +
-  geom_point(alpha = 0.2) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0)) +
-  scale_y_log10()
-
-ggplot(data = filter(covdat, seq_id == "PA14_1", Isol == "Pop"),
-       aes(x = Timepoint, y = meandepth, color = Treat)) +
-  geom_point(alpha = 0.5, position = position_dodge(width = 0.3)) +
-  scale_y_log10()
-
-head(sort(filter(covdat, seq_id == "PA14_1", Isol == "Pop")$meandepth))
-
-ggplot(data = filter(covdat, Isol != "Pop"),
-       aes(x = paste0("T", Timepoint, " ", Treat, " P", Pop, " ", Isol),
-           y = meandepth)) +
-  geom_point(alpha = 0.2) +
-  theme(axis.text.x = element_text(size = 6, angle = 90, vjust = 0))
-filter(covdat, seq_id == "PA14_1", Isol != "Pop",
-       meandepth == min(filter(covdat, seq_id == "PA14_1", Isol != "Pop")$meandepth))
-
-png("./plots/coverage_bactseq.png", width = 14, height = 10, units = "in",
-    res = 150)
-ggplot(data = filter(covdat, Isol == "Pop", seqtype == "PA"),
-       aes(x = Timepoint, y = meandepth, color = Treat)) +
-  geom_point(alpha = 0.5, position = position_dodge(width = 0.3)) +
-  scale_y_log10() +
-  facet_wrap(~ seq_id) +
-  geom_hline(yintercept = 10, lty = 2)
-dev.off()
-
-png("./plots/coverage_phageseq.png", width = 10, height = 7, units = "in",
-    res = 150)
-ggplot(data = filter(covdat, Isol == "Pop", seqtype == "H6",
-                     seq_id %in% c("H6_1", "PA14_1")),
-       aes(x = Timepoint, y = meandepth, color = Treat)) +
-  geom_point(alpha = 0.5, position = position_dodge(width = 0.3)) +
-  scale_y_log10(breaks = c(0.01, 1, 100), labels = c(0.01, 1, 100)) +
-  facet_wrap(~ seq_id) +
-  geom_hline(yintercept = 10, lty = 2)
-dev.off()
-
-png("./plots/freq_fromseq.png", width = 10, height = 7, units = "in",
-    res = 150)
-ggplot(
-  data = filter(covbysp, Treat != "Anc"),
-  aes(x = Timepoint, y = log10(rel_freq), color = Strain)) +
-  geom_point(position = position_jitter(width = 0.05, height = 0),
-             alpha = 0.3) + 
-  geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
-  facet_grid(Treat_C ~ Treat_P,
-             labeller = labeller(Treat_P = c("P" = "Phage Added",
-                                             "NP" = "No Phage"),
-                                 Treat_C = c("C" = "All Bacteria",
-                                             "NC" = "Only Pseudomonas"))) +
-  scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
-                     limits = c(0, NA)) +
-  scale_y_continuous(labels = math_format(10^.x)) +
-  labs(y = "Frequency", x = "Timepoint (days)") +
-  scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
-                     labels = c("P. aeruginosa", "S. aureus",
-                                "E. faecalis", "A. xylosoxidans",
-                                "Phage H6"),
-                     values = my_cols[c(3, 1, 2, 7, 8)]) +
-  theme_bw() +
-  theme(axis.title = element_text(size = 16),
-        axis.text = element_text(size = 14),
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 10),
-        strip.text =  element_text(size = 12.5),
-        #legend.position = c(0.3, 0.6),
-        legend.background = element_rect(color = "black"))
-dev.off()
-
-ggplot(data = arrange(
-  filter(covbysp, Timepoint != 0,
-         !(Timepoint == 2 & Treat == "CP" & Pop %in% c(3, 4, 5) & Strain == "AX")),
-  Timepoint),
-  aes(x = log10(rel_freq), y = log10(rel_freq_cfu), 
-      color = Strain, fill = Strain, shape = included_in_treat)) +
-  geom_point() +
-  geom_path(aes(group = paste(Pop, Treat, Strain))) +
-  scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
-                     labels = c("P. aeruginosa", "S. aureus",
-                                "E. faecalis", "A. xylosoxidans",
-                                "Phage H6"),
-                     values = my_cols[c(3, 1, 2, 7, 8)]) +
-  scale_fill_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
-                     labels = c("P. aeruginosa", "S. aureus",
-                                "E. faecalis", "A. xylosoxidans",
-                                "Phage H6"),
-                     values = my_cols[c(3, 1, 2, 7, 8)]) +
-  scale_shape_manual(values = c(16, 4),
-                     breaks = c(TRUE, FALSE)) +
-  scale_x_continuous(labels = math_format(10^.x)) +
-  scale_y_continuous(labels = math_format(10^.x)) +
-  geom_abline(slope = 1, intercept = 0) +
-  labs(x = "Frequency (metagenomics)", y = "Frequency (CFU or PFU)")
-
-ggplot(data = arrange(
-  filter(covbysp, Timepoint != 0,
-         !(Timepoint == 2 & Treat == "CP" & Pop %in% c(3, 4, 5) & Strain == "AX")),
-  Timepoint),
-  aes(x = Timepoint, y = log10(rel_freq_cfu/rel_freq), color = Strain)) +
-  geom_point(position = position_jitter(width = 0.05, height = 0),
-             alpha = 0.3) + 
-  geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
-  facet_grid(Treat_C ~ Treat_P,
-             labeller = labeller(Treat_P = c("P" = "Phage Added",
-                                             "NP" = "No Phage"),
-                                 Treat_C = c("C" = "All Bacteria",
-                                             "NC" = "Only Pseudomonas"))) +
-  scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
-                     limits = c(0, NA)) +
-  scale_y_continuous(labels = math_format(10^.x)) +
-  labs(y = "CFU frequency:Metagenomic frequency", x = "Timepoint (days)") +
-  scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
-                     labels = c("P. aeruginosa", "S. aureus",
-                                "E. faecalis", "A. xylosoxidans",
-                                "Phage H6"),
-                     values = my_cols[c(3, 1, 2, 7, 8)]) +
-  theme_bw() +
-  theme(axis.title = element_text(size = 16),
-        axis.text = element_text(size = 14),
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 10),
-        strip.text =  element_text(size = 12.5),
-        #legend.position = c(0.3, 0.6),
-        legend.background = element_rect(color = "black"))
+if(make_slowplots) {
+  ggplot(data = filter(covdat, Isol == "Pop", seqtype == "PA"),
+         aes(x = seq_id, y = meandepth)) +
+    geom_point(alpha = 0.2) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0)) +
+    scale_y_log10()
+  
+  ggplot(data = filter(covdat, seq_id == "PA14_1", Isol == "Pop"),
+         aes(x = Timepoint, y = meandepth, color = Treat)) +
+    geom_point(alpha = 0.5, position = position_dodge(width = 0.3)) +
+    scale_y_log10()
+  
+  head(sort(filter(covdat, seq_id == "PA14_1", Isol == "Pop")$meandepth))
+  
+  ggplot(data = filter(covdat, Isol != "Pop"),
+         aes(x = paste0("T", Timepoint, " ", Treat, " P", Pop, " ", Isol),
+             y = meandepth)) +
+    geom_point(alpha = 0.2) +
+    theme(axis.text.x = element_text(size = 6, angle = 90, vjust = 0))
+  filter(covdat, seq_id == "PA14_1", Isol != "Pop",
+         meandepth == min(filter(covdat, seq_id == "PA14_1", Isol != "Pop")$meandepth))
+  
+  png("./plots/coverage_bactseq.png", width = 14, height = 10, units = "in",
+      res = 150)
+  print(
+    ggplot(data = filter(covdat, Isol == "Pop", seqtype == "PA"),
+           aes(x = Timepoint, y = meandepth, color = Treat)) +
+      geom_point(alpha = 0.5, position = position_dodge(width = 0.3)) +
+      scale_y_log10() +
+      facet_wrap(~ seq_id) +
+      geom_hline(yintercept = 10, lty = 2) +
+      NULL)
+  dev.off()
+  
+  png("./plots/coverage_phageseq.png", width = 10, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(data = filter(covdat, Isol == "Pop", seqtype == "H6",
+                         seq_id %in% c("H6_1", "PA14_1")),
+           aes(x = Timepoint, y = meandepth, color = Treat)) +
+      geom_point(alpha = 0.5, position = position_dodge(width = 0.3)) +
+      scale_y_log10(breaks = c(0.01, 1, 100), labels = c(0.01, 1, 100)) +
+      facet_wrap(~ seq_id) +
+      geom_hline(yintercept = 10, lty = 2) +
+      NULL)
+  dev.off()
+  
+  png("./plots/freq_fromseq.png", width = 10, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(
+      data = filter(covbysp, Treat != "Anc"),
+      aes(x = Timepoint, y = log10(rel_freq), color = Strain)) +
+      geom_point(position = position_jitter(width = 0.05, height = 0),
+                 alpha = 0.3) + 
+      geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
+      facet_grid(Treat_C ~ Treat_P,
+                 labeller = labeller(Treat_P = c("P" = "Phage Added",
+                                                 "NP" = "No Phage"),
+                                     Treat_C = c("C" = "All Bacteria",
+                                                 "NC" = "Only Pseudomonas"))) +
+      scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
+                         limits = c(0, NA)) +
+      scale_y_continuous(labels = math_format(10^.x)) +
+      labs(y = "Frequency", x = "Timepoint (days)") +
+      scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                         labels = c("P. aeruginosa", "S. aureus",
+                                    "E. faecalis", "A. xylosoxidans",
+                                    "Phage H6"),
+                         values = my_cols[c(3, 1, 2, 7, 8)]) +
+      theme_bw() +
+      theme(axis.title = element_text(size = 16),
+            axis.text = element_text(size = 14),
+            legend.title = element_text(size = 12),
+            legend.text = element_text(size = 10),
+            strip.text =  element_text(size = 12.5),
+            #legend.position = c(0.3, 0.6),
+            legend.background = element_rect(color = "black")) +
+      NULL)
+  dev.off()
+  
+  ggplot(data = arrange(
+    filter(covbysp, Timepoint != 0,
+           !(Timepoint == 2 & Treat == "CP" & Pop %in% c(3, 4, 5) & Strain == "AX")),
+    Timepoint),
+    aes(x = log10(rel_freq), y = log10(rel_freq_cfu), 
+        color = Strain, fill = Strain, shape = included_in_treat)) +
+    geom_point() +
+    geom_path(aes(group = paste(Pop, Treat, Strain))) +
+    scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                       labels = c("P. aeruginosa", "S. aureus",
+                                  "E. faecalis", "A. xylosoxidans",
+                                  "Phage H6"),
+                       values = my_cols[c(3, 1, 2, 7, 8)]) +
+    scale_fill_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                      labels = c("P. aeruginosa", "S. aureus",
+                                 "E. faecalis", "A. xylosoxidans",
+                                 "Phage H6"),
+                      values = my_cols[c(3, 1, 2, 7, 8)]) +
+    scale_shape_manual(values = c(16, 4),
+                       breaks = c(TRUE, FALSE)) +
+    scale_x_continuous(labels = math_format(10^.x)) +
+    scale_y_continuous(labels = math_format(10^.x)) +
+    geom_abline(slope = 1, intercept = 0) +
+    labs(x = "Frequency (metagenomics)", y = "Frequency (CFU or PFU)")
+  
+  ggplot(data = arrange(
+    filter(covbysp, Timepoint != 0,
+           !(Timepoint == 2 & Treat == "CP" & Pop %in% c(3, 4, 5) & Strain == "AX")),
+    Timepoint),
+    aes(x = Timepoint, y = log10(rel_freq_cfu/rel_freq), color = Strain)) +
+    geom_point(position = position_jitter(width = 0.05, height = 0),
+               alpha = 0.3) + 
+    geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
+    facet_grid(Treat_C ~ Treat_P,
+               labeller = labeller(Treat_P = c("P" = "Phage Added",
+                                               "NP" = "No Phage"),
+                                   Treat_C = c("C" = "All Bacteria",
+                                               "NC" = "Only Pseudomonas"))) +
+    scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
+                       limits = c(0, NA)) +
+    scale_y_continuous(labels = math_format(10^.x)) +
+    labs(y = "CFU frequency:Metagenomic frequency", x = "Timepoint (days)") +
+    scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                       labels = c("P. aeruginosa", "S. aureus",
+                                  "E. faecalis", "A. xylosoxidans",
+                                  "Phage H6"),
+                       values = my_cols[c(3, 1, 2, 7, 8)]) +
+    theme_bw() +
+    theme(axis.title = element_text(size = 16),
+          axis.text = element_text(size = 14),
+          legend.title = element_text(size = 12),
+          legend.text = element_text(size = 10),
+          strip.text =  element_text(size = 12.5),
+          #legend.position = c(0.3, 0.6),
+          legend.background = element_rect(color = "black"))
+}
 
 ##Initial data reading & organization ----
 mutcols <- 
@@ -398,7 +408,6 @@ mutations <- mutate(
       grepl("PilF", gene_name) ~ "OMP",
       grepl("PilY1", gene_name) ~ "fiber",
       grepl("CupB3", gene_name) ~ "usher_chaperone_assembly",
-      grepl("FimV", gene_name) ~ "OMP",
       grepl("PilV", gene_name) ~ "fiber",
       grepl("PilG", gene_name) ~ "regulatory",
       grepl("PilK", gene_name) ~ "tbd",
@@ -410,7 +419,6 @@ mutations <- mutate(
       grepl("PilM", gene_name) ~ "alignment",
       grepl("PilR", gene_name) ~ "regulatory",
       grepl("PilP", gene_name) ~ "alignment_sc",
-      grepl("PilZ", gene_name) ~ "motor",
       grepl("FimL", gene_name) ~ "regulatory",
       TRUE ~ "tbd"),
     NA),
@@ -591,20 +599,23 @@ mutpop <- mutate(group_by(mutpop,
 #Helix-turn-helix domain-containing protein runs from 4629721	to 4630503
 #Gap is 4629530 - 4629720
 
-png("./plots/mut_trajectories_mystery1.png", width = 10, height = 7, units = "in",
-    res = 150)
-ggplot(
-  data = filter(mutpop, seqtype == "PA", gene_category == "mystery_1",
-                seq_id %in% c("PA14_1")),
-  aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
-      color = as.factor(mut_id))) +
-  geom_line() +
-  facet_grid(Treat ~ Pop) +
-  scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-  theme_bw() +
-  guides(color = "none") +
-  NULL
-dev.off()
+if(make_slowplots) {
+  png("./plots/mut_trajectories_mystery1.png", width = 10, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(
+      data = filter(mutpop, seqtype == "PA", gene_category == "mystery_1",
+                    seq_id %in% c("PA14_1")),
+      aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
+          color = as.factor(mut_id))) +
+      geom_line() +
+      facet_grid(Treat ~ Pop) +
+      scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+      theme_bw() +
+      guides(color = "none") +
+      NULL)
+  dev.off()
+}
 
 #Top hits that I haven't yet understood the function of:
 #Thioredoxin family protein/Helix-turn-helix domain-containing protein 
@@ -705,57 +716,58 @@ mypca <- prcomp(select(pcadat, !c(Timepoint, Pop, Treat)),
                 retx = TRUE)
 pcadat <- cbind(as.data.frame(mypca$x), pcadat)
 
-
-png("./plots/pca_pilusmuts.png", width = 10, height = 3, units = "in",
-    res = 150)
-ggplot(pilus_pcadat, aes(x = PC1, y = PC2, color = as.factor(Treat))) +
-  geom_polygon(data = filter(pilus_pcadat, Treat %in% c("Anc", "NCP", "CP")),
-               stat = "ellipse", aes(fill = as.factor(Treat)), alpha = 0.2) +
-  geom_point() +
-  labs(x = paste("PC1 (", 
-                 round((100*((pilus_pca$sdev)**2)/
-                          sum((pilus_pca$sdev)**2))[1], 1),
-                 "%)", sep = ""),
-       y = paste("PC2 (", 
-                 round((100*((pilus_pca$sdev)**2)/
-                          sum((pilus_pca$sdev)**2))[2], 1),
-                 "%)", sep = "")) +
-  scale_color_manual(name = "Treatments",
-                     breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
-                     values = my_cols[c(8, 7, 1, 5, 3)]) +
-  scale_fill_manual(name = "Treatments",
-                    breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
-                    values = my_cols[c(8, 7, 1, 5, 3)]) +
-  facet_grid(~ Timepoint) +
-  theme_bw() +
-  NULL
-dev.off()
-
-png("./plots/pca_allmuts.png", width = 10, height = 3, units = "in",
-    res = 150)
-ggplot(pcadat, aes(x = PC1, y = PC2, color = as.factor(Treat))) +
-  geom_polygon(stat = "ellipse", aes(fill = as.factor(Treat)), alpha = 0.2) +
-  geom_point() +
-  labs(x = paste("PC1 (", 
-                 round((100*((mypca$sdev)**2)/
-                          sum((mypca$sdev)**2))[1], 1),
-                 "%)", sep = ""),
-       y = paste("PC2 (", 
-                 round((100*((mypca$sdev)**2)/
-                          sum((mypca$sdev)**2))[2], 1),
-                 "%)", sep = "")) +
-  scale_color_manual(name = "Treatments",
-                     breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
-                     values = my_cols[c(8, 7, 1, 5, 3)]) +
-  scale_fill_manual(name = "Treatments",
-                    breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
-                    values = my_cols[c(8, 7, 1, 5, 3)]) +
-  facet_grid(~ Timepoint) +
-  theme_bw() +
-  NULL
-dev.off()
-         
-if (make_slowplots) {
+if(make_slowplots) {
+  png("./plots/pca_pilusmuts.png", width = 10, height = 3, units = "in",
+      res = 150)
+  print(
+    ggplot(pilus_pcadat, aes(x = PC1, y = PC2, color = as.factor(Treat))) +
+      geom_polygon(data = filter(pilus_pcadat, Treat %in% c("Anc", "NCP", "CP")),
+                   stat = "ellipse", aes(fill = as.factor(Treat)), alpha = 0.2) +
+      geom_point() +
+      labs(x = paste("PC1 (", 
+                     round((100*((pilus_pca$sdev)**2)/
+                              sum((pilus_pca$sdev)**2))[1], 1),
+                     "%)", sep = ""),
+           y = paste("PC2 (", 
+                     round((100*((pilus_pca$sdev)**2)/
+                              sum((pilus_pca$sdev)**2))[2], 1),
+                     "%)", sep = "")) +
+      scale_color_manual(name = "Treatments",
+                         breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
+                         values = my_cols[c(8, 7, 1, 5, 3)]) +
+      scale_fill_manual(name = "Treatments",
+                        breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
+                        values = my_cols[c(8, 7, 1, 5, 3)]) +
+      facet_grid(~ Timepoint) +
+      theme_bw() +
+      NULL)
+  dev.off()
+  
+  png("./plots/pca_allmuts.png", width = 10, height = 3, units = "in",
+      res = 150)
+  print(
+    ggplot(pcadat, aes(x = PC1, y = PC2, color = as.factor(Treat))) +
+      geom_polygon(stat = "ellipse", aes(fill = as.factor(Treat)), alpha = 0.2) +
+      geom_point() +
+      labs(x = paste("PC1 (", 
+                     round((100*((mypca$sdev)**2)/
+                              sum((mypca$sdev)**2))[1], 1),
+                     "%)", sep = ""),
+           y = paste("PC2 (", 
+                     round((100*((mypca$sdev)**2)/
+                              sum((mypca$sdev)**2))[2], 1),
+                     "%)", sep = "")) +
+      scale_color_manual(name = "Treatments",
+                         breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
+                         values = my_cols[c(8, 7, 1, 5, 3)]) +
+      scale_fill_manual(name = "Treatments",
+                        breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
+                        values = my_cols[c(8, 7, 1, 5, 3)]) +
+      facet_grid(~ Timepoint) +
+      theme_bw() +
+      NULL)
+  dev.off()
+  
   png("./plots/manhattan.png", width = 8, height = 6, units = "in",
       res = 150)
   print(
@@ -1096,10 +1108,9 @@ mutcomp <-
 
 mutcomp <-
   select(mutcomp,
-         -c(title, multiple_polymorphic_SNPs_in_same_codon,
-            new_read_count, new_read_count_basis,
-            ref_read_count, ref_read_count_basis,
-            seqrun, SeqCoastid))
+         -any_of(c(setdiff(mut_and_samp_cols, "freq"),
+                   "title", "seqrun", "SeqCoastid")))
+
 mutcomp <- 
   mutate(ungroup(mutcomp),
          freq0 = ifelse(is.na(freq), 0, freq))
@@ -1107,17 +1118,9 @@ mutcomp <-
 mutcomp <-
   summarize(
     group_by(mutcomp,
-             aa_new_seq, aa_position, aa_ref_seq, codon_new_seq, codon_number, 
-             codon_position, codon_ref_seq, gene_name, gene_position, gene_product, 
-             gene_strand, genes_inactivated, genes_overlapping, genes_promoter, 
-             insert_position, locus_tag, locus_tags_inactivated, 
-             locus_tags_overlapping, locus_tags_promoter, mutation_category,
-             new_seq, position, position_end, position_start,
-             ref_seq, repeat_length, repeat_new_copies, repeat_ref_copies, 
-             repeat_seq, seq_id, size, snp_type, transl_table, type, mut_id, 
-             gene_category, mutation_category2, mutation_category3,
-             pilmut_struc, gene_short, concise_mut,
-             seqtype, Timepoint, Pop, Treat, Treat_C, Treat_P),
+             across(any_of(c(mutcols,
+                             "seqtype", "Timepoint", "Pop",
+                             "Treat", "Treat_C", "Treat_P")))),
     isolfreq = mean(freq0))
 
 mutcomp <-
@@ -1136,22 +1139,11 @@ mutcomp <-
   complete(
     ungroup(mutcomp),
     #Create the nesting defining each unique mutation
-    nesting(aa_new_seq, aa_position, aa_ref_seq, codon_new_seq, codon_number, 
-            codon_position, codon_ref_seq, gene_name, gene_position, gene_product, 
-            gene_strand, genes_inactivated, genes_overlapping, genes_promoter, 
-            insert_position, locus_tag, locus_tags_inactivated, 
-            locus_tags_overlapping, locus_tags_promoter, mutation_category,
-            new_seq, position, position_end, position_start,
-            ref_seq, repeat_length, repeat_new_copies, repeat_ref_copies, 
-            repeat_seq, seq_id, size, snp_type, transl_table, type, mut_id, 
-            gene_category, mutation_category2, mutation_category3,
-            pilmut_struc, gene_short, concise_mut),
+    nesting(!!!syms(intersect(mutcols, colnames(mutcomp)))),
     #Create the nesting defining each population
-    nesting(seqtype, Timepoint, Pop, Treat,
-            Treat_C, Treat_P)
+    nesting(!!!syms(intersect(sampcols, colnames(mutcomp)))),
     #Columns left out (and therefore filled in by NA by default):
-    # isolfreq, freq, freq0, freq01,
-    # everabove-s, fixed
+    # mut_and_samp_cols
   )
 
 mutcomp <- 
