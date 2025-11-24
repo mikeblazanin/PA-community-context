@@ -3,6 +3,8 @@
 # run isols in polym mode, try to figure out contamination (where are bg muts
 #  (in isols!?!)
 # compare pilus gene size to # of muts
+# Plot mutations in N samples vs freq plot
+#  (n reflects mut accessibility, freq reflects selection)
 # why are cov-based densities of other bact higher in NC treats?
 # PCA mutisol
 # Convert big deletions into deletions at ea gene via annotations file
@@ -280,7 +282,8 @@ sampcols <- c("seqrun", "SeqCoastid", "seqtype", "Timepoint", "Pop", "Treat",
               "max_percap_dens", "min_dens",
               "max_percap_norm", "max_dens_norm", "auc_norm", "lag_norm",
               "biofilm_abs", "biofilm_norm", "biofilm_norm_log10",
-              "biofilm_norm_log10_norm", "biofilm_block_name")
+              "biofilm_norm_log10_norm", "biofilm_block_name",
+              "resis_cat_num")
 mut_and_samp_cols <- 
   c("multiple_polymorphic_SNPs_in_same_codon",
     "new_read_count", "new_read_count_basis",
@@ -1113,7 +1116,9 @@ mutcomp <-
 
 mutcomp <- 
   mutate(ungroup(mutcomp),
-         freq0 = ifelse(is.na(freq), 0, freq))
+         freq0 = ifelse(is.na(freq), 0, freq),
+         resis_cat_num = recode(resis_cat,
+                                resis = 1, part = 0.5, suscep = 0))
 
 mutcomp <-
   summarize(
@@ -1121,12 +1126,14 @@ mutcomp <-
              across(any_of(c(mutcols,
                              "seqtype", "Timepoint", "Pop",
                              "Treat", "Treat_C", "Treat_P")))),
-    isolfreq = mean(freq0))
+    isolfreq = mean(freq0),
+    avgresis = mean(resis_cat_num))
 
 mutcomp <-
   full_join(
     mutcomp,
-    select(mutpop,
+    select(filter(mutpop,
+                  seqtype == "PA", seq_id == "PA14_1"),
            -c(multiple_polymorphic_SNPs_in_same_codon,
               new_read_count, new_read_count_basis,
               ref_read_count, ref_read_count_basis,
@@ -1140,7 +1147,7 @@ mutcomp <-
     ungroup(mutcomp),
     #Create the nesting defining each unique mutation
     nesting(!!!syms(intersect(mutcols, colnames(mutcomp)))),
-    #Create the nesting defining each population
+    #Create the nesting defining each sample
     nesting(!!!syms(intersect(sampcols, colnames(mutcomp)))),
     #Columns left out (and therefore filled in by NA by default):
     # mut_and_samp_cols
@@ -1164,7 +1171,7 @@ png("./plots/isolmut_vs_popmut_pilus.png", width = 16, height = 8, units = "in",
     res = 150)
 ggplot(tmp,
   aes(x = Timepoint, y = freq0, color = gene_name, fill = gene_name,
-      shape = resis_cat, group = mut_id)) +
+      shape = as.factor(avgresis), group = mut_id)) +
   geom_line() +
   geom_point(alpha = 0.5, aes(size = isolfreq)) +
   facet_grid(Treat ~ Pop) +
