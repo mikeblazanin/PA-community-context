@@ -39,6 +39,8 @@ library(dplyr)
 library(stringr)
 library(ggplot2)
 library(scales)
+library(lme4)
+
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -261,7 +263,8 @@ if(make_slowplots) {
           legend.background = element_rect(color = "black"))
 }
 
-##Initial data reading & organization ----
+
+##Initial breseq data reading & organization ----
 mutcols <- 
   c("aa_new_seq", "aa_position", "aa_ref_seq", "codon_new_seq", "codon_number", 
     "codon_position", "codon_ref_seq", "gene_name", "gene_position", 
@@ -345,6 +348,11 @@ mutations <- mutate(mutations,
                       levels = c("Anc", "NP", "P")),
                     Treat = factor(Treat,
                                    levels = c("Anc", "NN", "CNP", "NCP", "CP")))
+
+
+##Add in annotations from PA annotations file ----
+anno <- read.csv("PA14_annotated.csv")
+
 
 ##Shared analysis labeling ----
 mutations <- mutate(
@@ -549,6 +557,106 @@ mutpop <- mutate(group_by(mutpop,
                  everabove_010_noanc = any(freq0[Timepoint != 0] > 0.1, na.rm = TRUE),
                  everabove_005_noanc = any(freq0[Timepoint != 0] > 0.05, na.rm = TRUE),
                  fixed = all(freq0 == 1))
+
+## Check mutation frequencies
+test <- summarize(
+  group_by(
+    filter(
+      mutpop, seq_id == "PA14_1", seqtype == "PA",
+      gene_name != "type 4b pilus Flp biogenesis protein TadZ"), 
+    gene_category,
+    across(any_of(sampcols))),
+  total_freq = sum(freq0),
+  max_freq = max(freq0),
+  indep_freq = 1-prod(1-freq0),
+  avg_freq = mean(freq0))
+
+ggplot(data = filter(test, gene_category == "pilus"),
+       aes(x = Treat_C, y = total_freq, color = gene_category)) +
+  geom_point() +
+  geom_line(aes(group = paste(gene_category, Pop))) +
+  facet_grid(Treat_P ~ Timepoint) +
+  #scale_y_log10() +
+  NULL
+
+ggplot(data = filter(test, gene_category == "pilus"),
+       aes(x = Treat_C, y = indep_freq, color = Pop)) +
+  geom_point() +
+  geom_line(aes(group = paste(gene_category, Pop))) +
+  facet_grid(Treat_P ~ Timepoint) +
+  #scale_y_log10() +
+  NULL
+
+ggplot(data = filter(test, gene_category == "pilus"),
+       aes(x = Treat_C, y = max_freq, color = Pop)) +
+  geom_point() +
+  geom_line(aes(group = paste(gene_category, Pop))) +
+  facet_grid(Treat_P ~ Timepoint) +
+  #scale_y_log10() +
+  NULL
+
+
+totalfreq_full_lme <- 
+  lmer(total_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
+             data = filter(test, gene_category == "pilus",
+                           Treat_P == "P", Timepoint != 0),
+       REML = FALSE)
+totalfreq_reduced_lme <-
+  lmer(total_freq ~ as.factor(Timepoint) + (1|Pop),
+       data = filter(test, gene_category == "pilus",
+                     Treat_P == "P", Timepoint != 0),
+       REML = FALSE)
+anova(totalfreq_reduced_lme, totalfreq_full_lme)
+totalfreq_full_lme
+
+indepfreq_full_lme <- 
+  lmer(indep_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
+       data = filter(test, gene_category == "pilus",
+                     Treat_P == "P", Timepoint != 0),
+       REML = FALSE)
+indepfreq_reduced_lme <- 
+  lmer(indep_freq ~ as.factor(Timepoint) + (1|Pop),
+       data = filter(test, gene_category == "pilus",
+                     Treat_P == "P", Timepoint != 0),
+       REML = FALSE)
+anova(indepfreq_reduced_lme, indepfreq_full_lme)
+indepfreq_full_lme
+
+maxfreq_full_lme <- 
+  lmer(max_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
+       data = filter(test, gene_category == "pilus",
+                     Treat_P == "P", Timepoint != 0),
+       REML = FALSE)
+maxfreq_reduced_lme <- 
+  lmer(max_freq ~ as.factor(Timepoint) + (1|Pop),
+       data = filter(test, gene_category == "pilus",
+                     Treat_P == "P", Timepoint != 0),
+       REML = FALSE)
+anova(maxfreq_reduced_lme, maxfreq_full_lme)
+maxfreq_full_lme
+
+
+test <- summarize(
+  group_by(
+    filter(
+      mutpop, seq_id == "PA14_1", seqtype == "PA",
+      gene_category == "pilus",
+      gene_name != "type 4b pilus Flp biogenesis protein TadZ"), 
+    gene_category, mutation_category3,
+    across(any_of(sampcols))),
+  total_freq = sum(freq0),
+  avg_freq = mean(freq0))
+
+ggplot(data = filter(test),
+       aes(x = Treat_C, y = total_freq, color = mutation_category3)) +
+  geom_point() +
+  geom_line(aes(group = paste(mutation_category3, Pop))) +
+  facet_grid(Treat_P * mutation_category3 ~ Timepoint) +
+  #scale_y_log10() +
+  NULL
+                           
+            
+
 
 # test <- filter(mutpop, Pop == 5, Treat == "NCP", everabove_010 == TRUE,
 #                seqtype == "PA", seq_id == "PA14_1")
