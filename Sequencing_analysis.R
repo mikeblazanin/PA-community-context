@@ -1312,18 +1312,18 @@ dev.off()
 #     twitch_cat,
 #     gene_category, concise_mut, freq0))
 
-ggplot(data = filter(mutisol,
-                     !mut_id %in% c("2958", "3198", "7885", "11212")),
-       aes(x = freq0)) +
-  geom_histogram()
+# ggplot(data = filter(mutisol,
+#                      !mut_id %in% c("2958", "3198", "7885", "11212")),
+#        aes(x = freq0)) +
+#   geom_histogram()
 
 
-ggplot(data = mutisol2_sum,
-       aes(x = isolavg_freq, y = freq0, color = gene_name)) +
-  geom_point(alpha = 0.5) +
-  facet_grid(Treat ~ Pop) +
-  theme() +
-  guides(color = "none")
+# ggplot(data = mutisol2_sum,
+#        aes(x = isolavg_freq, y = freq0, color = gene_name)) +
+#   geom_point(alpha = 0.5) +
+#   facet_grid(Treat ~ Pop) +
+#   theme() +
+#   guides(color = "none")
 
 
 
@@ -1336,8 +1336,6 @@ ggplot(data = mutisol2_sum,
 # 5174_69 - PA T1 P5 NCP #1 - susceptible
 # 5174_70 - PA T1 P5 NCP #2 - resistant
 # 5174_129 - PA T8 P10 CP #1 - resistant
-
-
 
 
 nice_isoltable <- 
@@ -1365,6 +1363,56 @@ write.csv(x = nice_isoltable[order(nice_isoltable$resis_cat,
                                    nice_isoltable$Pop,
                                    nice_isoltable$Isol), ],
           file = "nice_isolmuts.csv", row.names = FALSE)
+
+
+isol_freq_sum <- 
+  summarize(
+    group_by(mutisol, across(any_of(sampcols))),
+    pil_genes = {
+      mygenes <- gene_short[!mut_id %in% c("2958", "3198", "7885", "11212")]
+      case_when(
+        length(mygenes) == 1 ~ paste(mygenes, collapse = " "),
+        length(mygenes) == 0 ~ "none",
+        length(mygenes) > 1 ~ "multiple",
+        TRUE ~ "tbd")
+    })
+#Manually recode large deletion to "multiple"
+isol_freq_sum <- 
+  mutate(isol_freq_sum,
+       pil_genes = ifelse(
+         pil_genes == "[twitching motility protein PilU]–[type IV pilus twitching motility protein PilT]",
+         "multiple",
+         pil_genes))
+pil_order <- c("none", "multiple",
+               unique(isol_freq_sum$pil_genes)[
+                 !unique(isol_freq_sum$pil_genes) %in% c("none", "multiple")])
+
+isol_freq_sum$pil_genes <- factor(isol_freq_sum$pil_genes, levels = pil_order)
+ 
+png("./plots/pilus_mut_freq_isols.png",
+    width = 9, height = 5, units = "in", res = 150)
+ggplot(isol_freq_sum,
+       aes(x = resis_cat)) +
+  geom_bar(aes(fill = pil_genes), position = "fill") +
+  scale_x_discrete(limits = c("suscep", "part", "resis"),
+                   labels = c("Susceptible", "Partial", "Resistant")) +
+  scale_fill_manual(
+    name = "Pilus Genes\nMutated",
+    limits = pil_order,
+    values = c("gray70", "black",
+               viridis_pal()(length(pil_order)-2))) +
+  labs(x = "Isolates' Resistance to Phage",
+       y = "Frequency") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 14),
+        axis.text.y = element_blank(),
+        axis.title = element_text(size = 18),
+        legend.text = element_text(size = 13),
+        legend.title = element_text(size = 18)) +
+  geom_text(data = summarize(group_by(isol_freq_sum, resis_cat), n = n()),
+            aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
+  NULL
+dev.off()
 
 #Filter out fixed-nonvariate mutations
 #mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
