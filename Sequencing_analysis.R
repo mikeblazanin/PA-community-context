@@ -1364,11 +1364,17 @@ write.csv(x = nice_isoltable[order(nice_isoltable$resis_cat,
                                    nice_isoltable$Isol), ],
           file = "nice_isolmuts.csv", row.names = FALSE)
 
-
+#Create plottable frequency of mutations
 isol_freq_sum <- 
   summarize(
-    group_by(mutisol, across(any_of(sampcols))),
-    pil_genes = {
+    group_by(
+      mutate(mutisol,
+             gene_category = case_when(
+               gene_category == "pilus" ~ "pilus",
+               gene_category == "biofilm" ~ "biofilm",
+               TRUE ~ "other")),
+      gene_category, across(any_of(sampcols))),
+    mut_genes = {
       mygenes <- gene_short[!mut_id %in% c("2958", "3198", "7885", "11212")]
       case_when(
         length(mygenes) == 1 ~ paste(mygenes, collapse = " "),
@@ -1376,24 +1382,38 @@ isol_freq_sum <-
         length(mygenes) > 1 ~ "multiple",
         TRUE ~ "tbd")
     })
+
+#Fill in missing combos
+isol_freq_sum <-
+  complete(
+    ungroup(isol_freq_sum),
+    nesting(!!!syms(intersect(sampcols, colnames(isol_freq_sum)))),
+    gene_category,
+    #Columns left out (and therefore filled in by "none"):
+    # mut_genes
+    fill = list("mut_genes" = "none")
+  )
+
 #Manually recode large deletion to "multiple"
 isol_freq_sum <- 
   mutate(isol_freq_sum,
-       pil_genes = ifelse(
-         pil_genes == "[twitching motility protein PilU]–[type IV pilus twitching motility protein PilT]",
+         mut_genes = ifelse(
+           mut_genes == "[twitching motility protein PilU]–[type IV pilus twitching motility protein PilT]",
          "multiple",
-         pil_genes))
-pil_order <- c("none", "multiple",
-               unique(isol_freq_sum$pil_genes)[
-                 !unique(isol_freq_sum$pil_genes) %in% c("none", "multiple")])
+         mut_genes))
 
-isol_freq_sum$pil_genes <- factor(isol_freq_sum$pil_genes, levels = pil_order)
- 
+pil_order <- unique(isol_freq_sum[isol_freq_sum$gene_category == "pilus", ]$mut_genes)
+pil_order <-
+  c("none", "multiple", pil_order[!pil_order %in% c("none", "multiple")])
+
 png("./plots/pilus_mut_freq_isols.png",
     width = 9, height = 5, units = "in", res = 150)
-ggplot(isol_freq_sum,
-       aes(x = resis_cat)) +
-  geom_bar(aes(fill = pil_genes), position = "fill") +
+ggplot(
+  mutate(
+    filter(isol_freq_sum, gene_category == "pilus"),
+    mut_genes = factor(mut_genes, levels = pil_order)),
+  aes(x = resis_cat)) +
+  geom_bar(aes(fill = mut_genes), position = "fill") +
   scale_x_discrete(limits = c("suscep", "part", "resis"),
                    labels = c("Susceptible", "Partial", "Resistant")) +
   scale_fill_manual(
@@ -1409,8 +1429,38 @@ ggplot(isol_freq_sum,
         axis.title = element_text(size = 18),
         legend.text = element_text(size = 13),
         legend.title = element_text(size = 18)) +
-  geom_text(data = summarize(group_by(isol_freq_sum, resis_cat), n = n()),
+  geom_text(data = summarize(group_by(isol_freq_sum, resis_cat), 
+                             n = length(unique(title))),
             aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
+  NULL
+dev.off()
+
+
+png("./plots/all_mut_freq_isols.png",
+    width = 14, height = 5, units = "in", res = 150)
+ggplot(isol_freq_sum,
+  aes(x = resis_cat)) +
+  geom_bar(aes(fill = mut_genes), position = "fill") +
+  facet_grid(~ gene_category) +
+  scale_x_discrete(limits = c("suscep", "part", "resis"),
+                   labels = c("Susceptible", "Partial", "Resistant")) +
+  # scale_fill_manual(
+  #   name = "Pilus Genes\nMutated",
+  #   limits = pil_order,
+  #   values = c("gray70", "black",
+  #              viridis_pal()(length(pil_order)-2))) +
+  labs(x = "Isolates' Resistance to Phage",
+       y = "Frequency") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size = 14),
+        axis.text.y = element_blank(),
+        axis.title = element_text(size = 18),
+        legend.text = element_text(size = 13),
+        legend.title = element_text(size = 18)) +
+  geom_text(data = summarize(group_by(isol_freq_sum, resis_cat), 
+                             n = length(unique(title))),
+            aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
+  guides(fill = "none") +
   NULL
 dev.off()
 
