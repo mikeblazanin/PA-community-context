@@ -40,6 +40,7 @@ library(stringr)
 library(ggplot2)
 library(scales)
 library(lme4)
+library(ggh4x)
 
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
@@ -571,6 +572,115 @@ test <- summarize(
   indep_freq = 1-prod(1-freq0),
   avg_freq = mean(freq0))
 
+View(summarize(group_by(test, Treat, gene_category),
+          avg_total = mean(total_freq)))
+
+ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1")),
+       aes(x = Treat_C, y = total_freq, color = gene_category)) +
+  geom_point() +
+  geom_line(aes(group = paste(gene_category, Pop))) +
+  facet_grid(Treat_P ~ Timepoint) +
+  #scale_y_log10() +
+  NULL
+
+png("./plots/gene_freq_pop_diff_total_PNP.png", width = 20, height = 4,
+    units = "in", res = 150)
+ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1"),
+                     Timepoint == 8),
+       aes(x = Treat_P, y = total_freq)) +
+  geom_point() +
+  geom_line(aes(group = paste(gene_category, Pop))) +
+  facet_nested(~ gene_category + Treat_C,
+               labeller = labeller(
+                 Treat_C = c("NC" = "Only\nPseudo.",
+                             "C" = "All\nBacteria"))) +
+  #scale_y_continuous(limits = c(0, 1)) +
+  labs(x = "", y = "Total frequency\nTimepoint 8\n(assuming exclus.)") +
+  scale_x_discrete(breaks = c("NP", "P"),
+                   labels = c("No Phage", "Phage Added")) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text.x = element_text(size = 14, angle = 45, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        strip.text = element_text(size = 13)) +
+  NULL
+dev.off()
+
+png("./plots/gene_freq_pop_diff_total_CNC.png", width = 20, height = 4,
+    units = "in", res = 150)
+ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1"),
+                     Timepoint != 0),
+       aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
+  geom_point() +
+  geom_line(aes(group = paste(gene_category, Pop, Timepoint))) +
+  facet_nested(~ gene_category + Treat_P,
+               labeller = labeller(
+                 Treat_P = c("NP" = "No Phage",
+                             "P" = "Phage\nAdded"))) +
+  #scale_y_continuous(limits = c(0, 1)) +
+  scale_color_manual(name = "Timepoint\n(days)", values = my_cols[c(1:3, 7)]) +
+  labs(x = "", y = "Total frequency\n(assuming exclus.)") +
+  scale_x_discrete(breaks = c("NC", "C"),
+                   labels = c("Only Pseudo.", "All Bacteria")) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text.x = element_text(size = 14, angle = 45, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        strip.text = element_text(size = 13),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14)) +
+  NULL
+dev.off()
+
+png("./plots/gene_freq_pop_diff_indep_PNP.png", width = 20, height = 4,
+    units = "in", res = 150)
+ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1"),
+                     Timepoint == 8),
+       aes(x = Treat_P, y = indep_freq)) +
+  geom_point() +
+  geom_line(aes(group = paste(gene_category, Pop))) +
+  facet_nested(~ gene_category + Treat_C,
+             labeller = labeller(
+               Treat_C = c("NC" = "Only\nPseudo.",
+                           "C" = "All\nBacteria"))) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(x = "", y = "Total frequency\nTimepoint 8\n(assuming indep.)") +
+  scale_x_discrete(breaks = c("NP", "P"),
+                   labels = c("No Phage", "Phage Added")) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text.x = element_text(size = 14, angle = 45, hjust = 1),
+        axis.text.y = element_blank(),
+        strip.text = element_text(size = 13)) +
+  NULL
+dev.off()
+
+png("./plots/gene_freq_pop_diff_indep_CNC.png", width = 20, height = 4,
+    units = "in", res = 150)
+ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1"),
+                     Timepoint != 0),
+       aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
+  geom_point() +
+  geom_line(aes(group = paste(gene_category, Pop, Timepoint))) +
+  facet_nested(~ gene_category + Treat_P,
+               labeller = labeller(
+                 Treat_P = c("NP" = "No Phage",
+                             "P" = "Phage\nAdded"))) +
+  scale_y_continuous(limits = c(0, 1)) +
+  scale_color_manual(name = "Timepoint\n(days)", values = my_cols[c(1:3, 7)]) +
+  labs(x = "", y = "Total frequency\n(assuming indep.)") +
+  scale_x_discrete(breaks = c("NC", "C"),
+                   labels = c("Only Pseudo.", "All Bacteria")) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text.x = element_text(size = 14, angle = 45, hjust = 1),
+        axis.text.y = element_blank(),
+        strip.text = element_text(size = 13),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14)) +
+  NULL
+dev.off()
+
 ggplot(data = filter(test, gene_category == "pilus"),
        aes(x = Treat_C, y = total_freq, color = gene_category)) +
   geom_point() +
@@ -970,18 +1080,95 @@ if(make_slowplots) {
     aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
         color = gene_category)) +
     #geom_point(aes(alpha = gene_category)) +
-    geom_line(lwd = 1.1, aes(alpha = gene_category)) +
+    geom_line(lwd = 1.1) + #, aes(alpha = gene_category)) +
     facet_grid(Treat ~ Pop) +
     #coord_cartesian(ylim = c(0.1, 1)) +
     scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-    scale_color_manual(breaks = c("biofilm", "flagella", "LasA/LasB", "QS",
-                                  "T6SS", "pilus", "TPS system", "other"),
-                       values = my_cols) +
-    scale_alpha_manual(breaks = c("biofilm", "flagella", "LasA/LasB", "QS",
-                                  "T6SS", "pilus", "TPS system", "other"),
-                       values = c(rep(0.6, 7), 0.1)) +
+    # scale_color_manual(breaks = c("biofilm", "flagella", "LasA/LasB", "QS",
+    #                               "T6SS", "pilus", "TPS system", "other"),
+    #                    values = my_cols) +
+    # scale_alpha_manual(breaks = c("biofilm", "flagella", "LasA/LasB", "QS",
+    #                               "T6SS", "pilus", "TPS system", "other"),
+    #                   values = c(rep(0.6, 7), 0.1)) +
     theme_bw() +
     NULL
+  )
+  dev.off()
+  
+  png("./plots/mut_trajectories_above010_noanc_base.png", width = 12, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(
+      data = mutate(
+        filter(mutpop, 
+               seqtype == "PA", everabove_010_noanc == TRUE, 
+               seq_id %in% c("PA14_1")),
+        Pop = as.numeric(Pop)),
+      aes(x = as.numeric(Timepoint), y = freq0, group = mut_id)) +
+      geom_line(lwd = 0.7, alpha = 0.2) +
+      facet_nested(Treat_P + Treat_C ~ Pop,
+                   labeller = labeller(
+                     Treat_P = c("NP" = "No Phage",
+                                 "P" = "Phage\nAdded"),
+                     Treat_C = c("NC" = "Only\nPseudomonas",
+                                 "C" = "All Bacteria"),
+                     Pop = function(x) {paste("Pop.", LETTERS[as.numeric(x)-2])})) +
+      scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+      scale_y_continuous(limits = c(0, 1)) +
+      labs(x = "Timepoint (days)", y = "Frequency") +
+      theme_bw() +
+      theme(axis.title = element_text(size = 18),
+            axis.text.x = element_text(size = 14),
+            axis.text.y = element_blank(),
+            strip.text.y = element_text(size = 16),
+            strip.text.x = element_text(size = 14),
+            plot.subtitle = element_text(size = 16)) +
+      NULL
+  )
+  dev.off()
+  
+  png("./plots/mut_trajectories_above010_noanc_pilus.png", width = 13.5, height = 7, units = "in",
+      res = 150)
+  print(
+    ggplot(
+      data = mutate(
+        filter(mutpop, 
+               seqtype == "PA", everabove_010_noanc == TRUE, 
+               seq_id %in% c("PA14_1")),
+        Pop = as.numeric(Pop),
+        pilgeneTF = gene_category == "pilus"),
+      aes(x = as.numeric(Timepoint), y = freq0, group = mut_id,
+          color = pilgeneTF, alpha = pilgeneTF, lwd = pilgeneTF)) +
+      geom_line() +
+      facet_nested(Treat_P + Treat_C ~ Pop,
+                   labeller = labeller(
+                     Treat_P = c("NP" = "No Phage",
+                                 "P" = "Phage\nAdded"),
+                     Treat_C = c("NC" = "Only\nPseudomonas",
+                                 "C" = "All Bacteria"),
+                     Pop = function(x) {paste("Pop.", LETTERS[as.numeric(x)-2])})) +
+      scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+      scale_y_continuous(limits = c(0, 1)) +
+      scale_color_manual(name = "Gene for",
+                         limits = c(TRUE, FALSE),
+                         labels = c("Pilus", "Other"),
+                         values = my_cols[c(1, 8)]) +
+      scale_alpha_manual(limits = c(TRUE, FALSE),
+                         values = c(0.8, 0.2)) +
+      scale_linewidth_manual(breaks = c(TRUE, FALSE),
+                             values = c(1.3, 0.7)) +
+      labs(x = "Timepoint (days)", y = "Frequency") +
+      theme_bw() +
+      theme(axis.title = element_text(size = 18),
+            axis.text.x = element_text(size = 14),
+            axis.text.y = element_blank(),
+            strip.text.y = element_text(size = 16),
+            strip.text.x = element_text(size = 14),
+            plot.subtitle = element_text(size = 16),
+            legend.title = element_text(size = 18),
+            legend.text = element_text(size = 16)) +
+      guides(alpha = "none", linewidth = "none") +
+      NULL
   )
   dev.off()
 
