@@ -559,7 +559,7 @@ mutpop <- mutate(group_by(mutpop,
                  everabove_005_noanc = any(freq0[Timepoint != 0] > 0.05, na.rm = TRUE),
                  fixed = all(freq0 == 1))
 
-## Check mutation frequencies
+## Check gene category frequencies
 test <- summarize(
   group_by(
     filter(
@@ -576,10 +576,18 @@ View(summarize(group_by(test, Treat, gene_category),
           avg_total = mean(total_freq)))
 
 ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1")),
-       aes(x = Treat_C, y = total_freq, color = gene_category)) +
+       aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
   geom_point() +
-  geom_line(aes(group = paste(gene_category, Pop))) +
-  facet_grid(Treat_P ~ Timepoint) +
+  geom_line(aes(group = paste(Pop, Timepoint))) +
+  facet_grid(Treat_P ~ gene_category) +
+  #scale_y_log10() +
+  NULL
+
+ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1")),
+       aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
+  geom_point() +
+  geom_line(aes(group = paste(Pop, Timepoint))) +
+  facet_grid(Treat_P ~ gene_category) +
   #scale_y_log10() +
   NULL
 
@@ -764,8 +772,75 @@ ggplot(data = filter(test),
   facet_grid(Treat_P * mutation_category3 ~ Timepoint) +
   #scale_y_log10() +
   NULL
+
+#Check unique gene name frequencies
+test <- summarize(
+  group_by(
+    filter(
+      mutpop, seq_id == "PA14_1", seqtype == "PA"), 
+    gene_name,
+    across(any_of(sampcols))),
+  total_freq = sum(freq0),
+  max_freq = max(freq0),
+  indep_freq = 1-prod(1-freq0),
+  avg_freq = mean(freq0))
+
+  
+test_sum <-
+  summarize(group_by(test, gene_name, Treat_C, Treat_P, Treat),
+            anytf_01 = any(total_freq > 0.1),
+            anyif_01 = any(indep_freq > 0.1),
+            total_freq = mean(total_freq),
+            indep_freq = mean(indep_freq))
+
+test_sum <- test_sum[order(test_sum$indep_freq, decreasing = TRUE), ]
                            
-            
+test_subset <- 
+  test[
+    test$gene_name %in% unique(filter(test_sum, anytf_01 | anyif_01)$gene_name), ]
+
+#fill in missing combinations
+test_subset <- 
+  complete(ungroup(test_subset),
+           nesting(!!!syms(intersect(sampcols, colnames(test_subset)))),
+           gene_name,
+           fill = list("total_freq" = 0, "max_freq" = 0,
+                       "indep_freq" = 0, "avg_freq" = 0))
+
+test_subset_sum <-
+  summarize(group_by(test_subset, gene_name, Treat_C, Treat_P, Timepoint, Pop),
+            total_freq = mean(total_freq),
+            indep_freq = mean(indep_freq))
+test_subset_sum <-
+  summarize(group_by(test_subset_sum, gene_name, Timepoint, Pop),
+            diff_NP_C = mean(indep_freq[Treat_P == "NP" & Treat_C == "C"] -
+                               indep_freq[Treat_P == "NP" & Treat_C == "NC"]),
+            diff_P_C = mean(indep_freq[Treat_P == "P" & Treat_C == "C"] -
+                              indep_freq[Treat_P == "P" & Treat_C == "NC"]))
+
+
+test_subset_sum <- test_subset_sum[order(abs(test_subset_sum$diff_P_C), decreasing = TRUE), ]
+mygenes <- test_subset_sum$gene_name[1:12]
+  #sample(unique(test_subset$gene_name), 8)
+ggplot(data = filter(test_subset, gene_name %in% mygenes), 
+       aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
+  geom_point() +
+  geom_line(aes(group = paste(Pop, Timepoint))) +
+  facet_grid(Treat_P ~ gene_name) +
+  #scale_y_log10() +
+  NULL
+
+test_subset_sum <- test_subset_sum[order(abs(test_subset_sum$diff_NP_C), decreasing = TRUE), ]
+mygenes <- test_subset_sum$gene_name[1:10]
+#sample(unique(test_subset$gene_name), 8)
+ggplot(data = filter(test_subset, gene_name %in% mygenes), 
+       aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
+  geom_point() +
+  geom_line(aes(group = paste(Pop, Timepoint))) +
+  facet_grid(Treat_P ~ gene_name) +
+  #scale_y_log10() +
+  NULL
+
 
 
 # test <- filter(mutpop, Pop == 5, Treat == "NCP", everabove_010 == TRUE,
