@@ -41,6 +41,9 @@ library(ggplot2)
 library(scales)
 library(lme4)
 library(ggh4x)
+library(emmeans)
+library(pbkrtest)
+library(lmerTest)
 
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
@@ -559,8 +562,8 @@ mutpop <- mutate(group_by(mutpop,
                  everabove_005_noanc = any(freq0[Timepoint != 0] > 0.05, na.rm = TRUE),
                  fixed = all(freq0 == 1))
 
-## Check gene category frequencies
-test <- summarize(
+###Analyze gene category frequencies ----
+gcat_freq <- summarize(
   group_by(
     filter(
       mutpop, seq_id == "PA14_1", seqtype == "PA",
@@ -572,10 +575,10 @@ test <- summarize(
   indep_freq = 1-prod(1-freq0),
   avg_freq = mean(freq0))
 
-View(summarize(group_by(test, Treat, gene_category),
+View(summarize(group_by(gcat_freq, Treat, gene_category),
           avg_total = mean(total_freq)))
 
-ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1")),
+ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1")),
        aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
   geom_point() +
   geom_line(aes(group = paste(Pop, Timepoint))) +
@@ -583,7 +586,7 @@ ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1")),
   #scale_y_log10() +
   NULL
 
-ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1")),
+ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1")),
        aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
   geom_point() +
   geom_line(aes(group = paste(Pop, Timepoint))) +
@@ -593,7 +596,7 @@ ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1")),
 
 png("./plots/gene_freq_pop_diff_total_PNP.png", width = 20, height = 4,
     units = "in", res = 150)
-ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1"),
+ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1"),
                      Timepoint == 8),
        aes(x = Treat_P, y = total_freq)) +
   geom_point() +
@@ -616,7 +619,7 @@ dev.off()
 
 png("./plots/gene_freq_pop_diff_total_CNC.png", width = 20, height = 4,
     units = "in", res = 150)
-ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1"),
+ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1"),
                      Timepoint != 0),
        aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
   geom_point() +
@@ -642,7 +645,7 @@ dev.off()
 
 png("./plots/gene_freq_pop_diff_indep_PNP.png", width = 20, height = 4,
     units = "in", res = 150)
-ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1"),
+ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1"),
                      Timepoint == 8),
        aes(x = Treat_P, y = indep_freq)) +
   geom_point() +
@@ -665,7 +668,7 @@ dev.off()
 
 png("./plots/gene_freq_pop_diff_indep_CNC.png", width = 20, height = 4,
     units = "in", res = 150)
-ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1"),
+ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1"),
                      Timepoint != 0),
        aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
   geom_point() +
@@ -689,7 +692,7 @@ ggplot(data = filter(test, !gene_category %in% c("other", "mystery_1"),
   NULL
 dev.off()
 
-ggplot(data = filter(test, gene_category == "pilus"),
+ggplot(data = filter(gcat_freq, gene_category == "pilus"),
        aes(x = Treat_C, y = total_freq, color = gene_category)) +
   geom_point() +
   geom_line(aes(group = paste(gene_category, Pop))) +
@@ -697,7 +700,7 @@ ggplot(data = filter(test, gene_category == "pilus"),
   #scale_y_log10() +
   NULL
 
-ggplot(data = filter(test, gene_category == "pilus"),
+ggplot(data = filter(gcat_freq, gene_category == "pilus"),
        aes(x = Treat_C, y = indep_freq, color = Pop)) +
   geom_point() +
   geom_line(aes(group = paste(gene_category, Pop))) +
@@ -705,7 +708,7 @@ ggplot(data = filter(test, gene_category == "pilus"),
   #scale_y_log10() +
   NULL
 
-ggplot(data = filter(test, gene_category == "pilus"),
+ggplot(data = filter(gcat_freq, gene_category == "pilus"),
        aes(x = Treat_C, y = max_freq, color = Pop)) +
   geom_point() +
   geom_line(aes(group = paste(gene_category, Pop))) +
@@ -716,12 +719,12 @@ ggplot(data = filter(test, gene_category == "pilus"),
 
 totalfreq_full_lme <- 
   lmer(total_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
-             data = filter(test, gene_category == "pilus",
+             data = filter(gcat_freq, gene_category == "pilus",
                            Treat_P == "P", Timepoint != 0),
        REML = FALSE)
 totalfreq_reduced_lme <-
   lmer(total_freq ~ as.factor(Timepoint) + (1|Pop),
-       data = filter(test, gene_category == "pilus",
+       data = filter(gcat_freq, gene_category == "pilus",
                      Treat_P == "P", Timepoint != 0),
        REML = FALSE)
 anova(totalfreq_reduced_lme, totalfreq_full_lme)
@@ -729,12 +732,12 @@ totalfreq_full_lme
 
 indepfreq_full_lme <- 
   lmer(indep_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
-       data = filter(test, gene_category == "pilus",
+       data = filter(gcat_freq, gene_category == "pilus",
                      Treat_P == "P", Timepoint != 0),
        REML = FALSE)
 indepfreq_reduced_lme <- 
   lmer(indep_freq ~ as.factor(Timepoint) + (1|Pop),
-       data = filter(test, gene_category == "pilus",
+       data = filter(gcat_freq, gene_category == "pilus",
                      Treat_P == "P", Timepoint != 0),
        REML = FALSE)
 anova(indepfreq_reduced_lme, indepfreq_full_lme)
@@ -742,19 +745,23 @@ indepfreq_full_lme
 
 maxfreq_full_lme <- 
   lmer(max_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
-       data = filter(test, gene_category == "pilus",
+       data = filter(gcat_freq, gene_category == "pilus",
                      Treat_P == "P", Timepoint != 0),
        REML = FALSE)
 maxfreq_reduced_lme <- 
   lmer(max_freq ~ as.factor(Timepoint) + (1|Pop),
-       data = filter(test, gene_category == "pilus",
+       data = filter(gcat_freq, gene_category == "pilus",
                      Treat_P == "P", Timepoint != 0),
        REML = FALSE)
 anova(maxfreq_reduced_lme, maxfreq_full_lme)
 maxfreq_full_lme
 
+# emmmmmm <- emmeans(indepfreq_full_lme, ~ Treat_C)
+# contrast(emmmmmm,
+#          method = "pairwise", by = "Treat_C")
 
-test <- summarize(
+
+gcat_type_freq_pil <- summarize(
   group_by(
     filter(
       mutpop, seq_id == "PA14_1", seqtype == "PA",
@@ -763,18 +770,46 @@ test <- summarize(
     gene_category, mutation_category3,
     across(any_of(sampcols))),
   total_freq = sum(freq0),
+  indep_freq = 1-prod(1-freq0),
   avg_freq = mean(freq0))
 
-ggplot(data = filter(test),
-       aes(x = Treat_C, y = total_freq, color = mutation_category3)) +
+ggplot(data = gcat_type_freq_pil,
+       aes(x = Treat_C, y = indep_freq, color = mutation_category3)) +
   geom_point() +
   geom_line(aes(group = paste(mutation_category3, Pop))) +
   facet_grid(Treat_P * mutation_category3 ~ Timepoint) +
   #scale_y_log10() +
   NULL
 
-#Check unique gene name frequencies
-test <- summarize(
+totalfreq_pil_full_lme <- 
+  lmer(total_freq ~ 
+         Treat_C + mutation_category3 + as.factor(Timepoint) + (1|Pop),
+       data = filter(gcat_type_freq_pil, 
+                     Treat_P == "P", Timepoint != 0),
+       REML = FALSE)
+totalfreq_pil_reduced_lme <-
+  lmer(total_freq ~ mutation_category3 + as.factor(Timepoint) + (1|Pop),
+       data = filter(gcat_type_freq_pil, 
+                     Treat_P == "P", Timepoint != 0),
+       REML = FALSE)
+anova(totalfreq_pil_reduced_lme, totalfreq_pil_full_lme)
+totalfreq_pil_full_lme
+
+indepfreq_pil_full_lme <- 
+  lmer(indep_freq ~ Treat_C + mutation_category3 + as.factor(Timepoint) + (1|Pop),
+       data = filter(gcat_type_freq_pil, 
+                     Treat_P == "P", Timepoint != 0),
+       REML = FALSE)
+indepfreq_pil_reduced_lme <- 
+  lmer(indep_freq ~ mutation_category3 + as.factor(Timepoint) + (1|Pop),
+       data = filter(gcat_type_freq_pil, 
+                     Treat_P == "P", Timepoint != 0),
+       REML = FALSE)
+anova(indepfreq_pil_reduced_lme, indepfreq_pil_full_lme)
+indepfreq_pil_full_lme
+
+###Analyze unique gene frequencies ----
+gnamefreq <- summarize(
   group_by(
     filter(
       mutpop, seq_id == "PA14_1", seqtype == "PA"), 
@@ -785,44 +820,76 @@ test <- summarize(
   indep_freq = 1-prod(1-freq0),
   avg_freq = mean(freq0))
 
-  
-test_sum <-
-  summarize(group_by(test, gene_name, Treat_C, Treat_P, Treat),
+gnamefreq_sumtreat <-
+  summarize(group_by(gnamefreq, gene_name, Treat_C, Treat_P, Treat),
             anytf_01 = any(total_freq > 0.1),
             anyif_01 = any(indep_freq > 0.1),
-            total_freq = mean(total_freq),
-            indep_freq = mean(indep_freq))
+            total_freq_avg = mean(total_freq),
+            indep_freq_avg = mean(indep_freq))
 
-test_sum <- test_sum[order(test_sum$indep_freq, decreasing = TRUE), ]
+gnamefreq_sumtreat <- 
+  gnamefreq_sumtreat[order(gnamefreq_sumtreat$indep_freq_avg, decreasing = TRUE), ]
                            
-test_subset <- 
-  test[
-    test$gene_name %in% unique(filter(test_sum, anytf_01 | anyif_01)$gene_name), ]
+gnamefreq_subset <-
+  filter(ungroup(gnamefreq),
+         gene_name %in% unique(filter(gnamefreq_sumtreat, anytf_01 | anyif_01)$gene_name))
 
 #fill in missing combinations
-test_subset <- 
-  complete(ungroup(test_subset),
-           nesting(!!!syms(intersect(sampcols, colnames(test_subset)))),
+gnamefreq_subset <- 
+  complete(ungroup(gnamefreq_subset),
+           nesting(!!!syms(intersect(sampcols, colnames(gnamefreq_subset)))),
            gene_name,
            fill = list("total_freq" = 0, "max_freq" = 0,
                        "indep_freq" = 0, "avg_freq" = 0))
 
-test_subset_sum <-
-  summarize(group_by(test_subset, gene_name, Treat_C, Treat_P, Timepoint, Pop),
-            total_freq = mean(total_freq),
-            indep_freq = mean(indep_freq))
-test_subset_sum <-
-  summarize(group_by(test_subset_sum, gene_name, Timepoint, Pop),
+stop("TODO")
+gnamefreq_subset_sum <-
+  group_modify(
+    group_by(
+    filter(gnamefreq_subset, Timepoint != 0, 
+           gene_name == "EamA domain-containing protein"),
+    gene_name),
+    ~ {
+      full_lme_P <- lmer(
+        indep_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
+        data = filter(.x, Treat_P == "P"),
+        REML = FALSE)
+      red_lme_P <- lmer(
+        indep_freq ~ as.factor(Timepoint) + (1|Pop),
+        data = filter(.x, Treat_P == "P"),
+        REML = FALSE)
+      
+      full_lme_T8 <- lmer(
+        indep_freq ~ Treat_C*Treat_P + (1|Pop),
+        data = filter(.x, Timepoint == 8),
+        REML = FALSE)
+      emm <- emmeans(full_lme_T8, ~ Treat_P*Treat_C)
+      
+      return(
+        data.frame(NCvC_inP_pval = anova(red_lme_P, full_lme_P)$`Pr(>Chisq)`[2])
+      )
+    })
+    
+ 
+
+gnamefreq_subset_sum_sum <-
+  summarize(group_by(gnamefreq_subset_sum, gene_name, Timepoint, Pop),
             diff_NP_C = mean(indep_freq[Treat_P == "NP" & Treat_C == "C"] -
                                indep_freq[Treat_P == "NP" & Treat_C == "NC"]),
             diff_P_C = mean(indep_freq[Treat_P == "P" & Treat_C == "C"] -
                               indep_freq[Treat_P == "P" & Treat_C == "NC"]))
 
+gnamefreq_subset_sum_sum <- 
+  gnamefreq_subset_sum_sum[order(abs(gnamefreq_subset_sum_sum$diff_P_C), decreasing = TRUE), ]
 
-test_subset_sum <- test_subset_sum[order(abs(test_subset_sum$diff_P_C), decreasing = TRUE), ]
-mygenes <- test_subset_sum$gene_name[1:12]
-  #sample(unique(test_subset$gene_name), 8)
-ggplot(data = filter(test_subset, gene_name %in% mygenes), 
+ggplot(data = filter(gnamefreq_subset_sum, gene_name == gnamefreq_subset_sum_sum$gene_name[7]), 
+       aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) + 
+  geom_point() + facet_grid(~Treat_P) + 
+  geom_line(aes(group = paste(Pop, Timepoint)))
+
+mygenes <- gnamefreq_subset_sum_sum$gene_name[1:12]
+  #sample(unique(gnamefreq_subset$gene_name), 8)
+ggplot(data = filter(gnamefreq_subset, gene_name %in% mygenes), 
        aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
   geom_point() +
   geom_line(aes(group = paste(Pop, Timepoint))) +
@@ -830,10 +897,10 @@ ggplot(data = filter(test_subset, gene_name %in% mygenes),
   #scale_y_log10() +
   NULL
 
-test_subset_sum <- test_subset_sum[order(abs(test_subset_sum$diff_NP_C), decreasing = TRUE), ]
-mygenes <- test_subset_sum$gene_name[1:10]
-#sample(unique(test_subset$gene_name), 8)
-ggplot(data = filter(test_subset, gene_name %in% mygenes), 
+gnamefreq_subset_sum <- gnamefreq_subset_sum[order(abs(gnamefreq_subset_sum$diff_NP_C), decreasing = TRUE), ]
+mygenes <- gnamefreq_subset_sum$gene_name[1:10]
+#sample(unique(gnamefreq_subset$gene_name), 8)
+ggplot(data = filter(gnamefreq_subset, gene_name %in% mygenes), 
        aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
   geom_point() +
   geom_line(aes(group = paste(Pop, Timepoint))) +
