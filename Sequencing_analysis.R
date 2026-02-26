@@ -828,21 +828,12 @@ gnamefreq <- summarize(
   indep_freq = 1-prod(1-freq0),
   avg_freq = mean(freq0))
 
-gnamefreq_sumtreat <-
-  summarize(group_by(gnamefreq, gene_name, Treat_C, Treat_P, Treat),
-            anytf_01 = any(total_freq > 0.1),
-            anyif_01 = any(indep_freq > 0.1),
-            total_freq_avg = mean(total_freq),
-            indep_freq_avg = mean(indep_freq))
+gnamefreq_subset <- 
+  filter(group_by(gnamefreq, gene_name),
+         any(total_freq > 0.1, indep_freq > 0.1))
 
-gnamefreq_sumtreat <- 
-  gnamefreq_sumtreat[order(gnamefreq_sumtreat$indep_freq_avg, decreasing = TRUE), ]
-                           
-gnamefreq_subset <-
-  filter(ungroup(gnamefreq),
-         gene_name %in% unique(filter(gnamefreq_sumtreat, anytf_01 | anyif_01)$gene_name))
-
-#fill in missing combinations
+#fill in missing combinations (doesn't actually fill in any combos bc
+# they were all already filled in previously)
 gnamefreq_subset <- 
   complete(ungroup(gnamefreq_subset),
            nesting(!!!syms(intersect(sampcols, colnames(gnamefreq_subset)))),
@@ -850,35 +841,37 @@ gnamefreq_subset <-
            fill = list("total_freq" = 0, "max_freq" = 0,
                        "indep_freq" = 0, "avg_freq" = 0))
 
-#Demo examples
-testdat <- filter(gnamefreq_subset, Timepoint != 0, Treat_P == "P",
-                  gene_name == "EamA domain-containing protein")
-ggplot(data = testdat,
-       aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
-  geom_point() +
-  geom_line(aes(group = paste(Timepoint, Pop))) +
-  facet_grid(~ Treat_P)
-testlm_full <- lmer(indep_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
-                    data = testdat, REML = FALSE)
-testlm_red <- lmer(indep_freq ~ as.factor(Timepoint) + (1|Pop),
-                   data = testdat, REML = FALSE)
-anova(testlm_full, testlm_red)
-coef(summary(testlm_full))
-
-testdat <- filter(gnamefreq_subset, Timepoint == 8,
-                  gene_name == "EamA domain-containing protein")
-ggplot(data = testdat,
-       aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
-  geom_point() +
-  geom_line(aes(group = paste(Timepoint, Pop))) +
-  facet_grid(~ Treat_P)
-testlm <- lmer(
-  indep_freq ~ Treat_C*Treat_P + (1|Pop),
-  data = testdat,
-  REML = FALSE)
-testem <- emmeans(testlm, ~ Treat_C * Treat_P)
-emm_within_P <- as.data.frame(contrast(testem, method = "pairwise", by = "Treat_P"))
-emm_within_C <- as.data.frame(contrast(testem, method = "pairwise", by = "Treat_C"))
+# #Demo examples
+# testdat <- filter(gnamefreq_subset, Timepoint != 0, Treat_P == "P",
+#                   gene_name == "EamA domain-containing protein")
+# ggplot(data = testdat,
+#        aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
+#   geom_point() +
+#   geom_line(aes(group = paste(Timepoint, Pop))) +
+#   facet_grid(~ Treat_P)
+# testlm_full <- lmer(indep_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
+#                     data = testdat, REML = FALSE)
+# testlm_red <- lmer(indep_freq ~ as.factor(Timepoint) + (1|Pop),
+#                    data = testdat, REML = FALSE)
+# anova(testlm_full, testlm_red)
+# coef(summary(testlm_full))
+# 
+# testdat <- filter(gnamefreq_subset, Timepoint == 8,
+#                   gene_name == "EamA domain-containing protein")
+# testdat <- filter(gnamefreq_subset, Timepoint == 8,
+#                   gene_name == "3-oxoadipate CoA-transferase")
+# ggplot(data = testdat,
+#        aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
+#   geom_point() +
+#   geom_line(aes(group = paste(Timepoint, Pop))) +
+#   facet_grid(~ Treat_P)
+# testlm <- lmer(
+#   indep_freq ~ Treat_C + Treat_P + (1|Pop),
+#   data = testdat,
+#   REML = FALSE)
+# testem <- emmeans(testlm, ~ Treat_C * Treat_P)
+# emm_within_P <- as.data.frame(contrast(testem, method = "pairwise", by = "Treat_P"))
+# emm_within_C <- as.data.frame(contrast(testem, method = "pairwise", by = "Treat_C"))
 
 gnamefreq_subset_sum <-
   group_modify(
@@ -886,57 +879,79 @@ gnamefreq_subset_sum <-
              gene_name),
     ~ {
       mtc <- myTryCatch({
-        #First test for significant effect of C vs NC within P treats
-        # across all timepoints
-        full_lme_P <- lmer(
-          indep_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
-          data = filter(.x, Treat_P == "P"),
-          REML = FALSE)
-        red_lme_P <- lmer(
-          indep_freq ~ as.factor(Timepoint) + (1|Pop),
-          data = filter(.x, Treat_P == "P"),
-          REML = FALSE)
-        
-        #Then do NC vs C, P vs NP contrasts for Timepoint 8
-        full_lme_T8 <- lmer(
-          indep_freq ~ Treat_C*Treat_P + (1|Pop),
-          data = filter(.x, Timepoint == 8),
-          REML = FALSE)
-        full_emm_T8 <- emmeans(full_lme_T8, ~ Treat_C * Treat_P)
-        emm_within_P <- 
-          as.data.frame(contrast(full_emm_T8, method = "pairwise", by = "Treat_P"))
-        emm_within_C <- 
-          as.data.frame(contrast(full_emm_T8, method = "pairwise", by = "Treat_C"))
-        
-        return(
+        out <- 
           data.frame(
-            NCvC_inP_pval = anova(red_lme_P, full_lme_P)$`Pr(>Chisq)`[2],
-            NCvC_inP_est = coef(summary(full_lme_P))["Treat_CC", "Estimate"],
-            NCvC_inNP_pval = emm_within_P[emm_within_P$Treat_P == "NP", "p.value"],
-            NCvC_inNP_est = emm_within_P[emm_within_P$Treat_P == "NP", "estimate"],
-            NPvP_inC_pval = emm_within_C[emm_within_C$Treat_C == "C", "p.value"],
-            NPvP_inC_est = emm_within_C[emm_within_C$Treat_C == "C", "estimate"],
-            NPvP_inNC_pval = emm_within_C[emm_within_C$Treat_C == "NC", "p.value"],
-            NPvP_inNC_est = emm_within_C[emm_within_C$Treat_C == "NC", "estimate"]))
+            NCvC_inP_pval = NA,
+            NCvC_inP_est = NA,
+            NCvC_inNP_pval = NA,
+            NCvC_inNP_est = NA,
+            NPvP_inC_pval = NA,
+            NPvP_inC_est = NA,
+            NPvP_inNC_pval = NA,
+            NPvP_inNC_est = NA)
+        
+        if(any(filter(.x, Treat_P == "P")$indep_freq > 0)) {
+          #First test for significant effect of C vs NC within P treats
+          # across all timepoints
+          full_lme_P <- lmer(
+            indep_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
+            data = filter(.x, Treat_P == "P"),
+            REML = FALSE)
+          red_lme_P <- lmer(
+            indep_freq ~ as.factor(Timepoint) + (1|Pop),
+            data = filter(.x, Treat_P == "P"),
+            REML = FALSE)
+          
+          out$NCvC_inP_pval <- anova(red_lme_P, full_lme_P)$`Pr(>Chisq)`[2]
+          out$NCvC_inP_est <- coef(summary(full_lme_P))["Treat_CC", "Estimate"]
+        }
+        
+        if(any(filter(.x, Timepoint == 8)$indep_freq > 0)) {
+          #Then do NC vs C, P vs NP contrasts for Timepoint 8
+          full_lme_T8 <- lmer(
+            indep_freq ~ Treat_C*Treat_P + (1|Pop),
+            data = filter(.x, Timepoint == 8),
+            REML = FALSE)
+          full_emm_T8 <- emmeans(full_lme_T8, ~ Treat_C * Treat_P)
+          emm_within_P <- 
+            as.data.frame(contrast(full_emm_T8, method = "pairwise", by = "Treat_P"))
+          emm_within_C <- 
+            as.data.frame(contrast(full_emm_T8, method = "pairwise", by = "Treat_C"))
+          
+          out$NCvC_inNP_pval <- emm_within_P[emm_within_P$Treat_P == "NP", "p.value"]
+          out$NCvC_inNP_est <- emm_within_P[emm_within_P$Treat_P == "NP", "estimate"]
+          out$NPvP_inC_pval <- emm_within_C[emm_within_C$Treat_C == "C", "p.value"]
+          out$NPvP_inC_est <- emm_within_C[emm_within_C$Treat_C == "C", "estimate"]
+          out$NPvP_inNC_pval <- emm_within_C[emm_within_C$Treat_C == "NC", "p.value"]
+          out$NPvP_inNC_est <- emm_within_C[emm_within_C$Treat_C == "NC", "estimate"]  
+        }
+        
+        out
       })
+
       if(is.null(mtc$error)) {
-        if(is.null(mtc$warning)) {return(cbind(mtc$value, "msg" = NA))
-        } else {return(cbind(mtc$value, "msg" = mtc$warning))}
+        return(
+          cbind(mtc$value,
+                "warn" = ifelse(is.null(mtc$warning), NA, as.character(mtc$warning)),
+                "error" = NA))
       } else {
-        return(data.frame(
-          NCvC_inP_pval = NA,
-          NCvC_inP_est = NA,
-          NCvC_inNP_pval = NA,
-          NCvC_inNP_est = NA,
-          NPvP_inC_pval = NA,
-          NPvP_inC_est = NA,
-          NPvP_inNC_pval = NA,
-          NPvP_inNC_est = NA,
-          msg = "error"))
+        return(
+          cbind(data.frame(
+            NCvC_inP_pval = NA,
+            NCvC_inP_est = NA,
+            NCvC_inNP_pval = NA,
+            NCvC_inNP_est = NA,
+            NPvP_inC_pval = NA,
+            NPvP_inC_est = NA,
+            NPvP_inNC_pval = NA,
+            NPvP_inNC_est = NA),
+            "warn" = ifelse(is.null(mtc$warning), NA, as.character(mtc$warning)),
+            "error" = as.character(mtc$warning)))
       }
     })
     
- 
+View(filter(gnamefreq_subset_sum,
+            NPvP_inC_pval < 0.05 | NPvP_inNC_pval < 0.05))
 
 
 
