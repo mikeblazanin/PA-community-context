@@ -166,6 +166,22 @@ if(make_slowplots) {
     theme(axis.text.x = element_text(angle = 90, vjust = 0.4))
   dev.off()
   
+  png("./plots/coverage_by_contig_phageseq.png", width = 12, height = 4, units = "in",
+      res = 150)
+  ggplot(data = filter(covdat, Isol == "Pop", seqtype == "H6"),
+         aes(x = seq_id, y = log10(meandepth))) +
+    geom_point(alpha = 0.2) +
+    scale_y_continuous(labels = math_format(10^.x)) +
+    scale_x_discrete(limits = c("PA14_1", "H6_1",
+                                paste0("SA_", 1:2),
+                                paste0("EF_", 1:4),
+                                paste0("AX1_", 1:71))) +
+    labs(y = "Mean coverage depth", x = "Contig from reference genomes",
+         subtitle = "Viral filtrate sequencing") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.4))
+  dev.off()
+  
   png("./plots/coverage_PAby_TimepointTreat.png", width = 6, height = 3, 
       units = "in", res = 150)
   ggplot(data = filter(covdat, seqtype == "PA", seq_id == "PA14_1", Isol == "Pop"),
@@ -183,22 +199,6 @@ if(make_slowplots) {
     labs(x = "Timepoint (days)", y = "Mean coverage depth aligned to\nPseudomonas genome",
          subtitle = "Metagenomic sequencing") +
     theme_bw()
-  dev.off()
-  
-  png("./plots/coverage_by_contig_phageseq.png", width = 12, height = 4, units = "in",
-      res = 150)
-  ggplot(data = filter(covdat, Isol == "Pop", seqtype == "H6"),
-         aes(x = seq_id, y = log10(meandepth))) +
-    geom_point(alpha = 0.2) +
-    scale_y_continuous(labels = math_format(10^.x)) +
-    scale_x_discrete(limits = c("PA14_1", "H6_1",
-                                paste0("SA_", 1:2),
-                                paste0("EF_", 1:4),
-                                paste0("AX1_", 1:71))) +
-    labs(y = "Mean coverage depth", x = "Contig from reference genomes",
-         subtitle = "Viral filtrate sequencing") +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.4))
   dev.off()
   
   png("./plots/coverage_bycontig_bytreat.png", width = 15, height = 12, units = "in",
@@ -219,25 +219,9 @@ if(make_slowplots) {
     theme(axis.text.x = element_text(angle = 90, vjust = 0.4))
   dev.off()
     
-  png("./plots/freq_bycontig_bytreat.png", width = 15, height = 12, units = "in",
+  png("./plots/density_fromseq.png", width = 10, height = 7, units = "in",
       res = 150)
-  ggplot(data = mutate(covbycontig,
-                       seq_id = factor(seq_id,
-                                       levels = c("PA14_1", "H6_1",
-                                                  paste0("SA_", 1:2),
-                                                  paste0("EF_", 1:4),
-                                                  paste0("AX1_", 1:71)))),
-         aes(x = Treat, y = log10(rel_freq))) +
-    geom_point(alpha = 0.2) +
-    facet_wrap(~seq_id, nrow = 8) +
-    scale_y_continuous(labels = math_format(10^.x)) +
-    labs(y = "freq", x = "Treatment",
-         subtitle = "Metagenomic sequencing") +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.4))
-  dev.off()
-  
-  png("./plots/freq_fromseq.png", width = 10, height = 7, units = "in",
-      res = 150)
+  ##TODO: use total reads as denom, not total aligned reads
   print(
     ggplot(
       data = filter(covbysp, Treat != "Anc"),
@@ -270,14 +254,14 @@ if(make_slowplots) {
       NULL)
   dev.off()
   
-  ggplot(data = arrange(
+  p1 <- ggplot(data = arrange(
     filter(covbysp, Timepoint != 0,
-           !(Timepoint == 2 & Treat == "CP" & Pop %in% c(3, 4, 5) & Strain == "AX")),
+           !(Timepoint == 2 & Treat == "CP" & Pop %in% c(3, 4, 5) & Strain == "AX"),
+           included_in_treat == TRUE),
     Timepoint),
     aes(x = log10(rel_freq), y = log10(rel_freq_cfu), 
-        color = Strain, fill = Strain, shape = included_in_treat)) +
-    geom_point() +
-    #geom_path(aes(group = paste(Pop, Treat, Strain))) +
+        color = Strain, fill = Strain)) +
+    geom_point(alpha = 0.7) +
     scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
                        labels = c("P. aeruginosa", "S. aureus",
                                   "E. faecalis", "A. xylosoxidans",
@@ -288,43 +272,76 @@ if(make_slowplots) {
                                  "E. faecalis", "A. xylosoxidans",
                                  "Phage H6"),
                       values = my_cols[c(3, 1, 2, 7, 8)]) +
-    scale_shape_manual(values = c(16, 4),
-                       breaks = c(TRUE, FALSE)) +
     scale_x_continuous(labels = math_format(10^.x)) +
     scale_y_continuous(labels = math_format(10^.x)) +
     geom_abline(slope = 1, intercept = 0) +
-    labs(x = "Frequency (metagenomics)", y = "Frequency (CFU or PFU)")
-  
-  ggplot(data = arrange(
+    labs(x = "", y = "Frequency (CFU or PFU)") +
+    theme_bw()
+  p2 <- ggplot(data = arrange(
     filter(covbysp, Timepoint != 0,
-           !(Timepoint == 2 & Treat == "CP" & Pop %in% c(3, 4, 5) & Strain == "AX")),
+           included_in_treat == FALSE,
+           rel_freq != 0),
     Timepoint),
-    aes(x = Timepoint, y = log10(rel_freq_cfu/rel_freq), color = Strain)) +
-    geom_point(position = position_jitter(width = 0.05, height = 0),
-               alpha = 0.3) + 
-    geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
-    facet_grid(Treat_C ~ Treat_P,
-               labeller = labeller(Treat_P = c("P" = "Phage Added",
-                                               "NP" = "No Phage"),
-                                   Treat_C = c("C" = "All Bacteria",
-                                               "NC" = "Only Pseudomonas"))) +
-    scale_x_continuous(breaks = c(0, 3, 6, 9), minor_breaks = 0:9, 
-                       limits = c(0, NA)) +
-    scale_y_continuous(labels = math_format(10^.x)) +
-    labs(y = "CFU frequency:Metagenomic frequency", x = "Timepoint (days)") +
+    aes(y = log10(rel_freq), x = 0, 
+        color = Strain, fill = Strain)) +
+    geom_point(position = position_dodge(width = 0.5), alpha = 0.7) +
+    coord_flip() +
     scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
                        labels = c("P. aeruginosa", "S. aureus",
                                   "E. faecalis", "A. xylosoxidans",
                                   "Phage H6"),
                        values = my_cols[c(3, 1, 2, 7, 8)]) +
+    scale_fill_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                      labels = c("P. aeruginosa", "S. aureus",
+                                 "E. faecalis", "A. xylosoxidans",
+                                 "Phage H6"),
+                      values = my_cols[c(3, 1, 2, 7, 8)]) +
+    scale_y_continuous(labels = math_format(10^.x)) +
+    scale_x_continuous(breaks = 0, limits = c(-1, 1)) +
+    labs(y = "Frequency (metagenomics)", x = "") +
     theme_bw() +
-    theme(axis.title = element_text(size = 16),
-          axis.text = element_text(size = 14),
-          legend.title = element_text(size = 12),
-          legend.text = element_text(size = 10),
-          strip.text =  element_text(size = 12.5),
-          #legend.position = c(0.3, 0.6),
-          legend.background = element_rect(color = "black"))
+    guides(color = "none", fill = "none")
+  p3 <- ggplot(data = arrange(
+    filter(covbysp, Timepoint != 0,
+           included_in_treat == FALSE,
+           rel_freq == 0),
+    Timepoint),
+    aes(x = 0, y = 0, color = Strain, fill = Strain)) +
+    coord_flip() +
+    geom_dotplot(aes(group = Strain), position = position_dodge(0.7),
+                 alpha = 0.7, stackdir = "center", dotsize = 3) +
+    # geom_point(position = 
+    #              position_jitterdodge(dodge.width = 0.5, jitter.height = 0.5,
+    #                                   jitter.width = 0), 
+    #            alpha = 0.7) +
+    scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                       labels = c("P. aeruginosa", "S. aureus",
+                                  "E. faecalis", "A. xylosoxidans",
+                                  "Phage H6"),
+                       values = my_cols[c(3, 1, 2, 7, 8)]) +
+    scale_fill_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
+                      labels = c("P. aeruginosa", "S. aureus",
+                                 "E. faecalis", "A. xylosoxidans",
+                                 "Phage H6"),
+                      values = my_cols[c(3, 1, 2, 7, 8)]) +
+    scale_x_continuous(breaks = 0, limits = c(-1, 1)) +
+    scale_y_continuous(breaks = 0, limits = c(-1, 1)) +
+    labs(y = "", x = "") +
+    theme_bw() +
+    guides(color = "none", fill = "none")
+  png("./plots/density_fromseq.png", width = 10, height = 7, units = "in",
+      res = 150)
+  cowplot::plot_grid(NULL, 
+                     p1 + guides(color = "none", fill = "none"), 
+                     cowplot::get_legend(p1),
+                     p3, 
+                     p2, 
+                     NULL,
+                     nrow = 2,
+                     rel_heights = c(1, 0.2),
+                     rel_widths = c(0.175, 1, 0.25),
+                     align = "hv", axis = "tblr")
+  dev.off()
 }
 
 
