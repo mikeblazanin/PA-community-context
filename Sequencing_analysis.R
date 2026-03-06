@@ -44,7 +44,11 @@ library(ggh4x)
 library(emmeans)
 library(pbkrtest)
 library(lmerTest)
-
+library(BiocManager)
+#BiocManager::install("clusterProfiler")
+library(clusterProfiler)
+#BiocManager::install("AnnotationHub")
+library(AnnotationHub)
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -370,6 +374,19 @@ mutations <- mutate(mutations,
 ##Add in annotations from PA annotations file ----
 anno <- read.csv("PA14_annotated.csv")
 
+# View(filter(mutations, grepl("\\|", mutation_category)))
+# View(filter(mutations, mutation_category == "large_deletion", 
+#             seq_id == "PA14_1"))
+# filter(mutations, mutation_category == "large_deletion", 
+#        seq_id == "PA14_1", size < 6000000)$gene_name
+# 
+# annotb <- table(anno$Locus.Tag)
+# head(annotb[order(annotb, decreasing = TRUE)], 30)
+
+
+
+#Looks like gene names can be redundant, locus tags are unique
+# (but blank for non-coding features)
 
 ##Shared analysis labeling ----
 mutations <- mutate(
@@ -576,6 +593,9 @@ mutpop <- mutate(group_by(mutpop,
                  fixed = all(freq0 == 1))
 
 ###Analyze gene category frequencies ----
+
+##TODO - remove synonymous mutations
+
 gcat_freq <- summarize(
   group_by(
     filter(
@@ -821,7 +841,7 @@ gnamefreq <- summarize(
   group_by(
     filter(
       mutpop, seq_id == "PA14_1", seqtype == "PA"), 
-    gene_name,
+    gene_name, gene_product, gene_category,
     across(any_of(sampcols))),
   total_freq = sum(freq0),
   max_freq = max(freq0),
@@ -876,7 +896,7 @@ gnamefreq_subset <-
 gnamefreq_subset_sum <-
   group_modify(
     group_by(filter(gnamefreq_subset, Timepoint != 0),
-             gene_name),
+             gene_name, gene_category),
     ~ {
       mtc <- myTryCatch({
         out <- 
@@ -949,13 +969,48 @@ gnamefreq_subset_sum <-
             "error" = as.character(mtc$warning)))
       }
     })
-    
-View(filter(gnamefreq_subset_sum,
-            NPvP_inC_pval < 0.05 | NPvP_inNC_pval < 0.05))
 
+gnfs_sum_lng <- 
+  pivot_longer(
+    filter(gnamefreq_subset_sum,
+           if_any(ends_with("pval"), ~ !is.na(.) & . < 0.01)),
+    cols = ends_with(c("pval", "est")),
+    names_to = c("comparison", "in_treat", ".value"),
+    names_pattern = "(.*)_in(.*)_(.*)")
 
+png("./plots/genefreq_byname.png", width = 15, height = 20, units = "in",
+    res = 150)
+ggplot(data = filter(gnfs_sum_lng, pval < 0.01),
+       aes(y = gene_name, x = -est, size = -log10(pval),
+           color = comparison, shape = in_treat)) +
+  geom_point() +
+  facet_grid(gene_category ~ ., space = "free_y", drop = TRUE, scales = "free_y") +
+  scale_size_continuous(limits = c(2, NA), range = c(0.5, 4)) +
+  scale_shape_manual(values = 15:18) +
+  theme(strip.text.y = element_text(angle = 0))
+dev.off()
 
+### GO enrichment analysis ----
 
+#GO enrichment analysis using cluterProfiler in R
+#org.Ce.eg.db but need something like that for PA14
+#Can do a GSEA analysis where you put in a ranked list of
+# genes and it does kind of a rolling window approach and
+# stops at some point for sig GO terms
+#Or can just do a plain GO analysis that looks for enriched
+# terms in a hard set of genes
+#remove synon
+#I think first plan of attack is take my post-stats gene names
+# and put them into a simple GO analysis
+#Second plan of attack (if needed) is to rank genes by frequency
+# change per replicate, then feed that into GSEA
+# (because by binning by gene name before GO I'll lose any
+# pathways where there are multiple hits but to different
+# genes in the pathway)
+
+hub <- AnnotationHub()
+q <- query(hub, "Pseudomonas aeruginosa")
+id <- q$ah_id[length(q)]
 
 # test <- filter(mutpop, Pop == 5, Treat == "NCP", everabove_010 == TRUE,
 #                seqtype == "PA", seq_id == "PA14_1")
