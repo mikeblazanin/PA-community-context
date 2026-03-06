@@ -558,35 +558,12 @@ mutations <- mutate(
 )
 
 #Split samples by type ----
-mutpop <- filter(mutations, Isol == "Pop")
-mutisol <- filter(mutations, Isol != "Pop")
-
-##Isolate samples merge with phenotype data ----
-#Filter out sample that had 0 coverage (so mutation is a full-genome deletion)
-mutisol <- filter(mutisol, title != "5174_67_PA_T8_P4_NCP_#5")
-
-mutisol <- left_join(
-  mutisol,
-  select(
-    mutate(
-      filter(read.csv("aggregate_isolate_data.csv", stringsAsFactors = FALSE,
-                      colClasses = "character"),
-             Bact_timepoint != "pilA"),
-      Treat = Bact_treat, 
-      Treat_C = Bact_treat_C, 
-      Treat_P = Bact_treat_P,
-      Timepoint = as.numeric(Bact_timepoint), 
-      Pop = Bact_pop, Isol = Bact_isol),
-    any_of(sampcols))
-)
+mutpop <- filter(mutations, Isol == "Pop", seqtype == "PA")
+mutisol <- filter(mutations, Isol != "Pop", seqtype == "PA")
 
 ##Population sample analyses ----
 
-#Filter out fixed-nonvariate mutations
-#mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
-#mut_id 11212 is fixed in pop 9 across all treatments & timepoints
-mutpop <- filter(mutpop, !mut_id %in% c("2958", "3198", "7885", "11212"))
-
+### Setup ----
 #For population samples, fill in all the missing mutation-sample combinations
 # with NA
 mutpop <- complete(
@@ -596,14 +573,6 @@ mutpop <- complete(
   #Columns left out (and therefore filled in by NA by default):
   # mut_and_samp_cols
 )
-
-##Code for checking unique samples
-# temp <- summarize(group_by(mutpop,
-#                         seqrun, SeqCoastid, seqtype, Timepoint, Pop, Treat, Isol, title,
-#                         Treat_C, Treat_P),
-#                num_muts = n())
-# View(temp[order(temp$seqtype, temp$Timepoint, temp$Treat, as.numeric(temp$Pop)), ])
-                        
 
 #Duplicating ancestral H6 rows into every pop & treatment
 mutpop <-
@@ -640,17 +609,25 @@ mutpop <- mutate(mutpop,
                  Treat = factor(Treat,
                                 levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
-mutations <- mutate(group_by(mutations, across(any_of(mutcols))),
-                    mut_id = cur_group_id())
-
 mutpop <- mutate(group_by(mutpop, 
                           across(any_of(c(mutcols, "seqtype", "Treat", "Pop")))),
-                 #everabove_025 = any(freq0 > 0.25, na.rm = TRUE),
                  everabove_010 = any(freq0 > 0.1, na.rm = TRUE),
-                 everabove_005 = any(freq0 > 0.05, na.rm = TRUE),
                  everabove_010_noanc = any(freq0[Timepoint != 0] > 0.1, na.rm = TRUE),
-                 everabove_005_noanc = any(freq0[Timepoint != 0] > 0.05, na.rm = TRUE),
                  fixed = all(freq0 == 1))
+
+### Filter out fixed-nonvariate mutations ----
+mutpop <- mutate(group_by(mutpop,
+                          across(any_of(mutcols)),
+                          Pop),
+                 freq_popavg = mean(freq0),
+                 freq_popsd = sd(freq0))
+
+unique(filter(mutpop, freq_popavg == 1, freq_popsd == 0)$mut_id)
+#mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
+#mut_id 11212 is fixed in pop 9 across all treatments & timepoints
+mutpop <- filter(
+  mutpop,
+  !mut_id %in% unique(filter(mutpop, freq_popavg == 1, freq_popsd == 0)$mut_id))
 
 ###Analyze gene category frequencies ----
 
@@ -1819,6 +1796,26 @@ dev.off()
 
 
 ##Isolate analyses ----
+
+### Isolate samples merge with phenotype data ----
+#Filter out sample that had 0 coverage (so mutation is a full-genome deletion)
+mutisol <- filter(mutisol, title != "5174_67_PA_T8_P4_NCP_#5")
+
+mutisol <- left_join(
+  mutisol,
+  select(
+    mutate(
+      filter(read.csv("aggregate_isolate_data.csv", stringsAsFactors = FALSE,
+                      colClasses = "character"),
+             Bact_timepoint != "pilA"),
+      Treat = Bact_treat, 
+      Treat_C = Bact_treat_C, 
+      Treat_P = Bact_treat_P,
+      Timepoint = as.numeric(Bact_timepoint), 
+      Pop = Bact_pop, Isol = Bact_isol),
+    any_of(sampcols))
+)
+
 
 ##Note: five isolates have only the four shared fixed mutations 
 ##      (i.e. they're ancestral)
