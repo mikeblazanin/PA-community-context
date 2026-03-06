@@ -1,5 +1,6 @@
 ##TODO ----
 #Best ideas
+# Get total # reads (not just aligned reads)
 # run isols in polym mode, try to figure out contamination (where are bg muts
 #  (in isols!?!)
 # compare pilus gene size to # of muts
@@ -112,15 +113,18 @@ covdat <- mutate(covdat,
                    (Strain %in% c("SA", "EF", "AX") & Treat_C == "C") |
                    (Strain == "H6" & Treat_P == "P"))
 
-covbysp <- 
+covbycontig <- 
   summarize(
     group_by(
       filter(covdat, Isol == "Pop", seqtype == "PA"),
       Strain, seq_id, Timepoint, Pop, Treat, Treat_C, Treat_P, endpos,
       included_in_treat),
     totbases = meandepth * endpos)
+covbycontig <- mutate(group_by(covbycontig, Timepoint, Pop, 
+                               Treat, Treat_C, Treat_P, included_in_treat),
+                      rel_freq = totbases/sum(totbases))
 covbysp <- 
-  summarize(group_by(covbysp, Strain, Timepoint, Pop, Treat, Treat_C, Treat_P,
+  summarize(group_by(covbycontig, Strain, Timepoint, Pop, Treat, Treat_C, Treat_P,
                      included_in_treat),
             totbases = weighted.mean(x = totbases, w = endpos))
 covbysp <-
@@ -197,12 +201,47 @@ if(make_slowplots) {
     theme(axis.text.x = element_text(angle = 90, vjust = 0.4))
   dev.off()
   
+  png("./plots/coverage_bycontig_bytreat.png", width = 15, height = 12, units = "in",
+      res = 150)
+  ggplot(data = mutate(filter(covdat, Isol == "Pop", seqtype == "PA"),
+                       seq_id = factor(seq_id,
+                                       levels = c("PA14_1", "H6_1",
+                                                  paste0("SA_", 1:2),
+                                                  paste0("EF_", 1:4),
+                                                  paste0("AX1_", 1:71)))),
+         aes(x = Treat, y = log10(meandepth))) +
+    geom_point(alpha = 0.2) +
+    facet_wrap(~seq_id, nrow = 8) +
+    scale_y_continuous(labels = math_format(10^.x)) +
+    #scale_color_discrete(palette = "Set2") +
+    labs(y = "Mean coverage depth", x = "Treatment",
+         subtitle = "Metagenomic sequencing") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.4))
+  dev.off()
+    
+  png("./plots/freq_bycontig_bytreat.png", width = 15, height = 12, units = "in",
+      res = 150)
+  ggplot(data = mutate(covbycontig,
+                       seq_id = factor(seq_id,
+                                       levels = c("PA14_1", "H6_1",
+                                                  paste0("SA_", 1:2),
+                                                  paste0("EF_", 1:4),
+                                                  paste0("AX1_", 1:71)))),
+         aes(x = Treat, y = log10(rel_freq))) +
+    geom_point(alpha = 0.2) +
+    facet_wrap(~seq_id, nrow = 8) +
+    scale_y_continuous(labels = math_format(10^.x)) +
+    labs(y = "freq", x = "Treatment",
+         subtitle = "Metagenomic sequencing") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.4))
+  dev.off()
+  
   png("./plots/freq_fromseq.png", width = 10, height = 7, units = "in",
       res = 150)
   print(
     ggplot(
       data = filter(covbysp, Treat != "Anc"),
-      aes(x = Timepoint, y = log10(rel_freq), color = Strain)) +
+      aes(x = Timepoint, y = log10(rel_freq_noAX), color = Strain)) +
       geom_point(position = position_jitter(width = 0.05, height = 0),
                  alpha = 0.3) + 
       geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
