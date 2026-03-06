@@ -622,12 +622,11 @@ mutpop <- mutate(group_by(mutpop,
                  freq_popavg = mean(freq0),
                  freq_popsd = sd(freq0))
 
-unique(filter(mutpop, freq_popavg == 1, freq_popsd == 0)$mut_id)
 #mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
 #mut_id 11212 is fixed in pop 9 across all treatments & timepoints
-mutpop <- filter(
-  mutpop,
-  !mut_id %in% unique(filter(mutpop, freq_popavg == 1, freq_popsd == 0)$mut_id))
+ids_out <- unique(filter(mutpop, freq_popavg == 1, freq_popsd == 0)$mut_id)
+ids_out
+mutpop <- filter(mutpop, !mut_id %in% ids_out)
 
 ###Analyze gene category frequencies ----
 
