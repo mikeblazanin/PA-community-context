@@ -146,50 +146,55 @@ covbysp <- mutate(covbysp,
                   rel_freq_cfu = ifelse(is.na(rel_freq_cfu), 0, rel_freq_cfu))
 
 if(make_slowplots) {
-  ggplot(data = filter(covdat, Isol == "Pop", seqtype == "PA"),
-         aes(x = seq_id, y = meandepth)) +
-    geom_point(alpha = 0.2) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0)) +
-    scale_y_log10()
-  
-  ggplot(data = filter(covdat, seq_id == "PA14_1", Isol == "Pop"),
-         aes(x = Timepoint, y = meandepth, color = Treat)) +
-    geom_point(alpha = 0.5, position = position_dodge(width = 0.3)) +
-    scale_y_log10()
-  
-  head(sort(filter(covdat, seq_id == "PA14_1", Isol == "Pop")$meandepth))
-  
-  ggplot(data = filter(covdat, Isol != "Pop"),
-         aes(x = paste0("T", Timepoint, " ", Treat, " P", Pop, " ", Isol),
-             y = meandepth)) +
-    geom_point(alpha = 0.2) +
-    theme(axis.text.x = element_text(size = 6, angle = 90, vjust = 0))
-  filter(covdat, seq_id == "PA14_1", Isol != "Pop",
-         meandepth == min(filter(covdat, seq_id == "PA14_1", Isol != "Pop")$meandepth))
-  
-  png("./plots/coverage_bactseq.png", width = 14, height = 10, units = "in",
+  png("./plots/coverage_by_contig.png", width = 12, height = 4, units = "in",
       res = 150)
-  print(
-    ggplot(data = filter(covdat, Isol == "Pop", seqtype == "PA"),
-           aes(x = Timepoint, y = meandepth, color = Treat)) +
-      geom_point(alpha = 0.5, position = position_dodge(width = 0.3)) +
-      scale_y_log10() +
-      facet_wrap(~ seq_id) +
-      geom_hline(yintercept = 10, lty = 2) +
-      NULL)
+  ggplot(data = filter(covdat, Isol == "Pop", seqtype == "PA"),
+         aes(x = seq_id, y = log10(meandepth))) +
+    geom_point(alpha = 0.2) +
+    scale_y_continuous(labels = math_format(10^.x)) +
+    scale_x_discrete(limits = c("PA14_1", "H6_1",
+                              paste0("SA_", 1:2),
+                              paste0("EF_", 1:4),
+                              paste0("AX1_", 1:71))) +
+    labs(y = "Mean coverage depth", x = "Contig from reference genomes",
+         subtitle = "Metagenomic sequencing") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.4))
   dev.off()
   
-  png("./plots/coverage_phageseq.png", width = 10, height = 7, units = "in",
+  png("./plots/coverage_PAby_TimepointTreat.png", width = 6, height = 3, 
+      units = "in", res = 150)
+  ggplot(data = filter(covdat, seqtype == "PA", seq_id == "PA14_1", Isol == "Pop"),
+         aes(x = Timepoint, y = meandepth, color = Treat)) +
+    geom_point(alpha = 0.5, position = position_dodge(width = 0.5),
+               size = 2) +
+    scale_y_log10(limits = c(100, NA)) +
+    scale_color_manual(name = "Treatments",
+                       breaks = c("Anc", "NN", "CNP", "NCP", "CP"),
+                       labels = c("Ancestor", "No-phage, Pseudomonas-only",
+                                  "No-phage, all bacteria",
+                                  "Phage-added, Pseudomonas-only",
+                                  "Phage-added, all bacteria"),
+                       values = my_cols[c(8, 7, 5, 1, 3)]) +
+    labs(x = "Timepoint (days)", y = "Mean coverage depth aligned to\nPseudomonas genome",
+         subtitle = "Metagenomic sequencing") +
+    theme_bw()
+  dev.off()
+  
+  png("./plots/coverage_by_contig_phageseq.png", width = 12, height = 4, units = "in",
       res = 150)
-  print(
-    ggplot(data = filter(covdat, Isol == "Pop", seqtype == "H6",
-                         seq_id %in% c("H6_1", "PA14_1")),
-           aes(x = Timepoint, y = meandepth, color = Treat)) +
-      geom_point(alpha = 0.5, position = position_dodge(width = 0.3)) +
-      scale_y_log10(breaks = c(0.01, 1, 100), labels = c(0.01, 1, 100)) +
-      facet_wrap(~ seq_id) +
-      geom_hline(yintercept = 10, lty = 2) +
-      NULL)
+  ggplot(data = filter(covdat, Isol == "Pop", seqtype == "H6"),
+         aes(x = seq_id, y = log10(meandepth))) +
+    geom_point(alpha = 0.2) +
+    scale_y_continuous(labels = math_format(10^.x)) +
+    scale_x_discrete(limits = c("PA14_1", "H6_1",
+                                paste0("SA_", 1:2),
+                                paste0("EF_", 1:4),
+                                paste0("AX1_", 1:71))) +
+    labs(y = "Mean coverage depth", x = "Contig from reference genomes",
+         subtitle = "Viral filtrate sequencing") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.4))
   dev.off()
   
   png("./plots/freq_fromseq.png", width = 10, height = 7, units = "in",
@@ -233,7 +238,7 @@ if(make_slowplots) {
     aes(x = log10(rel_freq), y = log10(rel_freq_cfu), 
         color = Strain, fill = Strain, shape = included_in_treat)) +
     geom_point() +
-    geom_path(aes(group = paste(Pop, Treat, Strain))) +
+    #geom_path(aes(group = paste(Pop, Treat, Strain))) +
     scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
                        labels = c("P. aeruginosa", "S. aureus",
                                   "E. faecalis", "A. xylosoxidans",
