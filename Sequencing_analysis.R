@@ -27,7 +27,6 @@
 
 #Other ideas
 # plot mutation trajectories excluding those that appear in control treatments
-# translate 100% frequency deletions into 0's for all the other mutations
 # Discriminant analysis to look for diff genes
 # ID mutations that are moving together
 # correlated coevol mutation
@@ -44,11 +43,11 @@ library(ggh4x)
 library(emmeans)
 library(pbkrtest)
 library(lmerTest)
-library(BiocManager)
+#library(BiocManager)
 #BiocManager::install("clusterProfiler")
-library(clusterProfiler)
+#library(clusterProfiler)
 #BiocManager::install("AnnotationHub")
-library(AnnotationHub)
+#library(AnnotationHub)
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
