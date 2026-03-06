@@ -260,8 +260,8 @@ if(make_slowplots) {
            included_in_treat == TRUE),
     Timepoint),
     aes(x = log10(rel_freq), y = log10(rel_freq_cfu), 
-        color = Strain, fill = Strain)) +
-    geom_point(alpha = 0.7) +
+        color = Strain, fill = Strain, shape = included_in_treat)) +
+    geom_point(alpha = 0.7, show.legend = TRUE, size = 3) +
     scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
                        labels = c("P. aeruginosa", "S. aureus",
                                   "E. faecalis", "A. xylosoxidans",
@@ -272,9 +272,15 @@ if(make_slowplots) {
                                  "E. faecalis", "A. xylosoxidans",
                                  "Phage H6"),
                       values = my_cols[c(3, 1, 2, 7, 8)]) +
+    scale_shape_manual(name = "Included in treatment",
+                       limits = c(TRUE, FALSE),
+                       values = c(18, 16),
+                       labels = c("Yes", "No")) +
     scale_x_continuous(labels = math_format(10^.x)) +
     scale_y_continuous(labels = math_format(10^.x)) +
     geom_abline(slope = 1, intercept = 0) +
+    # guides(color = guide_legend(override.aes = list(size = 2)),
+    #        shape = guide_legend(override.aes = list(size = 2))) +
     labs(x = "", y = "Frequency (CFU or PFU)") +
     theme_bw()
   p2 <- ggplot(data = arrange(
@@ -283,8 +289,8 @@ if(make_slowplots) {
            rel_freq != 0),
     Timepoint),
     aes(y = log10(rel_freq), x = 0, 
-        color = Strain, fill = Strain)) +
-    geom_point(position = position_dodge(width = 0.5), alpha = 0.7) +
+        color = Strain, fill = Strain, shape = included_in_treat)) +
+    geom_point(position = position_dodge(width = 1), alpha = 0.7, size = 3) +
     coord_flip() +
     scale_color_manual(limits = c("PA", "SA", "EF", "AX", "H6"),
                        labels = c("P. aeruginosa", "S. aureus",
@@ -296,20 +302,24 @@ if(make_slowplots) {
                                  "E. faecalis", "A. xylosoxidans",
                                  "Phage H6"),
                       values = my_cols[c(3, 1, 2, 7, 8)]) +
+    scale_shape_manual(name = "Included in treatment",
+                       limits = c(TRUE, FALSE),
+                       values = c(18, 16),
+                       labels = c("Yes", "No")) +
     scale_y_continuous(labels = math_format(10^.x)) +
     scale_x_continuous(breaks = 0, limits = c(-1, 1)) +
     labs(y = "Frequency (metagenomics)", x = "") +
     theme_bw() +
-    guides(color = "none", fill = "none")
+    guides(color = "none", fill = "none", shape = "none")
   p3 <- ggplot(data = arrange(
     filter(covbysp, Timepoint != 0,
            included_in_treat == FALSE,
            rel_freq == 0),
     Timepoint),
-    aes(x = 0, y = 0, color = Strain, fill = Strain)) +
+    aes(x = 0, y = 0, color = Strain, fill = Strain, shape = included_in_treat)) +
     coord_flip() +
-    geom_dotplot(aes(group = Strain), position = position_dodge(0.7),
-                 alpha = 0.7, stackdir = "center", dotsize = 3) +
+    geom_dotplot(aes(group = Strain), position = position_dodge(1),
+                 alpha = 0.7, stackdir = "center", dotsize = 5) +
     # geom_point(position = 
     #              position_jitterdodge(dodge.width = 0.5, jitter.height = 0.5,
     #                                   jitter.width = 0), 
@@ -324,22 +334,26 @@ if(make_slowplots) {
                                  "E. faecalis", "A. xylosoxidans",
                                  "Phage H6"),
                       values = my_cols[c(3, 1, 2, 7, 8)]) +
+    scale_shape_manual(name = "Included in treatment",
+                       limits = c(TRUE, FALSE),
+                       values = c(18, 16),
+                       labels = c("Yes", "No")) +
     scale_x_continuous(breaks = 0, limits = c(-1, 1)) +
     scale_y_continuous(breaks = 0, limits = c(-1, 1)) +
     labs(y = "", x = "") +
     theme_bw() +
-    guides(color = "none", fill = "none")
-  png("./plots/density_fromseq.png", width = 10, height = 7, units = "in",
+    guides(color = "none", fill = "none", shape = "none")
+  png("./plots/density_fromseq.png", width = 10.5, height = 7, units = "in",
       res = 150)
   cowplot::plot_grid(NULL, 
-                     p1 + guides(color = "none", fill = "none"), 
+                     p1 + guides(color = "none", fill = "none", shape = "none"), 
                      cowplot::get_legend(p1),
                      p3, 
                      p2, 
                      NULL,
                      nrow = 2,
                      rel_heights = c(1, 0.2),
-                     rel_widths = c(0.175, 1, 0.25),
+                     rel_widths = c(0.2, 1, 0.25),
                      align = "hv", axis = "tblr")
   dev.off()
 }
@@ -431,22 +445,8 @@ mutations <- mutate(mutations,
                                    levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
 
-##Add in annotations from PA annotations file ----
+##Read in annotations from PA annotations file for later use ----
 anno <- read.csv("PA14_annotated.csv")
-
-# View(filter(mutations, grepl("\\|", mutation_category)))
-# View(filter(mutations, mutation_category == "large_deletion", 
-#             seq_id == "PA14_1"))
-# filter(mutations, mutation_category == "large_deletion", 
-#        seq_id == "PA14_1", size < 6000000)$gene_name
-# 
-# annotb <- table(anno$Locus.Tag)
-# head(annotb[order(annotb, decreasing = TRUE)], 30)
-
-
-
-#Looks like gene names can be redundant, locus tags are unique
-# (but blank for non-coding features)
 
 ##Shared analysis labeling ----
 mutations <- mutate(
