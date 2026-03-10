@@ -737,10 +737,12 @@ if(make_slowplots) {
     Pop = as.numeric(Pop),
     gene_num = cur_group_id(),
     gene_name_num = paste0(cur_group_id(), ": ", gene_name))
-  # mydat <- mutate(
-  #   ungroup(mydat),
-  #   gene_name_num = factor(gene_name_num,
-  #                          levels = gene_name_num[order(as.numeric(gene_num))]))
+  mydat <- mutate(
+    ungroup(mydat),
+    gene_name_num = 
+      factor(gene_name_num,
+             levels = arrange(summarize(group_by(mydat, gene_num, gene_name_num)),
+                              gene_num)$gene_name_num))
   mydat_sum <- summarize(
     group_by(mydat, gene_num, gene_name_num, Pop, Treat, Treat_C, Treat_P, 
              mut_id, mutation_category3),
@@ -755,7 +757,8 @@ if(make_slowplots) {
           color = gene_name_num, lty = mutation_category3)) +
       geom_line() +
       geom_text(data = mydat_sum,
-                aes(x = max_timepoint, y = max_freq, label = gene_num)) +
+                aes(x = max_timepoint, y = max_freq, label = gene_num),
+                show.legend = FALSE) +
       facet_nested(Treat_P * Treat_C ~ Pop,
                    labeller = labeller(
                      Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
