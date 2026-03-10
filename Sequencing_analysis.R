@@ -488,7 +488,7 @@ mutations <- mutate(
     mutation_category2 %in% c("small_indel_intergenic", "snp_intergenic") ~ "intergenic",
     mutation_category2 %in% c("small_indel_inframe", "snp_nonsynonymous") ~ "nonsyn change",
     mutation_category2 %in% c("snp_synonymous") ~ "silent",
-    TRUE ~ "NA"),
+    TRUE ~ "Other"),
   pilmut_struc = ifelse(
     gene_category == "pilus",
     case_when(
@@ -670,16 +670,26 @@ if(make_slowplots) {
       data = mutate(filter(mutpop, seqtype == "PA", everabove_010 == TRUE, 
                            seq_id %in% c("PA14_1")),
                     gene_category = 
-                      ifelse(gene_category == "pilus", "pilus", "other")),
+                      ifelse(gene_category == "pilus", "pilus", "other"),
+                    Pop = as.numeric(Pop)),
       aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
           color = gene_category)) +
       geom_line(aes(alpha = gene_category)) +
-      facet_grid(Treat ~ as.numeric(Pop)) +
+      facet_nested(Treat_P * Treat_C ~ Pop,
+                 labeller = labeller(
+                   Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
+                   Treat_C = c("NC" = "Pseudomonas-only",
+                             "C" = "All bacteria"),
+                   Treat_P = c("NP" = "No-phage",
+                               "P" = "Phage-added"))) +
       scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
       scale_color_manual(breaks = c("pilus", "other"),
-                         values = my_cols[c(6, 8)]) +
+                         values = my_cols[c(6, 8)],
+                         name = "Gene function") +
       scale_alpha_manual(breaks = c("pilus", "other"),
-                         values = c(0.5, 0.2)) +
+                         values = c(0.5, 0.2),
+                         name = "Gene function") +
+      labs(x = "Timepoint (days)", y = "Frequency") +
       theme_bw() +
       NULL
   )
