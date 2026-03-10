@@ -488,7 +488,8 @@ mutations <- mutate(
     mutation_category2 %in% c("small_indel_intergenic", "snp_intergenic") ~ "intergenic",
     mutation_category2 %in% c("small_indel_inframe", "snp_nonsynonymous") ~ "nonsyn change",
     mutation_category2 %in% c("snp_synonymous") ~ "silent",
-    TRUE ~ "Other"),
+    grepl("\\|", mutation_category2) ~ "multigene",
+    TRUE ~ "other"),
   pilmut_struc = ifelse(
     gene_category == "pilus",
     case_when(
@@ -729,23 +730,46 @@ if(make_slowplots) {
   )
   dev.off()
   
-  png("./plots/mut_trajectories_pilus.png", width = 12, height = 7, units = "in",
+  mydat <- mutate(
+    group_by(filter(mutpop, seqtype == "PA", seq_id == "PA14_1",
+                    everabove_010 == TRUE, gene_category == "pilus"),
+             gene_name),
+    Pop = as.numeric(Pop),
+    gene_num = cur_group_id(),
+    gene_name_num = paste0(cur_group_id(), ": ", gene_name))
+  # mydat <- mutate(
+  #   ungroup(mydat),
+  #   gene_name_num = factor(gene_name_num,
+  #                          levels = gene_name_num[order(as.numeric(gene_num))]))
+  mydat_sum <- summarize(
+    group_by(mydat, gene_num, gene_name_num, Pop, Treat, Treat_C, Treat_P, 
+             mut_id, mutation_category3),
+    max_freq = max(freq0),
+    max_timepoint = Timepoint[which.max(freq0)])
+  png("./plots/mut_trajectories_pilus.png", width = 14, height = 7, units = "in",
       res = 150)
   print(
     ggplot(
-      data = filter(mutpop, seqtype == "PA", seq_id == "PA14_1",
-                    everabove_010_noanc == TRUE, gene_category == "pilus"),
+      data = mydat,
       aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
-          color = gene_name)) +
-      #geom_point(aes(alpha = gene_category)) +
+          color = gene_name_num, lty = mutation_category3)) +
       geom_line() +
-      facet_grid(Treat ~ Pop) +
-      #coord_cartesian(ylim = c(0.1, 1)) +
+      geom_text(data = mydat_sum,
+                aes(x = max_timepoint, y = max_freq, label = gene_num)) +
+      facet_nested(Treat_P * Treat_C ~ Pop,
+                   labeller = labeller(
+                     Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
+                     Treat_C = c("NC" = "Pseudomonas-only",
+                                 "C" = "All bacteria"),
+                     Treat_P = c("NP" = "No-phage",
+                                 "P" = "Phage-added"))) +
       scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-      # scale_color_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-      #                    values = my_cols[c(6, 5, 3, 8)]) +
-      # scale_alpha_manual(breaks = c("pilus", "biofilm", "mutator", "other"),
-      #                    values = c(0.8, 0.8, 0.8, 0.15)) +
+      scale_color_discrete(name = "Gene name") +
+      scale_linetype_manual(
+        name = "Putative mutation effect",
+        breaks = c("loss of function", "nonsyn change", "intergenic", "silent"),
+        values = c(1, 6, 2, 3)) +
+      labs(x = "Timepoint (days)", y = "Frequency") +
       theme_bw() +
       NULL
   )
