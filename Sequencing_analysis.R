@@ -55,6 +55,12 @@ my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
              "#D55E00", "#CC79A7", "#000000")
 scales::show_col(my_cols)
 
+#Extended version of Carto "Safe" palette
+my_cols2 <- c("#888888", "#117733", "#332288", "#661100","#882255",
+              "#88CCEE", "#CC6677", "#DDCC77",  
+            "#AA4499", "#44AA99","#999933",  "#6699CC",
+             "#E69F00")
+
 myTryCatch <- function(expr) {
   warn <- err <- NULL
   value <- withCallingHandlers(
@@ -730,35 +736,46 @@ if(make_slowplots) {
   )
   dev.off()
   
-  mydat <- mutate(
+  pildat <- mutate(
     group_by(filter(mutpop, seqtype == "PA", seq_id == "PA14_1",
                     everabove_010 == TRUE, gene_category == "pilus"),
              gene_name),
-    Pop = as.numeric(Pop),
+    Pop = as.numeric(Pop))
+  pildat <- mutate(
+    ungroup(pildat),
+    gene_name = 
+      factor(gene_name,
+             levels = 
+               arrange(
+                 summarize(group_by(pildat, gene_name), freqsum = sum(freq0)), 
+                 desc(freqsum))$gene_name)
+  )
+  pildat <- mutate(
+    group_by(pildat, gene_name),
     gene_num = cur_group_id(),
     gene_name_num = paste0(cur_group_id(), ": ", gene_name))
-  mydat <- mutate(
-    ungroup(mydat),
-    gene_name_num = 
-      factor(gene_name_num,
-             levels = arrange(summarize(group_by(mydat, gene_num, gene_name_num)),
-                              gene_num)$gene_name_num))
-  mydat_sum <- summarize(
-    group_by(mydat, gene_num, gene_name_num, Pop, Treat, Treat_C, Treat_P, 
+  pildat <- mutate(
+    ungroup(pildat),
+    gene_name_num = factor(
+      gene_name_num,
+      levels = arrange(summarize(group_by(pildat, gene_num, gene_name_num)),
+                       gene_num)$gene_name_num))
+  pildat_sum <- summarize(
+    group_by(pildat, gene_num, gene_name_num, Pop, Treat, Treat_C, Treat_P, 
              mut_id, mutation_category3),
     max_freq = max(freq0),
     max_timepoint = Timepoint[which.max(freq0)])
-  png("./plots/mut_trajectories_pilus.png", width = 14, height = 7, units = "in",
+  png("./plots/mut_trajectories_pilus.png", width = 16, height = 6, units = "in",
       res = 150)
   print(
     ggplot(
-      data = mydat,
+      data = pildat,
       aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
           color = gene_name_num, lty = mutation_category3)) +
-      geom_line() +
-      geom_text(data = mydat_sum,
-                aes(x = max_timepoint, y = max_freq, label = gene_num),
-                show.legend = FALSE) +
+      geom_line(lwd = 1.05, alpha = 0.6) +
+      geom_text(data = pildat_sum,
+                aes(x = max_timepoint, y = max_freq+0.05, label = gene_num),
+                size = 4, show.legend = FALSE) +
       facet_nested(Treat_P * Treat_C ~ Pop,
                    labeller = labeller(
                      Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
@@ -766,11 +783,12 @@ if(make_slowplots) {
                                  "C" = "All bacteria"),
                      Treat_P = c("NP" = "No-phage",
                                  "P" = "Phage-added"))) +
-      scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-      scale_color_discrete(name = "Gene name") +
+      scale_x_continuous(breaks = c(0, 1, 2, 4, 8), limits = c(0, 9)) +
+      scale_color_manual(name = "Gene name", values = my_cols2) +
       scale_linetype_manual(
         name = "Putative mutation effect",
         breaks = c("loss of function", "nonsyn change", "intergenic", "silent"),
+        labels = c("loss of function", "nonsyn. change", "intergenic", "silent"),
         values = c(1, 6, 2, 3)) +
       labs(x = "Timepoint (days)", y = "Frequency") +
       theme_bw() +
@@ -778,35 +796,39 @@ if(make_slowplots) {
   )
   dev.off()
   
-  png("./plots/mut_freqs_pilus.png", width = 12, height = 7, units = "in",
+  png("./plots/mut_freqs_pilus.png", width = 10, height = 10, units = "in",
       res = 150)
   print(
     ggplot(
-      data = filter(mutpop, seqtype == "PA", seq_id == "PA14_1",
-                    everabove_010_noanc == TRUE, gene_category == "pilus",
-                    gene_name != "type 4b pilus Flp biogenesis protein TadZ"),
-      aes(x = gene_name, y = freq0, color = Pop, group = Pop,
+      data = filter(pildat, freq0 > 0),
+      aes(x = gene_name, y = freq0, color = as.factor(Pop), group = Pop,
           shape = mutation_category3)) +
       geom_point(alpha = 0.5, position = position_dodge(width = 0.5)) +
-      facet_grid(Treat ~ .) +
+      facet_nested(Treat_P * Treat_C ~ .,
+                   labeller = labeller(
+                     Treat_C = c("NC" = "Pseudomonas-only",
+                                 "C" = "All bacteria"),
+                     Treat_P = c("NP" = "No-phage",
+                                 "P" = "Phage-added"))) +
+      scale_color_manual(
+        name = "Population", values = my_cols,
+        breaks = 3:10, labels =  LETTERS[(3:10)-2]) +
+      scale_fill_manual(
+        name = "Population", values = my_cols,
+        breaks = 3:10, labels =  LETTERS[(3:10)-2]) +
+      scale_shape_manual(
+        name = "Putative mutation effect",
+        breaks = c("loss of function", "nonsyn change", "intergenic", "silent"),
+        labels = c("loss of function", "nonsyn. change", "intergenic", "silent"),
+        values = c(15, 16, 17, 18)) +
+      labs(x = "Gene name", y = "Frequency") +
       theme_bw() +
-      theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+      theme(axis.text.x = element_text(angle = 60, hjust = 1),
+            plot.margin = unit(c(0.01, 0.01, 0.01, 0.1), "npc")) +
       NULL
   )
   dev.off()
 }
-
-
-# temp <- filter(mutpop, fixed == TRUE)
-# View(temp[order(temp$mut_id, temp$Timepoint, temp$Treat, as.numeric(temp$Pop)),
-#           c("freq", "mut_id", "Timepoint", "Treat", "Pop")])
-# 
-# temp <- filter(mutpop, seqtype == "PA", Isol == "Pop", Treat == "NCP",
-#                Pop == 3, everabove_025 == TRUE, seq_id == "PA14_1")
-# View(temp[order(temp$mut_id, temp$Timepoint), 
-#           c("freq", "mut_id", "Timepoint")])
-
-
 
 ###Analyze gene category frequencies ----
 
@@ -1376,6 +1398,7 @@ mutisol <- left_join(
     any_of(sampcols))
 )
 
+### Make nice table ----
 
 ##Note: five isolates have only the four shared fixed mutations 
 ##      (i.e. they're ancestral)
@@ -1384,7 +1407,6 @@ mutisol <- left_join(
 # 5174_69 - PA T1 P5 NCP #1 - susceptible
 # 5174_70 - PA T1 P5 NCP #2 - resistant
 # 5174_129 - PA T8 P10 CP #1 - resistant
-
 
 nice_isoltable <- 
   pivot_wider(
@@ -1412,7 +1434,7 @@ write.csv(x = nice_isoltable[order(nice_isoltable$resis_cat,
                                    nice_isoltable$Isol), ],
           file = "nice_isolmuts.csv", row.names = FALSE)
 
-#Create plottable frequency of mutations
+### Create plottable frequency of mutations ----
 isol_freq_sum <- 
   summarize(
     group_by(
@@ -1425,6 +1447,7 @@ isol_freq_sum <-
     mut_genes = {
       mygenes <- gene_short[!mut_id %in% c("2958", "3198", "7885", "11212")]
       case_when(
+        any(mutation_category3 == "intergenic") ~ "intergenic",
         length(mygenes) == 1 ~ paste(mygenes, collapse = " "),
         length(mygenes) == 0 ~ "none",
         length(mygenes) > 1 ~ "multiple",
@@ -1452,156 +1475,109 @@ isol_freq_sum <-
 
 pil_order <- unique(isol_freq_sum[isol_freq_sum$gene_category == "pilus", ]$mut_genes)
 pil_order <-
-  c("none", "multiple", pil_order[!pil_order %in% c("none", "multiple")])
+  c("none", "multiple", "intergenic",
+    pil_order[!pil_order %in% c("none", "multiple", "intergenic")])
 
-png("./plots/pilus_mut_freq_isols.png",
-    width = 9, height = 5, units = "in", res = 150)
-ggplot(
-  mutate(
-    filter(isol_freq_sum, gene_category == "pilus"),
-    mut_genes = factor(mut_genes, levels = pil_order)),
-  aes(x = resis_cat)) +
-  geom_bar(aes(fill = mut_genes), position = "fill") +
-  scale_x_discrete(limits = c("suscep", "part", "resis"),
-                   labels = c("Susceptible", "Partial", "Resistant")) +
-  scale_fill_manual(
-    name = "Pilus Genes\nMutated",
-    limits = pil_order,
-    values = c("gray70", "black",
-               viridis_pal()(length(pil_order)-2))) +
-  labs(x = "Isolates' Resistance to Phage",
-       y = "Frequency") +
-  theme_bw() +
-  theme(axis.text.x = element_text(size = 14),
-        axis.text.y = element_blank(),
-        axis.title = element_text(size = 18),
-        legend.text = element_text(size = 13),
-        legend.title = element_text(size = 18)) +
-  geom_text(data = summarize(group_by(isol_freq_sum, resis_cat), 
-                             n = length(unique(title))),
-            aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
-  NULL
-dev.off()
+if(make_slowplots) {
+  png("./plots/isolmut_pilus_freq.png",
+      width = 9, height = 5, units = "in", res = 150)
+  ggplot(
+    mutate(
+      filter(isol_freq_sum, gene_category == "pilus"),
+      mut_genes = factor(mut_genes, levels = pil_order)),
+    aes(x = resis_cat)) +
+    geom_bar(aes(fill = mut_genes), position = "fill") +
+    scale_x_discrete(limits = c("suscep", "part", "resis"),
+                     labels = c("Susceptible", "Partial", "Resistant")) +
+    scale_fill_manual(
+      name = "Pilus Genes\nMutated",
+      limits = pil_order,
+      values = c("gray70", "black", "gray30",
+                 viridis_pal()(length(pil_order)-3))) +
+    labs(x = "Isolates' Resistance to Phage",
+         y = "Frequency") +
+    theme_bw() +
+    theme(axis.text.x = element_text(size = 14),
+          axis.text.y = element_blank(),
+          axis.title = element_text(size = 18),
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size = 18)) +
+    geom_text(data = summarize(group_by(isol_freq_sum, resis_cat), 
+                               n = length(unique(title))),
+              aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
+    NULL
+  dev.off()
+}
 
-
-png("./plots/all_mut_freq_isols.png",
-    width = 14, height = 5, units = "in", res = 150)
-ggplot(isol_freq_sum,
-  aes(x = resis_cat)) +
-  geom_bar(aes(fill = mut_genes), position = "fill") +
-  facet_grid(~ gene_category) +
-  scale_x_discrete(limits = c("suscep", "part", "resis"),
-                   labels = c("Susceptible", "Partial", "Resistant")) +
-  # scale_fill_manual(
-  #   name = "Pilus Genes\nMutated",
-  #   limits = pil_order,
-  #   values = c("gray70", "black",
-  #              viridis_pal()(length(pil_order)-2))) +
-  labs(x = "Isolates' Resistance to Phage",
-       y = "Frequency") +
-  theme_bw() +
-  theme(axis.text.x = element_text(size = 14),
-        axis.text.y = element_blank(),
-        axis.title = element_text(size = 18),
-        legend.text = element_text(size = 13),
-        legend.title = element_text(size = 18)) +
-  geom_text(data = summarize(group_by(isol_freq_sum, resis_cat), 
-                             n = length(unique(title))),
-            aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
-  guides(fill = "none") +
-  NULL
-dev.off()
+### Plots of mutation types ----
 
 #Filter out fixed-nonvariate mutations
 #mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
 #mut_id 11212 is fixed in pop 9 across all treatments & timepoints
 mutisol <- filter(mutisol, !mut_id %in% c("2958", "3198", "7885", "11212"))
 
+#Redefine gene category for cleaner plotting
+mutisol <- mutate(
+  mutisol,
+  gene_category2 = 
+    factor(ifelse(gene_category == "pilus", "pilus", "other"),
+           levels = c("pilus", "other")))
+
 #Note: we sequenced more NCP isols than CP
                     
-png("./plots/isol_mut_types.png", width = 8, height = 8, units = "in",
-    res = 150)
-ggplot(data = mutisol,
-       aes(x = Treat, fill = mutation_category2)) +
-  geom_bar(position = "fill") +
-  theme(axis.text.x = element_text(angle = 90, size = 8)) +
-  facet_grid(~ gene_category)
-dev.off()
+if(make_slowplots) {
+  png("./plots/isolmut_types3.png", width = 7, height = 5, units = "in",
+      res = 150)
+  ggplot(
+    data = mutate(mutisol,
+                  mutation_category2 = factor(
+                    mutation_category2,
+                    levels = c("large_deletion", "small_indel_frameshift",
+                               "snp_nonsense", "small_indel_inframe", 
+                               "snp_nonsynonymous", "small_indel_intergenic",
+                               "snp_intergenic", "snp_synonymous"))),
+    aes(x = resis_cat)) +
+    geom_bar(aes(fill = mutation_category2), position = "fill") +
+    geom_text(data = 
+                summarize(group_by(mutisol, resis_cat, Treat_C, Treat_P, Treat), 
+                          n = n()),
+              aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
+    facet_nested(Treat_P * Treat_C ~ gene_category2,
+                 labeller = labeller(
+                   Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
+                   Treat_C = c("NC" = "Pseudomonas-only",
+                               "C" = "All bacteria"),
+                   Treat_P = c("NP" = "No-phage",
+                               "P" = "Phage-added"))) +
+    scale_x_discrete(limits = c("part", "resis"),
+                     labels = c("Partial", "Resistant")) +
+    scale_fill_manual(values = my_cols[c(8, 1:7)], 
+                      name = "Mutation type",
+                      labels = c("Large deletion", "Frameshift indel",
+                                 "Nonsense SNP", "In-frame indel",
+                                 "Nonsynonymous SNP", "Intergenic indel",
+                                 "Intergenic SNP", "Synonymous SNP")) +
+    labs(x = "Isolates' Resistance to Phage",
+         y = "Frequency") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, size = 14, 
+                                     hjust = 1, vjust = 0.5),
+          axis.text.y = element_blank(),
+          axis.title = element_text(size = 18),
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size = 18))
+  dev.off()
+}
 
-ggplot(data = filter(mutisol),
-       aes(x = resis_cat, fill = mutation_category2)) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, size = 8)) +
-  facet_grid(Treat ~ gene_category)
-
-ggplot(data = filter(mutisol),
-       aes(x = resis_cat, fill = mutation_category2)) +
-  geom_bar(position = "fill") +
-  theme(axis.text.x = element_text(angle = 90, size = 8)) +
-  facet_grid(Treat ~ gene_category)
-
-ggplot(data = filter(mutisol),
-       aes(x = resis_cat, fill = mutation_category3)) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, size = 8)) +
-  facet_grid(gene_category ~ Treat)
-
-png("./plots/isol_mut_types3.png", width = 8, height = 6, units = "in",
-    res = 150)
-ggplot(data = filter(mutisol),
-       aes(x = resis_cat, fill = mutation_category3)) +
-  geom_bar(position = "fill") +
-  theme(axis.text.x = element_text(angle = 90, size = 8)) +
-  facet_grid(gene_category ~ Treat)
-dev.off()
-
-ggplot(data = filter(mutisol, gene_category == "pilus"),
-       aes(x = twitch_cat, fill = mutation_category3)) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, size = 8)) +
-  facet_grid(gene_category ~ Treat)
-
-ggplot(data = filter(mutisol, gene_category == "pilus"),
-       aes(x = twitch_cat, fill = mutation_category3)) +
-  geom_bar(position = "fill") +
-  theme(axis.text.x = element_text(angle = 90, size = 8)) +
-  facet_grid(gene_category ~ Treat)
-
-
-mutisol_sum <- summarize(
-  group_by(mutisol, Timepoint, Treat, Pop, Isol, Treat_C, Treat_P),
-  nmuts = n(),
-  npil = sum(gene_category == "pilus"))
-
-ggplot(data = mutisol_sum,
-       aes(x = Timepoint, y = nmuts)) +
-  geom_point(alpha = 0.5,
-             position = position_jitter(width = 0.2, height = 0)) +
-  scale_y_log10() +
-  facet_grid(~Treat)
-
-ggplot(data = mutisol_sum,
-       aes(x = Timepoint, y = npil)) +
-  geom_point(alpha = 0.5,
-             position = position_jitter(width = 0.2, height = 0)) +
-  facet_grid(~Treat)
-
-View(filter(mutisol[order(mutisol$gene_name, mutisol$mut_id, 
-                          mutisol$Timepoint, mutisol$Treat, 
-                          as.numeric(mutisol$Pop), mutisol$Isol), ],
-            !mut_id %in% c("2958", "3198", "7885", "11212")))
-
-View(filter(mutisol, 
-            !mut_id %in% c("2958", "3198", "7885", "11212"),
-            new_seq == ref_seq))
 
 png("./plots/isol_pilmuts_byresis.png", width = 8, height = 10, units = "in",
     res = 150)
 print(
   ggplot(
     data = filter(mutisol, gene_category == "pilus"),
-    aes(x = gene_name, y = resis_cat, color = Pop, fill = Pop,
-        group = Pop, shape = mutation_category3)) +
+    aes(x = gene_name, y = resis_cat, 
+        color = mutation_category3, fill = mutation_category3,
+        group = Pop)) +
     geom_point(alpha = 0.5, 
                position = position_jitterdodge(jitter.width = 0,
                                                jitter.height = 0.05,
@@ -1619,8 +1595,9 @@ png("./plots/isol_pilmuts_bytwitch.png", width = 8, height = 10, units = "in",
 print(
   ggplot(
     data = filter(mutisol, gene_category == "pilus"),
-    aes(x = gene_name, y = twitch_cat, color = Pop, fill = Pop,
-        group = Pop, shape = mutation_category3)) +
+    aes(x = gene_name, y = twitch_cat, 
+        color = mutation_category3, fill = mutation_category3,
+        group = Pop)) +
     geom_point(alpha = 0.5, 
                position = position_jitterdodge(jitter.width = 0,
                                                jitter.height = 0.05,
