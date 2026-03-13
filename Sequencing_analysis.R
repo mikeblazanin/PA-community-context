@@ -44,6 +44,7 @@ library(ggh4x)
 library(emmeans)
 library(pbkrtest)
 library(lmerTest)
+library(stringdist)
 #library(BiocManager)
 #BiocManager::install("clusterProfiler")
 #library(clusterProfiler)
@@ -367,16 +368,25 @@ if(make_slowplots) {
 
 ##Initial breseq data reading & organization ----
 mutcols <- 
-  c("aa_new_seq", "aa_position", "aa_ref_seq", "codon_new_seq", "codon_number", 
+  c(
+    #columns from breseq:
+    "aa_new_seq", "aa_position", "aa_ref_seq", "codon_new_seq", "codon_number", 
     "codon_position", "codon_ref_seq", "gene_name", "gene_position", 
     "gene_product", "gene_strand", "genes_inactivated", "genes_overlapping", 
     "genes_promoter", "insert_position", "locus_tag", "locus_tags_inactivated",
     "locus_tags_overlapping", "locus_tags_promoter", "mutation_category",
     "new_seq", "position", "position_end", "position_start",
     "ref_seq", "repeat_length", "repeat_new_copies", "repeat_ref_copies",
-    "repeat_seq", "seq_id", "size", "snp_type", "transl_table", "type", "mut_id",
-    "gene_category", "mutation_category2", "mutation_category3",
-    "pilmut_struc", "gene_short", "concise_mut", "mut_combin")
+    "repeat_seq", "seq_id", "size", "snp_type", "transl_table", "type", 
+    #columns from my analyses:
+    "mut_id", "gene_category", "mutation_category2", "mutation_category3",
+    "pilmut_struc", "gene_short", "concise_mut", "mut_combin",
+    #Columns from eggnog and bakta:
+    "Sequence.Id", "Type", "Start", "Stop", "Strand", "Locus.Tag", "Gene", 
+    "Product", "DbXrefs", "seed_ortholog", "evalue", "score", "eggNOG_OGs", 
+    "max_annot_lvl", "COG_category", "Description", "Preferred_name", "GOs", 
+    "EC", "KEGG_ko", "KEGG_Pathway", "KEGG_Module", "KEGG_Reaction", 
+    "KEGG_rclass", "BRITE", "KEGG_TC", "CAZy", "BiGG_Reaction", "PFAMs")
 sampcols <- c("seqrun", "SeqCoastid", "seqtype", "Timepoint", "Pop", "Treat", 
               "Isol", "title", "Treat_C", "Treat_P",
               "clearing_avg", "EOP_avg", "Plaque_morphology", "resis", 
@@ -449,10 +459,6 @@ mutations <- mutate(mutations,
                       levels = c("Anc", "NP", "P")),
                     Treat = factor(Treat,
                                    levels = c("Anc", "NN", "CNP", "NCP", "CP")))
-
-
-##Read in annotations from PA annotations file for later use ----
-anno <- read.csv("PA14_annotated.csv")
 
 ##Shared analysis labeling ----
 mutations <- mutate(
@@ -563,6 +569,67 @@ mutations <- mutate(
       paste0(gene_short, " (", size, "bp DEL)"),
     TRUE ~ "nomatch")
 )
+
+##Incorporate annotations ----
+bakta <- read.csv("PA14_annotated.csv")
+
+eggnog <- read.delim("PA14_eggnog_out2.emapper.annotations",
+                     comment = "#",
+                     header = FALSE)
+colnames(eggnog) <-
+  gsub("#", "", 
+       read.delim("PA14_eggnog_out2.emapper.annotations",
+                  comment = "", header = FALSE,
+                  skip = 4, nrows = 1))
+colnames(eggnog)[colnames(eggnog) == "query"] <- "Locus.Tag"
+
+anno = full_join(bakta, eggnog)
+
+#Manually determine Locus.Tag values because locus_tag from breseq
+# is not a match
+
+####TODO: 
+# assign intergenic mutations
+# split multi-gene hits into two rows
+# for (i in 1:ncol(mutations)) {
+#   print(paste(i, colnames(mutations)[i], any(grepl("\\|", mutations[, i]))))
+# }
+
+mutations$Locus.Tag <- "unmatched"
+mutations$Locus.Tag[mutations$seq_id != "PA14_1"] <- NA
+mutations$Locus.Tag[mutations$mutation_category3 == "intergenic"] <- NA
+mutations$Locus.Tag[mutations$size == 6541479] <- NA #no coverage sample
+for (i in which(mutations$seq_id == "PA14_1")) {
+  matches <- anno[anno$Start <= mutations$position[i] &
+                    anno$Stop >= mutations$position[i], ]
+  if(nrow(matches) == 1) {
+    mutations$Locus.Tag[i] <- matches$Locus.Tag[1]
+  } else {
+    myrows <- which(!is.na(matches$Locus.Tag) & matches$Locus.Tag != "")
+    #If only one match has a locus tag, use that one
+    if(length(myrows) == 1) {
+      mutations$Locus.Tag[i] <- matches$Locus.Tag[myrows]
+    } else {
+      mutations$Locus.Tag[i] <- paste(matches$Locus.Tag[myrows], collapse = "|")
+    }
+  }
+}
+
+#Merge
+mutations <- 
+  left_join(
+    mutate(mutations,
+           Locus.Tag = ifelse(Locus.Tag == "" | Locus.Tag == "unmatched",
+                              NA, Locus.Tag)), 
+    anno,
+    na_matches = "never")
+
+#Check for name mismatches
+mutations <- mutate(mutations, stringdist = stringdist(gene_product, Product))
+View(mutations[order(mutations$stringdist, decreasing = TRUE), 
+               c("gene_name", "gene_product", "genes_overlapping", 
+                 "Gene", "Product", "stringdist")])
+
 
 #Split samples by type ----
 mutpop <- filter(mutations, Isol == "Pop", seqtype == "PA")
@@ -1228,27 +1295,33 @@ ggplot(data = filter(gnfs_sum_lng, pval < 0.01),
   theme(strip.text.y = element_text(angle = 0))
 dev.off()
 
+png("./plots/genefreq_byname2.png", width = 15, height = 20, units = "in",
+    res = 150)
+ggplot(data = filter(gnfs_sum_lng, abs(est) > 0.05),
+       aes(y = gene_name, x = -est, size = -log10(pval),
+           color = comparison, shape = in_treat)) +
+  geom_point() +
+  facet_grid(gene_category ~ ., space = "free_y", drop = TRUE, scales = "free_y") +
+  scale_size_continuous(limits = c(2, NA), range = c(0.5, 4)) +
+  scale_shape_manual(values = 15:18) +
+  theme(strip.text.y = element_text(angle = 0))
+dev.off()
+
 ### GO enrichment analysis ----
 
 #GO enrichment analysis using cluterProfiler in R
-#org.Ce.eg.db but need something like that for PA14
 #Can do a GSEA analysis where you put in a ranked list of
 # genes and it does kind of a rolling window approach and
 # stops at some point for sig GO terms
 #Or can just do a plain GO analysis that looks for enriched
 # terms in a hard set of genes
-#remove synon
-#I think first plan of attack is take my post-stats gene names
-# and put them into a simple GO analysis
-#Second plan of attack (if needed) is to rank genes by frequency
-# change per replicate, then feed that into GSEA
-# (because by binning by gene name before GO I'll lose any
-# pathways where there are multiple hits but to different
-# genes in the pathway)
+#I have to pool across reps within a treatment anyway
+#Rank genes by average frequency change bt treats per rep per timepoint
+# then feed that into GSEA
+# (in order to capture hits to same pathway but dift genes)
 
-hub <- AnnotationHub()
-q <- query(hub, "Pseudomonas aeruginosa")
-id <- q$ah_id[length(q)]
+
+
 
 
 
