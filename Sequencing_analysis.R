@@ -587,24 +587,32 @@ anno = full_join(bakta, eggnog)
 
 #Manually determine Locus.Tag values because locus_tag from breseq
 # is not a match
-
-####TODO: 
-# assign intergenic mutations
-# split multi-gene hits into two rows
-# for (i in 1:ncol(mutations)) {
-#   print(paste(i, colnames(mutations)[i], any(grepl("\\|", mutations[, i]))))
-# }
-
 mutations$Locus.Tag <- "unmatched"
 mutations$Locus.Tag[mutations$seq_id != "PA14_1"] <- NA
-mutations$Locus.Tag[mutations$mutation_category3 == "intergenic"] <- NA
 mutations$Locus.Tag[mutations$size == 6541479] <- NA #no coverage sample
-for (i in which(mutations$seq_id == "PA14_1")) {
-  matches <- anno[anno$Start <= mutations$position[i] &
-                    anno$Stop >= mutations$position[i], ]
-  if(nrow(matches) == 1) {
+for (i in which(!is.na(mutations$Locus.Tag))) {
+  matches <- anno[(anno$Start <= mutations$position_start[i] & 
+                     anno$Stop >= mutations$position_start[i]) |
+                    (anno$Start <= mutations$position_end[i] &
+                       anno$Stop >= mutations$position_end[i]), ]
+  if(nrow(matches) == 0) {
+    promgenes <- c()
+    #preceding gene (in promoter if on the + strand)
+    before <- max(which(anno$Stop < mutations$position[i]))
+    if(anno$Strand[before] == "-" & 
+       (mutations$position[i] - anno$Stop[before]) <= 150) {
+      promgenes <- before
+    }
+    #following gene (in promoter if on the - strand)
+    after <- min(which(anno$Start > mutations$position[i]))
+    if(anno$Strand[after] == "+" &
+       (anno$Start[after] - mutations$position[i]) <= 150) {
+      promgenes <- c(promgenes, after)
+    }
+    mutations$Locus.Tag[i] <- paste(anno$Locus.Tag[promgenes], collapse = "|")
+  } else if(nrow(matches) == 1) {
     mutations$Locus.Tag[i] <- matches$Locus.Tag[1]
-  } else {
+  } else { #nrow(matches) > 1
     myrows <- which(!is.na(matches$Locus.Tag) & matches$Locus.Tag != "")
     #If only one match has a locus tag, use that one
     if(length(myrows) == 1) {
@@ -612,8 +620,23 @@ for (i in which(mutations$seq_id == "PA14_1")) {
     } else {
       mutations$Locus.Tag[i] <- paste(matches$Locus.Tag[myrows], collapse = "|")
     }
-  }
+  } 
 }
+
+#Checks
+View(mutations[mutations$seq_id == "PA14_1" & 
+                 grepl("\\|", mutations$mutation_category) & 
+                 !grepl("\\|", mutations$Locus.Tag), ])
+View(filter(mutations, Locus.Tag == "unmatched"))
+                 
+
+####TODO: 
+# split multi-gene hits into two rows
+for (i in 1:ncol(mutations)) {
+  print(paste(i, colnames(mutations)[i], any(grepl("\\|", mutations[, i]))))
+}
+View(filter(mutations, grepl("\\|", Locus.Tag)))
+
 
 #Merge
 mutations <- 
