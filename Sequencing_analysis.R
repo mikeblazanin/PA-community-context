@@ -443,6 +443,11 @@ mutations <- separate_wider_delim(
   names = c("seqrun", "SeqCoastid", "seqtype",
             "Timepoint", "Pop", "Treat", "Isol"),
   cols_remove = FALSE)
+
+#Drop non-PA results
+nonPAmuts <- filter(mutations, seqtype != "PA" | seq_id != "PA14_1")
+mutations <- filter(mutations, seqtype == "PA", seq_id == "PA14_1")
+
 mutations <- mutate(mutations,
                     Timepoint = as.numeric(gsub("T", "", Timepoint)),
                     Pop = gsub("P", "", Pop),
@@ -588,7 +593,6 @@ anno = full_join(bakta, eggnog)
 #Manually determine Locus.Tag values because locus_tag from breseq
 # is not a match
 mutations$Locus.Tag <- "unmatched"
-mutations$Locus.Tag[mutations$seq_id != "PA14_1"] <- NA
 mutations$Locus.Tag[mutations$size == 6541479] <- NA #no coverage sample
 for (i in which(!is.na(mutations$Locus.Tag))) {
   matches <- anno[(anno$Start <= mutations$position_start[i] & 
@@ -655,8 +659,8 @@ View(mutations[order(mutations$stringdist, decreasing = TRUE),
 
 
 #Split samples by type ----
-mutpop <- filter(mutations, Isol == "Pop", seqtype == "PA")
-mutisol <- filter(mutations, Isol != "Pop", seqtype == "PA")
+mutpop <- filter(mutations, Isol == "Pop")
+mutisol <- filter(mutations, Isol != "Pop")
 
 ##Population sample analyses ----
 
@@ -671,22 +675,13 @@ mutpop <- complete(
   # mut_and_samp_cols
 )
 
-#Duplicating ancestral H6 rows into every pop & treatment
-mutpop <-
-  bind_rows(
-    filter(mutpop, !(seqtype == "H6" & Pop == 0)),
-    crossing(
-      Pop = as.character(unique(filter(mutpop, seqtype == "H6", Pop != 0)$Pop)),
-      Treat = as.character(unique(filter(mutpop, seqtype == "H6", Treat != "Anc")$Treat)),
-      select(filter(mutpop, seqtype == "H6", Pop == 0),
-             -Pop, -Treat)))
 #Duplicating ancestral PA rows into every treatment
 mutpop <-
   bind_rows(
-    filter(mutpop, !(seqtype == "PA" & Treat == "Anc")),
+    filter(mutpop, !Treat == "Anc"),
     crossing(
-      Treat = as.character(unique(filter(mutpop, seqtype == "PA", Treat != "Anc")$Treat)),
-      select(filter(mutpop, seqtype == "PA", Treat == "Anc"),
+      Treat = as.character(unique(filter(mutpop, Treat != "Anc")$Treat)),
+      select(filter(mutpop, Treat == "Anc"),
              -Treat)))
 
 #Fix treatment columns post-duplication
@@ -733,11 +728,9 @@ if(make_slowplots) {
            mutate(
              rbind(
                filter(mutpop, 
-                      freq0 > 0, seqtype == "PA", seq_id == "PA14_1",
-                      Timepoint != 0),
+                      freq0 > 0, Timepoint != 0),
                mutate(filter(mutpop, 
-                             freq0 > 0, seqtype == "PA", seq_id == "PA14_1",
-                             Timepoint == 0, Treat == "NN"),
+                             freq0 > 0, Timepoint == 0, Treat == "NN"),
                       Treat = "Anc")),
              Pop = as.numeric(Pop),
              Treat = factor(Treat, levels = c("Anc", "NN", "CNP", "NCP", "CP"))),
@@ -765,8 +758,7 @@ if(make_slowplots) {
       res = 150)
   print(
     ggplot(
-      data = mutate(filter(mutpop, seqtype == "PA", everabove_010 == TRUE, 
-                           seq_id %in% c("PA14_1")),
+      data = mutate(filter(mutpop, everabove_010 == TRUE),
                     gene_category = 
                       ifelse(gene_category == "pilus", "pilus", "other"),
                     Pop = as.numeric(Pop)),
@@ -798,8 +790,7 @@ if(make_slowplots) {
       res = 150)
   print(
     ggplot(
-      data = mutate(filter(mutpop, seqtype == "PA", everabove_010_noanc == TRUE, 
-                           seq_id %in% c("PA14_1")),
+      data = mutate(filter(mutpop, everabove_010_noanc == TRUE),
                     gene_category = 
                       ifelse(gene_category == "pilus", "pilus", "other"),
                     Pop = as.numeric(Pop)),
@@ -827,7 +818,7 @@ if(make_slowplots) {
   dev.off()
   
   pildat <- mutate(
-    group_by(filter(mutpop, seqtype == "PA", seq_id == "PA14_1",
+    group_by(filter(mutpop,
                     everabove_010 == TRUE, gene_category == "pilus"),
              gene_name),
     Pop = as.numeric(Pop))
@@ -927,8 +918,7 @@ if(make_slowplots) {
 gcat_freq <- summarize(
   group_by(
     filter(
-      mutpop, seq_id == "PA14_1", seqtype == "PA",
-      gene_name != "type 4b pilus Flp biogenesis protein TadZ"), 
+      mutpop, gene_name != "type 4b pilus Flp biogenesis protein TadZ"), 
     gene_category,
     across(any_of(sampcols))),
   total_freq = sum(freq0),
@@ -1120,8 +1110,7 @@ maxfreq_full_lme
 gcat_type_freq_pil <- summarize(
   group_by(
     filter(
-      mutpop, seq_id == "PA14_1", seqtype == "PA",
-      gene_category == "pilus",
+      mutpop, gene_category == "pilus",
       gene_name != "type 4b pilus Flp biogenesis protein TadZ"), 
     gene_category, mutation_category3,
     across(any_of(sampcols))),
@@ -1167,8 +1156,7 @@ indepfreq_pil_full_lme
 ###Analyze unique gene frequencies ----
 gnamefreq <- summarize(
   group_by(
-    filter(
-      mutpop, seq_id == "PA14_1", seqtype == "PA"), 
+    filter(mutpop), 
     gene_name, gene_product, gene_category,
     across(any_of(sampcols))),
   total_freq = sum(freq0),
@@ -1386,8 +1374,7 @@ mutcomp <-
 mutcomp <-
   full_join(
     mutcomp,
-    select(filter(mutpop,
-                  seqtype == "PA", seq_id == "PA14_1"),
+    select(filter(mutpop),
            -c(multiple_polymorphic_SNPs_in_same_codon,
               new_read_count, new_read_count_basis,
               ref_read_count, ref_read_count_basis,
@@ -1417,7 +1404,7 @@ mutcomp <- mutate(
     any((!is.na(everabove_010) & everabove_010 == TRUE) | 
           (!is.na(isolfreq) & isolfreq > 0)))
 
-tmp <- filter(mutcomp, seqtype == "PA", seq_id == "PA14_1",
+tmp <- filter(mutcomp,
               everabove_010_orisolmut == TRUE, 
               gene_category == "pilus", Treat %in% c("NCP", "CP"))
 
@@ -1433,7 +1420,7 @@ ggplot(tmp,
 dev.off()
 
 
-tmp <- filter(mutcomp, seqtype == "PA", seq_id == "PA14_1",
+tmp <- filter(mutcomp,
               everabove_010_orisolmut == TRUE, 
               Treat %in% c("NCP", "CP"))
 
