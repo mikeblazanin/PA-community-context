@@ -613,7 +613,8 @@ for (i in which(!is.na(mutations$Locus.Tag))) {
        (anno$Start[after] - mutations$position[i]) <= 150) {
       promgenes <- c(promgenes, after)
     }
-    mutations$Locus.Tag[i] <- paste(anno$Locus.Tag[promgenes], collapse = "|")
+    promgenes <- anno$Locus.Tag[promgenes]
+    mutations$Locus.Tag[i] <- paste(promgenes[promgenes != ""], collapse = "|")
   } else if(nrow(matches) == 1) {
     mutations$Locus.Tag[i] <- matches$Locus.Tag[1]
   } else { #nrow(matches) > 1
