@@ -545,6 +545,9 @@ mutations <- mutate(
       grepl("FimL", gene_name) ~ "regulatory",
       TRUE ~ "tbd"),
     NA))
+#TODO
+# need to fix gene_short for intergenic/multihit cases bc it's just
+#  pulling the last bit instead of each last bit
 #   gene_short = coalesce(
 #     # 1) Capitalized short symbol at end, e.g. "… PilT" or "… PilY1"
 #     str_extract(gene_name, "([A-Z][A-Za-z0-9]+)$"),
@@ -652,18 +655,6 @@ for (i in 1:nrow(mutation)) {
   
 }
 
-####TODO: 
-# split multi-gene hits into two rows
-for (i in 1:ncol(mutations)) {
-  print(paste(i, colnames(mutations)[i], any(grepl("\\|", mutations[, i]))))
-}
-for (i in 1:ncol(mutations)) {
-  print(paste(i, colnames(mutations)[i], any(grepl("/", mutations[, i]))))
-}
-for (i in 1:ncol(mutations)) {
-  print(paste(i, colnames(mutations)[i], any(grepl(",", mutations[, i]))))
-}
-
 tmp <- summarize(group_by(mutations, across(any_of(mutcols))))
 tmp <- mutate(ungroup(tmp),
               nsep = rowSums(across(everything(),
@@ -687,7 +678,7 @@ multigenecols <-
     "Locus.Tag")
 # they use , in genes_overlapping
 # also will have to re-make concise_mut
-# they may also have / or , in gene_product (as all types do)
+# they may also have / or , in names in gene_product (as all types do)
 
 ##intergenic hits have / in 4 columns
 intergeniccols <- c("gene_name", "gene_product", "gene_strand", "locus_tag") 
@@ -696,11 +687,11 @@ intergeniccols <- c("gene_name", "gene_product", "gene_strand", "locus_tag")
 # they also have gene_position with a 'intergenic (pos/pos)' setup
 # Note also that gene_name and gene_product for intergenic hits contain
 #  both neighboring genes, even if it's only in the promoter of one/none
-# they may also have / or , in gene_product (as all types do)
+# they may also have / or , in names in gene_product (as all types do)
 
 ##coding indels have / in gene_position denoting start/end (?)
 # use , in genes_overlapping (if span multiple genes)
-# they may also have / or , in gene_product (as all types do)
+# they may also have / or , in names in gene_product (as all types do)
 
 #Across all mutation types:
 # gene_name, genes_inactivated, genes_overlapping, genes_promoter
@@ -708,10 +699,9 @@ intergeniccols <- c("gene_name", "gene_product", "gene_strand", "locus_tag")
 # gene_product
 #   uses the original gene names with / or , in them
 
-
-# need to fix gene_short for intergenic/multihit cases bc it's just
-#  pulling the last bit instead of each last bit
-
+mutations$genes_overlapping <- gsub(",", "|", mutations$genes_overlapping)
+mutations$genes_promoter <- gsub(",", "|", mutations$genes_promoter)
+#fix gene_position for intergenic
 
 
 
