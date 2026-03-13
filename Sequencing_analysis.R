@@ -476,8 +476,8 @@ mutations <- mutate(
     grepl("LasR", gene_name) ~ "QS",
     grepl("LasI", gene_name) ~ "QS",
     grepl("quorum", gene_name) ~ "QS",
-    grepl("LasA", gene_name) ~ "LasA/LasB",
-    grepl("LasB", gene_name) ~ "LasA/LasB",
+    grepl("LasA", gene_name) ~ "LasA_LasB",
+    grepl("LasB", gene_name) ~ "LasA_LasB",
     grepl("Mut", gene_name) ~ "mutator",
     grepl("Tps", gene_name) ~ "TPS system",
     grepl("type VI", gene_name) ~ "T6SS",
@@ -544,36 +544,36 @@ mutations <- mutate(
       grepl("PilP", gene_name) ~ "alignment_sc",
       grepl("FimL", gene_name) ~ "regulatory",
       TRUE ~ "tbd"),
-    NA),
-  gene_short = coalesce(
-    # 1) Capitalized short symbol at end, e.g. "… PilT" or "… PilY1"
-    str_extract(gene_name, "([A-Z][A-Za-z0-9]+)$"),
-    # 2) Gene token immediately following "protein"
-    str_extract(gene_name, "(?i)\\bPil[A-Za-z0-9]*(?=$|/)"),
-    # 3) As a final fallback use the provided gene_name column
-    gene_name),
-  concise_mut = case_when(
-    mut_id %in% c("2958", "3198", "7885", "11212") ~ "", #(ancestral mutations)
-    grepl("snp", mutation_category) ~
-      ifelse(grepl("intergenic", gene_position),
-             paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
-             paste0(gene_short, " (", aa_ref_seq, "->", aa_new_seq, ")")),
-    mutation_category == "small_indel" & type == "DEL" ~
-      ifelse(grepl("intergenic", gene_position),
-             paste0(gene_short, " (intergenic ", size, "bp DEL)"),
-             paste0(gene_short, " (", size, "bp DEL)")),
-    mutation_category == "small_indel" & type == "INS" ~
-      ifelse(grepl("intergenic", gene_position),
-             paste0(gene_short, " (intergenic ", nchar(new_seq), "bp INS)"),
-             paste0(gene_short, " (", nchar(new_seq), "bp INS)")),
-    mutation_category == "small_indel" & type == "SUB" ~
-      ifelse(grepl("intergenic", gene_position),
-             paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
-             paste0(gene_short, " (nt ", ref_seq, "->", new_seq, ")")),
-    mutation_category == "large_deletion" ~
-      paste0(gene_short, " (", size, "bp DEL)"),
-    TRUE ~ "nomatch")
-)
+    NA))
+#   gene_short = coalesce(
+#     # 1) Capitalized short symbol at end, e.g. "… PilT" or "… PilY1"
+#     str_extract(gene_name, "([A-Z][A-Za-z0-9]+)$"),
+#     # 2) Gene token immediately following "protein"
+#     str_extract(gene_name, "(?i)\\bPil[A-Za-z0-9]*(?=$|/)"),
+#     # 3) As a final fallback use the provided gene_name column
+#     gene_name),
+#   concise_mut = case_when(
+#     mut_id %in% c("2958", "3198", "7885", "11212") ~ "", #(ancestral mutations)
+#     grepl("snp", mutation_category) ~
+#       ifelse(grepl("intergenic", gene_position),
+#              paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
+#              paste0(gene_short, " (", aa_ref_seq, "->", aa_new_seq, ")")),
+#     mutation_category == "small_indel" & type == "DEL" ~
+#       ifelse(grepl("intergenic", gene_position),
+#              paste0(gene_short, " (intergenic ", size, "bp DEL)"),
+#              paste0(gene_short, " (", size, "bp DEL)")),
+#     mutation_category == "small_indel" & type == "INS" ~
+#       ifelse(grepl("intergenic", gene_position),
+#              paste0(gene_short, " (intergenic ", nchar(new_seq), "bp INS)"),
+#              paste0(gene_short, " (", nchar(new_seq), "bp INS)")),
+#     mutation_category == "small_indel" & type == "SUB" ~
+#       ifelse(grepl("intergenic", gene_position),
+#              paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
+#              paste0(gene_short, " (nt ", ref_seq, "->", new_seq, ")")),
+#     mutation_category == "large_deletion" ~
+#       paste0(gene_short, " (", size, "bp DEL)"),
+#     TRUE ~ "nomatch")
+# )
 
 ##Incorporate annotations ----
 bakta <- read.csv("PA14_annotated.csv")
@@ -628,18 +628,90 @@ for (i in which(!is.na(mutations$Locus.Tag))) {
 }
 
 #Checks
-View(mutations[mutations$seq_id == "PA14_1" & 
-                 grepl("\\|", mutations$mutation_category) & 
+View(mutations[grepl("\\|", mutations$mutation_category) & 
                  !grepl("\\|", mutations$Locus.Tag), ])
 View(filter(mutations, Locus.Tag == "unmatched"))
-                 
+View(select(filter(mutations, grepl("\\|", Locus.Tag)), 
+            gene_name, gene_position, gene_product, gene_strand, genes_promoter, 
+            mutation_category, position, position_end, position_start, snp_type, 
+            type, mut_id, mutation_category2, mutation_category3, Locus.Tag))
+View(select(filter(mutations, mutation_category3 == "intergenic"), 
+            gene_name, gene_position, gene_product, gene_strand, genes_promoter, 
+            mutation_category, position, position_end, position_start, snp_type, 
+            type, mut_id, mutation_category2, mutation_category3, Locus.Tag))
+View(select(filter(mutations, mutation_category3 == "intergenic", 
+                   (Locus.Tag != "" & genes_promoter == "")), 
+            gene_name, gene_position, gene_product, gene_strand, genes_promoter, 
+            mutation_category, position, position_end, position_start, snp_type, 
+            type, mut_id, mutation_category2, mutation_category3, Locus.Tag))
+
+#Fix gene_position to be properly split by /
+for (i in 1:nrow(mutation)) {
+  
+  
+}
 
 ####TODO: 
 # split multi-gene hits into two rows
 for (i in 1:ncol(mutations)) {
   print(paste(i, colnames(mutations)[i], any(grepl("\\|", mutations[, i]))))
 }
+for (i in 1:ncol(mutations)) {
+  print(paste(i, colnames(mutations)[i], any(grepl("/", mutations[, i]))))
+}
+for (i in 1:ncol(mutations)) {
+  print(paste(i, colnames(mutations)[i], any(grepl(",", mutations[, i]))))
+}
+
+tmp <- summarize(group_by(mutations, across(any_of(mutcols))))
+tmp <- mutate(ungroup(tmp),
+              nsep = rowSums(across(everything(),
+                                    ~ str_detect(.x, "[|/]")),
+                             na.rm = TRUE),
+              ncomma = rowSums(across(everything(),
+                                      ~ str_detect(.x, ",")),
+                               na.rm = TRUE))
+tmp <- tmp[order(tmp$nsep, tmp$ncomma, decreasing = TRUE), ]
+write.csv(tmp, "tmp.csv", row.names = FALSE)
+
 View(filter(mutations, grepl("\\|", Locus.Tag)))
+
+###Notes:
+##multigene hits (bc of overlapping genes) have | in 17 columns
+multigenecols <- 
+  c("aa_new_seq", "aa_position", "aa_ref_seq", "codon_new_seq",
+    "codon_number", "codon_position", "codon_ref_seq", "gene_name",
+    "gene_position", "gene_product", "gene_strand", "locus_tag",
+    "mutation_category", "snp_type", "transl_table", "mutation_category2",
+    "Locus.Tag")
+# they use , in genes_overlapping
+# also will have to re-make concise_mut
+# they may also have / or , in gene_product (as all types do)
+
+##intergenic hits have / in 4 columns
+intergeniccols <- c("gene_name", "gene_product", "gene_strand", "locus_tag") 
+# of course use | in 1 column: "Locus.Tag"
+# use , in the genes_promoter column
+# they also have gene_position with a 'intergenic (pos/pos)' setup
+# Note also that gene_name and gene_product for intergenic hits contain
+#  both neighboring genes, even if it's only in the promoter of one/none
+# they may also have / or , in gene_product (as all types do)
+
+##coding indels have / in gene_position denoting start/end (?)
+# use , in genes_overlapping (if span multiple genes)
+# they may also have / or , in gene_product (as all types do)
+
+#Across all mutation types:
+# gene_name, genes_inactivated, genes_overlapping, genes_promoter
+#   use _ in gene names where originally contained / or ,
+# gene_product
+#   uses the original gene names with / or , in them
+
+
+# need to fix gene_short for intergenic/multihit cases bc it's just
+#  pulling the last bit instead of each last bit
+
+
 
 
 #Merge
