@@ -45,11 +45,10 @@ library(emmeans)
 library(pbkrtest)
 library(lmerTest)
 library(stringdist)
-#library(BiocManager)
+library(BiocManager)
 #BiocManager::install("clusterProfiler")
-#library(clusterProfiler)
-#BiocManager::install("AnnotationHub")
-#library(AnnotationHub)
+#BiocManager::install("GO.db")
+library(clusterProfiler)
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -661,7 +660,8 @@ for (i in which(!is.na(mutations$Locus.Tag))) {
 # tmp <- tmp[order(tmp$nsep, tmp$ncomma, decreasing = TRUE), ]
 # write.csv(tmp, "tmp.csv", row.names = FALSE)
 
-###Preparing to split rows where mutations hit multiple genes, Notes:
+### Split multihit rows ----
+###Notes:
 
 #Across all mutation types:
 # gene_name, genes_inactivated, genes_overlapping, genes_promoter
@@ -756,8 +756,8 @@ mutationsd_sum <- mutate(group_by(mutationsd_sum, across(any_of(mutcols))),
 #Split samples by type ----
 mutpop <- filter(mutations, Isol == "Pop")
 mutisol <- filter(mutations, Isol != "Pop")
-mutdpop <- filter(mutationsd, Isol == "Pop")
-mutdisol <- filter(mutationsd, Isol != "Pop")
+mutpopd <- filter(mutationsd, Isol == "Pop")
+mutisold <- filter(mutationsd, Isol != "Pop")
 
 ##Population sample analyses ----
 
@@ -771,6 +771,13 @@ mutpop <- complete(
   #Columns left out (and therefore filled in by NA by default):
   # mut_and_samp_cols
 )
+mutpopd <- complete(
+  ungroup(mutpopd),
+  nesting(!!!syms(intersect(mutcols, colnames(mutpopd)))),
+  nesting(!!!syms(intersect(sampcols, colnames(mutpopd))))
+  #Columns left out (and therefore filled in by NA by default):
+  # mut_and_samp_cols
+)
 
 #Duplicating ancestral PA rows into every treatment
 mutpop <-
@@ -780,9 +787,26 @@ mutpop <-
       Treat = as.character(unique(filter(mutpop, Treat != "Anc")$Treat)),
       select(filter(mutpop, Treat == "Anc"),
              -Treat)))
+#Drop ancestral from mutpopd
+mutpopd <- filter(mutpopd, Treat != "Anc")
 
 #Fix treatment columns post-duplication
 mutpop <- mutate(mutpop,
+                 freq0 = ifelse(is.na(freq), 0, freq),
+                 freq01 = ifelse(freq0 == 0, 0.01, freq0),
+                 Treat_C = factor(
+                   ifelse(Treat %in% c("NCP", "NN"), "NC",
+                          ifelse(Treat %in% c("CNP", "CP"), "C",
+                                 Treat)),
+                   levels = c("Anc", "NC", "C")),
+                 Treat_P = factor(
+                   ifelse(Treat %in% c("NN", "CNP"), "NP",
+                          ifelse(Treat %in% c("NCP", "CP"), "P",
+                                 Treat)),
+                   levels = c("Anc", "NP", "P")),
+                 Treat = factor(Treat,
+                                levels = c("Anc", "NN", "CNP", "NCP", "CP")))
+mutpopd <- mutate(mutpopd,
                  freq0 = ifelse(is.na(freq), 0, freq),
                  freq01 = ifelse(freq0 == 0, 0.01, freq0),
                  Treat_C = factor(
@@ -803,9 +827,19 @@ mutpop <- mutate(group_by(mutpop,
                  everabove_010 = any(freq0 > 0.1, na.rm = TRUE),
                  everabove_010_noanc = any(freq0[Timepoint != 0] > 0.1, na.rm = TRUE),
                  fixed = all(freq0 == 1))
+mutpopd <- mutate(group_by(mutpopd, 
+                          across(any_of(c(mutcols, "seqtype", "Treat", "Pop")))),
+                 everabove_010 = any(freq0 > 0.1, na.rm = TRUE),
+                 everabove_010_noanc = any(freq0[Timepoint != 0] > 0.1, na.rm = TRUE),
+                 fixed = all(freq0 == 1))
 
 ### Filter out fixed-nonvariate mutations ----
 mutpop <- mutate(group_by(mutpop,
+                          across(any_of(mutcols)),
+                          Pop),
+                 freq_popavg = mean(freq0),
+                 freq_popsd = sd(freq0))
+mutpopd <- mutate(group_by(mutpopd,
                           across(any_of(mutcols)),
                           Pop),
                  freq_popavg = mean(freq0),
@@ -814,8 +848,11 @@ mutpop <- mutate(group_by(mutpop,
 #mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
 #mut_id 11212 is fixed in pop 9 across all treatments & timepoints
 ids_out <- unique(filter(mutpop, freq_popavg == 1, freq_popsd == 0)$mut_id)
+ids_outd <- unique(filter(mutpopd, freq_popavg == 1, freq_popsd == 0)$mut_id)
 ids_out
+ids_outd
 mutpop <- filter(mutpop, !mut_id %in% ids_out)
+mutpopd <- filter(mutpopd, !mut_id %in% ids_outd)
 
 ### Analysis of mutation trajectories ----
 if(make_slowplots) {
@@ -1008,8 +1045,9 @@ if(make_slowplots) {
   dev.off()
 }
 
-###Analyze gene category frequencies ----
+###Analyze gene category frequencies CHANGE TO ONLY PILUS ----
 
+##TODO - add pilus annotations from GO terms
 ##TODO - remove synonymous mutations
 
 gcat_freq <- summarize(
@@ -1250,7 +1288,7 @@ indepfreq_pil_reduced_lme <-
 anova(indepfreq_pil_reduced_lme, indepfreq_pil_full_lme)
 indepfreq_pil_full_lme
 
-###Analyze unique gene frequencies ----
+###Analyze unique gene frequencies CUT ----
 gnamefreq <- summarize(
   group_by(
     filter(mutpop), 
@@ -1428,10 +1466,57 @@ dev.off()
 # then feed that into GSEA
 # (in order to capture hits to same pathway but dift genes)
 
+#Make term to gene mapping from background annotation
+term2gene <- 
+  select(
+    separate_longer_delim(filter(ungroup(anno), !is.na(GOs), GOs != "-"),
+                          cols = GOs, delim = ","),
+    GOs, Locus.Tag)
+#Pull GO term names for interpretation
+term2name <- data.frame(
+  GOs = AnnotationDbi::keys(GO.db::GO.db), 
+  name = AnnotationDbi::Term(AnnotationDbi::keys(GO.db::GO.db)))
 
+#Calculate gene frequency differences
+gnamefreq <- summarize(
+  group_by(
+    filter(mutpopd, !is.na(Locus.Tag)), 
+    Locus.Tag, Product,
+    across(any_of(sampcols))),
+  total_freq = sum(freq0),
+  indep_freq = 1-prod(1-freq0))
 
+#There are no missing combos to fill in (filled in previously)
 
+gnamefreq_sum <- 
+  summarize(
+    group_by(gnamefreq, Locus.Tag, Product),
+    PvsNP_tf = 
+      mean(total_freq[Treat_P == "P"]) - mean(total_freq[Treat_P == "NP"]),
+    CvsNC_inP_tf = 
+      mean(total_freq[Treat_C == "C" & Treat_P == "P"]) -
+      mean(total_freq[Treat_C == "NC" & Treat_P == "P"]),
+    CvsNC_inNP_tf = 
+      mean(total_freq[Treat_C == "C" & Treat_P == "NP"]) -
+      mean(total_freq[Treat_C == "NC" & Treat_P == "NP"]),
+    PvsNP_if = 
+      mean(indep_freq[Treat_P == "P"]) - mean(indep_freq[Treat_P == "NP"]),
+    CvsNC_inP_if = 
+      mean(indep_freq[Treat_C == "C" & Treat_P == "P"]) -
+      mean(indep_freq[Treat_C == "NC" & Treat_P == "P"]),
+    CvsNC_inNP_if = 
+      mean(indep_freq[Treat_C == "C" & Treat_P == "NP"]) -
+      mean(indep_freq[Treat_C == "NC" & Treat_P == "NP"])
+  )
 
+gnamefreq_sum <- arrange(gnamefreq_sum, desc(PvsNP_tf))
+gsea_nvsnptf <- 
+  GSEA(geneList = setNames(gnamefreq_sum$PvsNP_tf, gnamefreq_sum$Locus.Tag),
+       TERM2GENE = term2gene,
+       TERM2NAME = term2name,
+       pvalueCutoff = 0.2)
+head(gsea_nvsnptf)
+dotplot(gsea_nvsnptf)
 
 ## Comparing isolate vs population sequencing ----
 
