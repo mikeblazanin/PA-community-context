@@ -498,11 +498,12 @@ mutations <- mutate(
       (nchar(ref_seq) - nchar(new_seq)) %% 3 == 0 ~ "small_indel_inframe",
     mutation_category == "small_indel" & grepl("coding", gene_position) &
       (nchar(ref_seq) - nchar(new_seq)) %% 3 != 0 ~ "small_indel_frameshift",
+    grepl("intergenic", gene_position) ~ paste0(mutation_category, "_intergenic"),
     TRUE ~ mutation_category),
   mutation_category3 = case_when(
     mutation_category2 %in% 
       c("large_deletion", "small_indel_frameshift", "snp_nonsense") ~ "loss of function",
-    mutation_category2 %in% c("small_indel_intergenic", "snp_intergenic") ~ "intergenic",
+    grepl("intergenic", mutation_category2) ~ "intergenic",
     mutation_category2 %in% c("small_indel_inframe", "snp_nonsynonymous") ~ "nonsyn change",
     mutation_category2 %in% c("snp_synonymous") ~ "silent",
     grepl("\\|", mutation_category2) ~ "multigene",
@@ -632,98 +633,131 @@ for (i in which(!is.na(mutations$Locus.Tag))) {
 }
 
 #Checks
-View(mutations[grepl("\\|", mutations$mutation_category) & 
-                 !grepl("\\|", mutations$Locus.Tag), ])
-View(filter(mutations, Locus.Tag == "unmatched"))
-View(select(filter(mutations, grepl("\\|", Locus.Tag)), 
-            gene_name, gene_position, gene_product, gene_strand, genes_promoter, 
-            mutation_category, position, position_end, position_start, snp_type, 
-            type, mut_id, mutation_category2, mutation_category3, Locus.Tag))
-View(select(filter(mutations, mutation_category3 == "intergenic"), 
-            gene_name, gene_position, gene_product, gene_strand, genes_promoter, 
-            mutation_category, position, position_end, position_start, snp_type, 
-            type, mut_id, mutation_category2, mutation_category3, Locus.Tag))
-View(select(filter(mutations, mutation_category3 == "intergenic", 
-                   (Locus.Tag != "" & genes_promoter == "")), 
-            gene_name, gene_position, gene_product, gene_strand, genes_promoter, 
-            mutation_category, position, position_end, position_start, snp_type, 
-            type, mut_id, mutation_category2, mutation_category3, Locus.Tag))
+# View(mutations[grepl("\\|", mutations$mutation_category) & 
+#                  !grepl("\\|", mutations$Locus.Tag), ])
+# View(filter(mutations, Locus.Tag == "unmatched"))
+# View(select(filter(mutations, grepl("\\|", Locus.Tag)), 
+#             gene_name, gene_position, gene_product, gene_strand, genes_promoter, 
+#             mutation_category, position, position_end, position_start, snp_type, 
+#             type, mut_id, mutation_category2, mutation_category3, Locus.Tag))
+# View(select(filter(mutations, mutation_category3 == "intergenic"), 
+#             gene_name, gene_position, gene_product, gene_strand, genes_promoter, 
+#             mutation_category, position, position_end, position_start, snp_type, 
+#             type, mut_id, mutation_category2, mutation_category3, Locus.Tag))
+# View(select(filter(mutations, mutation_category3 == "intergenic", 
+#                    (Locus.Tag != "" & genes_promoter == "")), 
+#             gene_name, gene_position, gene_product, gene_strand, genes_promoter, 
+#             mutation_category, position, position_end, position_start, snp_type, 
+#             type, mut_id, mutation_category2, mutation_category3, Locus.Tag))
 
-#Fix gene_position to be properly split by /
-for (i in 1:nrow(mutation)) {
-  
-  
-}
+# tmp <- summarize(group_by(mutations, across(any_of(mutcols))))
+# tmp <- mutate(ungroup(tmp),
+#               nsep = rowSums(across(everything(),
+#                                     ~ str_detect(.x, "[|/]")),
+#                              na.rm = TRUE),
+#               ncomma = rowSums(across(everything(),
+#                                       ~ str_detect(.x, ",")),
+#                                na.rm = TRUE))
+# tmp <- tmp[order(tmp$nsep, tmp$ncomma, decreasing = TRUE), ]
+# write.csv(tmp, "tmp.csv", row.names = FALSE)
 
-tmp <- summarize(group_by(mutations, across(any_of(mutcols))))
-tmp <- mutate(ungroup(tmp),
-              nsep = rowSums(across(everything(),
-                                    ~ str_detect(.x, "[|/]")),
-                             na.rm = TRUE),
-              ncomma = rowSums(across(everything(),
-                                      ~ str_detect(.x, ",")),
-                               na.rm = TRUE))
-tmp <- tmp[order(tmp$nsep, tmp$ncomma, decreasing = TRUE), ]
-write.csv(tmp, "tmp.csv", row.names = FALSE)
-
-View(filter(mutations, grepl("\\|", Locus.Tag)))
-
-###Notes:
-##multigene hits (bc of overlapping genes) have | in 17 columns
-multigenecols <- 
-  c("aa_new_seq", "aa_position", "aa_ref_seq", "codon_new_seq",
-    "codon_number", "codon_position", "codon_ref_seq", "gene_name",
-    "gene_position", "gene_product", "gene_strand", "locus_tag",
-    "mutation_category", "snp_type", "transl_table", "mutation_category2",
-    "Locus.Tag")
-# they use , in genes_overlapping
-# also will have to re-make concise_mut
-# they may also have / or , in names in gene_product (as all types do)
-
-##intergenic hits have / in 4 columns
-intergeniccols <- c("gene_name", "gene_product", "gene_strand", "locus_tag") 
-# of course use | in 1 column: "Locus.Tag"
-# use , in the genes_promoter column
-# they also have gene_position with a 'intergenic (pos/pos)' setup
-# Note also that gene_name and gene_product for intergenic hits contain
-#  both neighboring genes, even if it's only in the promoter of one/none
-# they may also have / or , in names in gene_product (as all types do)
-
-##coding indels have / in gene_position denoting start/end (?)
-# use , in genes_overlapping (if span multiple genes)
-# they may also have / or , in names in gene_product (as all types do)
+###Preparing to split rows where mutations hit multiple genes, Notes:
 
 #Across all mutation types:
 # gene_name, genes_inactivated, genes_overlapping, genes_promoter
 #   use _ in gene names where originally contained / or ,
 # gene_product
 #   uses the original gene names with / or , in them
+mutationsd <- list(
+  filter(mutations, mutation_category3 == "multigene"),
+  filter(mutations, mutation_category3 == "intergenic"),
+  filter(mutations, 
+                     grepl("\\|", Locus.Tag) & 
+                       !mutation_category3 %in% c("multigene", "intergenic")),
+  filter(mutations, 
+                     !grepl("\\|", Locus.Tag) & 
+                       !mutation_category3 %in% c("multigene", "intergenic"))
+)
+if(sum(sapply(FUN = nrow, X = mutationsd)) != nrow(mutations)) {
+  stop("missing some cases in mutations splitting")}
 
-mutations$genes_overlapping <- gsub(",", "|", mutations$genes_overlapping)
-mutations$genes_promoter <- gsub(",", "|", mutations$genes_promoter)
-#fix gene_position for intergenic
+##multigene hits (bc of overlapping genes) have | in 17 columns
+# they use , in genes_overlapping
+# also will have to re-make concise_mut
+# they may also have / or , in names in gene_product (as all types do)
+if(any(str_count(mutationsd[[1]]$genes_overlapping, fixed(",")) > 1)) {
+  stop("Too many commas in some multigene$genes_overlapping")}
+mutationsd[[1]]$genes_overlapping <- gsub(",", "|", mutationsd[[1]]$genes_overlapping)
+mutationsd[[1]] <- separate_longer_delim(
+  mutationsd[[1]],
+  cols = all_of(c("aa_new_seq", "aa_position", "aa_ref_seq", "codon_new_seq",
+                  "codon_number", "codon_position", "codon_ref_seq", "gene_name",
+                  "gene_position", "gene_product", "gene_strand", "locus_tag",
+                  "mutation_category", "snp_type", "transl_table", "mutation_category2",
+                  "Locus.Tag",
+                  "genes_overlapping")),
+  delim = "|")
 
 
+##intergenic hits have / in 4 columns, but gene_product also uses it
+# within gene names so can't split that one easily
+# of course use | in 1 column: "Locus.Tag"
+# use , in the genes_promoter column
+# they also have gene_position with a 'intergenic (pos/pos)' setup
+# Note also that gene_name and gene_product for intergenic hits contain
+#  both neighboring genes, even if it's only in the promoter of one/none
+# they may also have / or , in names in gene_product (as all types do)
+mutationsd[[2]]$genes_promoter <- gsub(",", "|", mutationsd[[2]]$genes_promoter)
+mutationsd[[2]]$gene_position <- gsub("/", ")/intergenic (", mutationsd[[2]]$gene_position)
+mutationsd[[2]] <- separate_longer_delim(
+  mutationsd[[2]],
+  cols = all_of(c("gene_name", "gene_strand", "locus_tag",
+                  "Locus.Tag",
+                  "genes_promoter", "gene_position")),
+  delim = stringr::regex("[\\|/]"))
+
+##Additional cases we basically only want to split Locus.Tag
+# this includes coding indels, but they use / in gene_position denoting start/end
+# rather than gene1/gene2
+# use , in genes_overlapping (if span multiple genes)
+# they may also have / or , in names in gene_product (as all types do)
+mutationsd[[3]] <- separate_longer_delim(
+  mutationsd[[3]], cols = all_of(c("Locus.Tag")), delim = "|")
+
+##Merge
+mutationsd <- do.call(rbind, mutationsd)
 
 #Merge
-mutations <- 
+mutationsd <- 
   left_join(
-    mutate(mutations,
+    mutate(mutationsd,
            Locus.Tag = ifelse(Locus.Tag == "" | Locus.Tag == "unmatched",
                               NA, Locus.Tag)), 
     anno,
     na_matches = "never")
 
 #Check for name mismatches
-mutations <- mutate(mutations, stringdist = stringdist(gene_product, Product))
-View(mutations[order(mutations$stringdist, decreasing = TRUE), 
-               c("gene_name", "gene_product", "genes_overlapping", 
-                 "Gene", "Product", "stringdist")])
+mutationsd_sum <- summarize(group_by(mutationsd, across(any_of(mutcols))))
+mutationsd_sum <- mutate(group_by(mutationsd_sum, across(any_of(mutcols))),
+                         sd_gn = stringdist(gene_name, Product),
+                         sd_gpd = stringdist(gene_product, Product),
+                         sd_go = stringdist(genes_overlapping, Product),
+                         sd_gpm = stringdist(genes_promoter, Product),
+                         nas = sum(is.na(sd_gn), is.na(sd_gpd), is.na(sd_go), is.na(sd_gpm)),
+                         sdmin = min(sd_gn, sd_gpd, sd_go, sd_gpm))
+# any(!mutationsd_sum$nas %in% c(0, 4))
+# View(mutationsd_sum[order(mutationsd_sum$sdmin, decreasing = TRUE), 
+#                     c("gene_name", "gene_product", "genes_overlapping", 
+#                       "genes_promoter", "Gene", "Product", 
+#                       "sd_gn", "sd_gpd", "sd_go", "sd_gpm", "sdmin")])
+
 
 
 #Split samples by type ----
 mutpop <- filter(mutations, Isol == "Pop")
 mutisol <- filter(mutations, Isol != "Pop")
+mutdpop <- filter(mutationsd, Isol == "Pop")
+mutdisol <- filter(mutationsd, Isol != "Pop")
 
 ##Population sample analyses ----
 
