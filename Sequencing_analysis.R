@@ -1481,10 +1481,30 @@ term2name <- data.frame(
 gnamefreq <- summarize(
   group_by(
     filter(mutpopd, !is.na(Locus.Tag)), 
-    Locus.Tag, Product,
+    Locus.Tag, Product, #gene_category,
     across(any_of(sampcols))),
   total_freq = sum(freq0),
-  indep_freq = 1-prod(1-freq0))
+  indep_freq = 1-prod(1-freq0),
+  nhits = sum(freq0 > 0.1))
+
+gnamefreq_s2 <- 
+  summarize(
+    group_by(gnamefreq,
+             Locus.Tag, Product, Timepoint, Pop, Treat_C),
+    PvsNP_maxdiff = 
+      case_when(
+        any(Treat_P == "P") & any(Treat_P == "NP") ~
+          max(total_freq[Treat_P == "P"]) -
+          max(total_freq[Treat_P == "NP"]),
+        any(Treat_P == "P") ~ max(total_freq[Treat_P == "P"]),
+        any(Treat_P == "NP") ~ -max(total_freq[Treat_P == "NP"]),
+        TRUE ~ NA)
+  )
+
+#To try:
+# Calculate total/indep freq per timepoint per pop per treat per locus
+# calculate max freq per pop per treat per locus
+# then....
 
 #There are no missing combos to fill in (filled in previously)
 
@@ -1506,17 +1526,133 @@ gnamefreq_sum <-
       mean(indep_freq[Treat_C == "NC" & Treat_P == "P"]),
     CvsNC_inNP_if = 
       mean(indep_freq[Treat_C == "C" & Treat_P == "NP"]) -
-      mean(indep_freq[Treat_C == "NC" & Treat_P == "NP"])
+      mean(indep_freq[Treat_C == "NC" & Treat_P == "NP"]),
+    PvsNP_nhits =
+      sum(nhits[Treat_P == "P" & Timepoint == 8]) - sum(nhits[Treat_P == "NP" & Timepoint == 8])
   )
 
-gnamefreq_sum <- arrange(gnamefreq_sum, desc(PvsNP_tf))
+gnamefreq_sum2 <- 
+  group_modify(
+    group_by(gnamefreq, Locus.Tag, Product), #, gene_category),
+    ~ {
+      mtc <- myTryCatch({
+        out <- 
+          data.frame(
+            NCvC_inP_pval = NA,
+            NCvC_inP_est = NA,
+            NCvC_inNP_pval = NA,
+            NCvC_inNP_est = NA,
+            NPvP_inC_pval = NA,
+            NPvP_inC_est = NA,
+            NPvP_inNC_pval = NA,
+            NPvP_inNC_est = NA)
+        
+        if(any(filter(.x, Treat_P == "P")$indep_freq > 0)) {
+          #First test for significant effect of C vs NC within P treats
+          # across all timepoints
+          full_lme_P <- lmer(
+            indep_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
+            data = filter(.x, Treat_P == "P"),
+            REML = FALSE)
+          red_lme_P <- lmer(
+            indep_freq ~ as.factor(Timepoint) + (1|Pop),
+            data = filter(.x, Treat_P == "P"),
+            REML = FALSE)
+          
+          out$NCvC_inP_pval <- anova(red_lme_P, full_lme_P)$`Pr(>Chisq)`[2]
+          out$NCvC_inP_est <- coef(summary(full_lme_P))["Treat_CC", "Estimate"]
+        }
+        
+        if(any(filter(.x, Timepoint == 8)$indep_freq > 0)) {
+          #Then do NC vs C, P vs NP contrasts for Timepoint 8
+          full_lme_T8 <- lmer(
+            indep_freq ~ Treat_C*Treat_P + (1|Pop),
+            data = filter(.x, Timepoint == 8),
+            REML = FALSE)
+          full_emm_T8 <- emmeans(full_lme_T8, ~ Treat_C * Treat_P)
+          emm_within_P <- 
+            as.data.frame(contrast(full_emm_T8, method = "pairwise", by = "Treat_P"))
+          emm_within_C <- 
+            as.data.frame(contrast(full_emm_T8, method = "pairwise", by = "Treat_C"))
+          
+          out$NCvC_inNP_pval <- emm_within_P[emm_within_P$Treat_P == "NP", "p.value"]
+          out$NCvC_inNP_est <- emm_within_P[emm_within_P$Treat_P == "NP", "estimate"]
+          out$NPvP_inC_pval <- emm_within_C[emm_within_C$Treat_C == "C", "p.value"]
+          out$NPvP_inC_est <- emm_within_C[emm_within_C$Treat_C == "C", "estimate"]
+          out$NPvP_inNC_pval <- emm_within_C[emm_within_C$Treat_C == "NC", "p.value"]
+          out$NPvP_inNC_est <- emm_within_C[emm_within_C$Treat_C == "NC", "estimate"]  
+        }
+        
+        out
+      })
+      
+      if(is.null(mtc$error)) {
+        return(
+          cbind(mtc$value,
+                "warn" = ifelse(is.null(mtc$warning), NA, as.character(mtc$warning)),
+                "error" = NA))
+      } else {
+        return(
+          cbind(data.frame(
+            NCvC_inP_pval = NA,
+            NCvC_inP_est = NA,
+            NCvC_inNP_pval = NA,
+            NCvC_inNP_est = NA,
+            NPvP_inC_pval = NA,
+            NPvP_inC_est = NA,
+            NPvP_inNC_pval = NA,
+            NPvP_inNC_est = NA),
+            "warn" = ifelse(is.null(mtc$warning), NA, as.character(mtc$warning)),
+            "error" = as.character(mtc$warning)))
+      }
+    })
+
+gnamefreq_sumjoin <- full_join(gnamefreq_sum, gnamefreq_sum2,
+                               relationship = "one-to-one")
+
+ggplot(data = gnamefreq_sumjoin,
+       aes(x = CvsNC_inP_if, NCvC_inP_est)) +
+  geom_point()
+
+gnamefreq_sumjoin <- arrange(gnamefreq_sumjoin, desc(PvsNP_nhits))
 gsea_nvsnptf <- 
-  GSEA(geneList = setNames(gnamefreq_sum$PvsNP_tf, gnamefreq_sum$Locus.Tag),
+  GSEA(geneList = setNames(gnamefreq_sumjoin$PvsNP_nhits, 
+                           gnamefreq_sumjoin$Locus.Tag),
        TERM2GENE = term2gene,
        TERM2NAME = term2name,
        pvalueCutoff = 0.2)
+go_nvsnptf <-
+  enricher(
+    gene = filter(gnamefreq_sumjoin,
+                  !is.na(NPvP_inNC_pval), 
+                  NPvP_inNC_pval < 0.05,
+                  NPvP_inNC_est < 0)$Locus.Tag,
+    TERM2GENE = term2gene,
+    TERM2NAME = term2name)
 head(gsea_nvsnptf)
 dotplot(gsea_nvsnptf)
+
+
+
+tmp <- filter(gnamefreq_sumjoin,
+       !is.na(NPvP_inNC_pval), 
+       NPvP_inNC_pval < 0.05,
+       NPvP_inNC_est < 0)
+tmp <- left_join(tmp, term2gene, relationship = "one-to-many")
+tmp <- left_join(tmp, term2name, relationship = "many-to-one")
+View(filter(tmp, grepl("pil", Product)))
+
+tmp2 <- filter(mutpopd, gene_category == "pilus")
+tmp2 <- summarize(group_by(tmp2, Locus.Tag, gene_category, Product, GOs))
+
+tmptbl <- table(tmp$name)
+head(tmptbl[order(tmptbl, decreasing = TRUE)], 60)
+View(filter(tmp, grepl("pil", Product)))
+View(filter(term2name, grepl("pil", name)))
+
+
+
+
 
 ## Comparing isolate vs population sequencing ----
 
