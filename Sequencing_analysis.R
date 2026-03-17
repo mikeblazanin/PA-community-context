@@ -581,7 +581,7 @@ mutations <- mutate(
 ##Incorporate annotations ----
 bakta <- read.csv("PA14_annotated.csv")
 
-eggnog <- read.delim("PA14_eggnog_out2.emapper.annotations",
+eggnog <- read.delim("PA14_eggnog_out3.emapper.annotations",
                      comment = "#",
                      header = FALSE)
 colnames(eggnog) <-
@@ -751,6 +751,9 @@ mutationsd_sum <- mutate(group_by(mutationsd_sum, across(any_of(mutcols))),
 #                       "genes_promoter", "Gene", "Product", 
 #                       "sd_gn", "sd_gpd", "sd_go", "sd_gpm", "sdmin")])
 
+#Check for annotations among 'known' genes
+View(summarize(group_by(filter(mutpopd, gene_category == "pilus"),
+                        Locus.Tag, gene_category, Product, GOs)))
 
 
 #Split samples by type ----
@@ -1466,6 +1469,8 @@ dev.off()
 # then feed that into GSEA
 # (in order to capture hits to same pathway but dift genes)
 
+
+
 #Make term to gene mapping from background annotation
 term2gene <- 
   select(
@@ -1642,8 +1647,7 @@ tmp <- left_join(tmp, term2gene, relationship = "one-to-many")
 tmp <- left_join(tmp, term2name, relationship = "many-to-one")
 View(filter(tmp, grepl("pil", Product)))
 
-tmp2 <- filter(mutpopd, gene_category == "pilus")
-tmp2 <- summarize(group_by(tmp2, Locus.Tag, gene_category, Product, GOs))
+
 
 tmptbl <- table(tmp$name)
 head(tmptbl[order(tmptbl, decreasing = TRUE)], 60)
