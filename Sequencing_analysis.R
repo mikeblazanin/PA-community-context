@@ -591,6 +591,33 @@ colnames(eggnog) <-
                   skip = 4, nrows = 1))
 colnames(eggnog)[colnames(eggnog) == "query"] <- "Locus.Tag"
 
+interpro <- read.table("PA14_interpro_out.tsv", sep = "\t",
+                       stringsAsFactors = FALSE, header = FALSE,
+                       quote = "", #don't allow quotes
+                       comment.char = "") #don't allow comments
+colnames(interpro) <- 
+  c("Locus.Tag", "seqMD5", "seq_len", "analysis", "signat_accession",
+    "signat_description", "start", "stop", "e-value_score",
+    "match_status", "query_date", "InterPro_accession",
+    "InterPro_annotations", "InterPro_GOs", "Pathways")
+interpro_sum <- 
+  summarize(group_by(interpro, Locus.Tag),
+            across(everything(),
+                   ~ paste(., collapse = ";")))
+interpro_sum <-
+  mutate(interpro_sum,
+         InterPro_GOs_clean = gsub("^(-;)*|(;-)*$", "", InterPro_GOs),
+         InterPro_GOs_clean2 = gsub(";", "|", InterPro_GOs_clean),
+         InterPro_GOs_clean3 = gsub("\\(.*\\)", "", InterPro_GOs_clean2)
+         )
+         
+
+read.table("mutations_compare_all.tsv", sep = "\t",
+           stringsAsFactors = FALSE, header = TRUE,
+           quote = '', #don't allow quotes
+           comment.char = "") #don't allow comments since we use # for isolates
+
+
 anno = full_join(bakta, eggnog)
 
 #Manually determine Locus.Tag values because locus_tag from breseq
