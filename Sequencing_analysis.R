@@ -385,7 +385,14 @@ mutcols <-
     "Product", "DbXrefs", "seed_ortholog", "evalue", "score", "eggNOG_OGs", 
     "max_annot_lvl", "COG_category", "Description", "Preferred_name", "GOs", 
     "EC", "KEGG_ko", "KEGG_Pathway", "KEGG_Module", "KEGG_Reaction", 
-    "KEGG_rclass", "BRITE", "KEGG_TC", "CAZy", "BiGG_Reaction", "PFAMs")
+    "KEGG_rclass", "BRITE", "KEGG_TC", "CAZy", "BiGG_Reaction", "PFAMs",
+    #Columns from InterPro
+    "seqMD5", "seq_len", "analysis", "signat_accession", "signat_description",
+    "start", "stop", "e-value_score", "match_status", "query_date",
+    "InterPro_accession", "InterPro_annotations", "InterPro_GOs", 
+    "Pathways", "InterPro_GOs_clean",
+    #Columns from anno merged df
+    "GOsmerge")
 sampcols <- c("seqrun", "SeqCoastid", "seqtype", "Timepoint", "Pop", "Treat", 
               "Isol", "title", "Treat_C", "Treat_P",
               "clearing_avg", "EOP_avg", "Plaque_morphology", "resis", 
@@ -604,23 +611,40 @@ interpro_sum <-
   summarize(group_by(interpro, Locus.Tag),
             across(everything(),
                    ~ paste(., collapse = ";")))
-interpro_sum <-
-  mutate(interpro_sum,
-         InterPro_GOs_clean = gsub("^(-;)*|(;-)*$", "", InterPro_GOs),
-         InterPro_GOs_clean2 = gsub(";", "|", InterPro_GOs_clean),
-         InterPro_GOs_clean3 = gsub("\\(.*\\)", "", InterPro_GOs_clean2)
-         )
-##TODO fix clean 3
-##TODO drop mid-string - GO terms
-         
-
-read.table("mutations_compare_all.tsv", sep = "\t",
-           stringsAsFactors = FALSE, header = TRUE,
-           quote = '', #don't allow quotes
-           comment.char = "") #don't allow comments since we use # for isolates
-
 
 anno = full_join(bakta, eggnog)
+anno = full_join(anno, interpro_sum)
+
+anno <- mutate(ungroup(anno),
+               GOsmerge = paste0(GOs, "|", InterPro_GOs),
+               GOsmerge = gsub("NA", "-", GOsmerge),
+               GOsmerge = gsub(";|,", "|", GOsmerge),
+               GOsmerge = gsub("(-\\|)*|(\\|-)*$", "", GOsmerge),
+               GOsmerge = gsub("\\([^\\|]*\\)", "", GOsmerge))
+anno$GOsmerge <-
+  sapply(X = anno$GOsmerge,
+         FUN = function(x) {paste0(unique(strsplit(x, split = "\\|")[[1]]),
+                                   collapse = "|")})
+
+#Make term to gene mapping from background annotation
+term2gene <- 
+  select(
+    separate_longer_delim(filter(ungroup(anno), !is.na(GOsmerge), GOsmerge != "-"),
+                          cols = GOsmerge, delim = "|"),
+    GOsmerge, Locus.Tag)
+#Get indirect annotations
+term2gene <- buildGOmap(term2gene)
+
+#Add indirect annotations
+anno <- full_join(anno,
+                  (summarize(group_by(term2gene, Locus.Tag),
+                             GOsmerge_ind = paste(GOsmerge, collapse = "|"))))
+
+#Pull GO term names for interpretation
+term2name <- data.frame(
+  GOsmerge_ind = AnnotationDbi::keys(GO.db::GO.db), 
+  name = AnnotationDbi::Term(AnnotationDbi::keys(GO.db::GO.db)))
+
 
 #Manually determine Locus.Tag values because locus_tag from breseq
 # is not a match
@@ -781,8 +805,20 @@ mutationsd_sum <- mutate(group_by(mutationsd_sum, across(any_of(mutcols))),
 #                       "sd_gn", "sd_gpd", "sd_go", "sd_gpm", "sdmin")])
 
 #Check for annotations among 'known' genes
-View(summarize(group_by(filter(mutpopd, gene_category == "pilus"),
-                        Locus.Tag, gene_category, Product, GOs)))
+tmp <- 
+  summarize(group_by(
+    left_join(
+      separate_longer_delim(
+        filter(
+          summarize(group_by(mutationsd,
+                             Locus.Tag, gene_category, Product, GOsmerge_ind)),
+          !is.na(GOsmerge_ind), GOsmerge_ind != "-"),
+        cols = GOsmerge_ind, delim = "|"),
+      term2name),
+    Locus.Tag, gene_category, Product, GOsmerge_ind, name))
+View(filter(tmp, gene_category == "pilus"))
+View(filter(tmp, grepl("pil", name)))
+
 
 
 #Split samples by type ----
@@ -1500,16 +1536,6 @@ dev.off()
 
 
 
-#Make term to gene mapping from background annotation
-term2gene <- 
-  select(
-    separate_longer_delim(filter(ungroup(anno), !is.na(GOs), GOs != "-"),
-                          cols = GOs, delim = ","),
-    GOs, Locus.Tag)
-#Pull GO term names for interpretation
-term2name <- data.frame(
-  GOs = AnnotationDbi::keys(GO.db::GO.db), 
-  name = AnnotationDbi::Term(AnnotationDbi::keys(GO.db::GO.db)))
 
 #Calculate gene frequency differences
 gnamefreq <- summarize(
