@@ -610,6 +610,8 @@ interpro_sum <-
          InterPro_GOs_clean2 = gsub(";", "|", InterPro_GOs_clean),
          InterPro_GOs_clean3 = gsub("\\(.*\\)", "", InterPro_GOs_clean2)
          )
+##TODO fix clean 3
+##TODO drop mid-string - GO terms
          
 
 read.table("mutations_compare_all.tsv", sep = "\t",
