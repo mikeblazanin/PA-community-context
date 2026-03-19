@@ -1608,6 +1608,26 @@ gnamefreq_sum <-
              0) -
       ifelse(any(total_freq >= 0.1 & Treat_P == "NP" & Timepoint == 8),
              sum(total_freq[total_freq >= 0.1 & Treat_P == "NP" & Timepoint == 8]),
+             0),
+    PvsNP_sqsum =
+      sum(indep_freq[Treat_P == "P" & Timepoint == 8]**2) -
+      sum(indep_freq[Treat_P == "NP" & Timepoint == 8]**2),
+  )
+
+gnamefreq_sum3 <- 
+  summarize(
+    group_by(
+      summarize(
+        group_by(gnamefreq, Locus.Tag, Product, Pop, Treat_P, Treat_C),
+        avgfreq = 
+          ifelse(any(indep_freq >= 0.1), mean(indep_freq[indep_freq > 0.1]), 0)),
+      Locus.Tag, Product),
+    PvsNP_non0mean_Tmean = 
+      ifelse(any(avgfreq >= 0.1 & Treat_P == "P"),
+             mean(avgfreq[avgfreq >= 0.1 & Treat_P == "P"]),
+             0) -
+      ifelse(any(avgfreq >= 0.1 & Treat_P == "NP"),
+             mean(avgfreq[avgfreq >= 0.1 & Treat_P == "NP"]),
              0)
   )
 
@@ -1689,28 +1709,32 @@ gnamefreq_sum2 <-
 
 gnamefreq_sumjoin <- full_join(gnamefreq_sum, gnamefreq_sum2,
                                relationship = "one-to-one")
+gnamefreq_sumjoin <- full_join(gnamefreq_sumjoin, gnamefreq_sum3,
+                               relationship = "one-to-one")
 
 ggplot(data = gnamefreq_sumjoin,
        aes(x = CvsNC_inP_if, NCvC_inP_est)) +
   geom_point()
 
-gnamefreq_sumjoin <- arrange(gnamefreq_sumjoin, desc(PvsNP_non0mean))
+gnamefreq_sumjoin <- arrange(gnamefreq_sumjoin, desc(PvsNP_non0mean_Tmean))
 gsea_nvsnptf <- 
-  GSEA(geneList = setNames(gnamefreq_sumjoin$PvsNP_non0mean, 
+  GSEA(geneList = setNames(gnamefreq_sumjoin$PvsNP_non0mean_Tmean, 
                            gnamefreq_sumjoin$Locus.Tag),
        TERM2GENE = term2gene,
        TERM2NAME = term2name,
        pAdjustMethod = "none",
-       minGSSize = 1)
+       minGSSize = 2)
 go_nvsnptf <-
   enricher(
     gene = filter(gnamefreq_sumjoin,
-                  !is.na(PvsNP_max), 
-                  PvsNP_max > 0.25)$Locus.Tag,
+                  !is.na(PvsNP_non0mean_Tmean), 
+                  PvsNP_non0mean_Tmean > 0.25)$Locus.Tag,
     TERM2GENE = term2gene,
     TERM2NAME = term2name,
-    pAdjustMethod = "none",
-    minGSSize = 1)
+    pAdjustMethod = "BH",
+    pvalueCutoff = 0.1,
+    minGSSize = 2)
+View(as.data.frame(go_nvsnptf))
 head(gsea_nvsnptf)
 dotplot(gsea_nvsnptf)
 
@@ -1733,7 +1757,24 @@ head(tmptbl[order(tmptbl, decreasing = TRUE)], 60)
 View(filter(tmp, grepl("pil", Product)))
 View(filter(term2name, grepl("pil", name)))
 
-
+print(
+  ggplot(
+    data = mutate(filter(mutpop, everabove_010_noanc == TRUE,
+                         Locus.Tag == "PEANHK_05378", Timepoint == 8),
+                  Pop = as.numeric(Pop)),
+    aes(x = Pop, y = freq0, group = mut_id)) +
+    geom_point() +
+    facet_nested(. ~ Treat_P * Treat_C,
+                 labeller = labeller(
+                   Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
+                   Treat_C = c("NC" = "Pseudomonas-only",
+                               "C" = "All bacteria"),
+                   Treat_P = c("NP" = "No-phage",
+                               "P" = "Phage-added"))) +
+    #scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+    #labs(x = "Timepoint (days)", y = "Frequency") +
+    theme_bw() +
+    NULL)
 
 
 
