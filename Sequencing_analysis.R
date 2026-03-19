@@ -819,7 +819,8 @@ tmp <-
 View(filter(tmp, gene_category == "pilus"))
 View(filter(tmp, grepl("pil", name)))
 
-
+##TODO: manually check GO annotation e.g. for PilT
+##TODO: fix gene_name by locus matching style for mut trajectory & other analyses
 
 #Split samples by type ----
 mutpop <- filter(mutations, Isol == "Pop")
@@ -1544,22 +1545,23 @@ gnamefreq <- summarize(
     Locus.Tag, Product, #gene_category,
     across(any_of(sampcols))),
   total_freq = sum(freq0),
-  indep_freq = 1-prod(1-freq0),
-  nhits = sum(freq0 > 0.1))
+  indep_freq = 1-prod(1-freq0))
 
-gnamefreq_s2 <- 
-  summarize(
-    group_by(gnamefreq,
-             Locus.Tag, Product, Timepoint, Pop, Treat_C),
-    PvsNP_maxdiff = 
-      case_when(
-        any(Treat_P == "P") & any(Treat_P == "NP") ~
-          max(total_freq[Treat_P == "P"]) -
-          max(total_freq[Treat_P == "NP"]),
-        any(Treat_P == "P") ~ max(total_freq[Treat_P == "P"]),
-        any(Treat_P == "NP") ~ -max(total_freq[Treat_P == "NP"]),
-        TRUE ~ NA)
-  )
+
+
+# gnamefreq_s2 <- 
+#   summarize(
+#     group_by(gnamefreq,
+#              Locus.Tag, Product, Timepoint, Pop, Treat_C),
+#     PvsNP_maxdiff = 
+#       case_when(
+#         any(Treat_P == "P") & any(Treat_P == "NP") ~
+#           max(total_freq[Treat_P == "P"]) -
+#           max(total_freq[Treat_P == "NP"]),
+#         any(Treat_P == "P") ~ max(total_freq[Treat_P == "P"]),
+#         any(Treat_P == "NP") ~ -max(total_freq[Treat_P == "NP"]),
+#         TRUE ~ NA)
+#   )
 
 #To try:
 # Calculate total/indep freq per timepoint per pop per treat per locus
@@ -1588,7 +1590,25 @@ gnamefreq_sum <-
       mean(indep_freq[Treat_C == "C" & Treat_P == "NP"]) -
       mean(indep_freq[Treat_C == "NC" & Treat_P == "NP"]),
     PvsNP_nhits =
-      sum(nhits[Treat_P == "P" & Timepoint == 8]) - sum(nhits[Treat_P == "NP" & Timepoint == 8])
+      sum(indep_freq > 0.1 & Treat_P == "P" & Timepoint == 8) - 
+      sum(indep_freq > 0.1 & Treat_P == "NP" & Timepoint == 8),
+    PvsNP_max = 
+      max(total_freq[Treat_P == "P" & Timepoint == 8]) -
+      max(total_freq[Treat_P == "NP" & Timepoint == 8]),
+    PvsNP_non0mean = 
+      ifelse(any(total_freq >= 0.1 & Treat_P == "P" & Timepoint == 8),
+             mean(total_freq[total_freq >= 0.1 & Treat_P == "P" & Timepoint == 8]),
+             0) -
+      ifelse(any(total_freq >= 0.1 & Treat_P == "NP" & Timepoint == 8),
+             mean(total_freq[total_freq >= 0.1 & Treat_P == "NP" & Timepoint == 8]),
+             0),
+    PvsNP_non0sum = 
+      ifelse(any(total_freq >= 0.1 & Treat_P == "P" & Timepoint == 8),
+             sum(total_freq[total_freq >= 0.1 & Treat_P == "P" & Timepoint == 8]),
+             0) -
+      ifelse(any(total_freq >= 0.1 & Treat_P == "NP" & Timepoint == 8),
+             sum(total_freq[total_freq >= 0.1 & Treat_P == "NP" & Timepoint == 8]),
+             0)
   )
 
 gnamefreq_sum2 <- 
@@ -1674,23 +1694,27 @@ ggplot(data = gnamefreq_sumjoin,
        aes(x = CvsNC_inP_if, NCvC_inP_est)) +
   geom_point()
 
-gnamefreq_sumjoin <- arrange(gnamefreq_sumjoin, desc(PvsNP_nhits))
+gnamefreq_sumjoin <- arrange(gnamefreq_sumjoin, desc(PvsNP_non0mean))
 gsea_nvsnptf <- 
-  GSEA(geneList = setNames(gnamefreq_sumjoin$PvsNP_nhits, 
+  GSEA(geneList = setNames(gnamefreq_sumjoin$PvsNP_non0mean, 
                            gnamefreq_sumjoin$Locus.Tag),
        TERM2GENE = term2gene,
        TERM2NAME = term2name,
-       pvalueCutoff = 0.2)
+       pAdjustMethod = "none",
+       minGSSize = 1)
 go_nvsnptf <-
   enricher(
     gene = filter(gnamefreq_sumjoin,
-                  !is.na(NPvP_inNC_pval), 
-                  NPvP_inNC_pval < 0.05,
-                  NPvP_inNC_est < 0)$Locus.Tag,
+                  !is.na(PvsNP_max), 
+                  PvsNP_max > 0.25)$Locus.Tag,
     TERM2GENE = term2gene,
-    TERM2NAME = term2name)
+    TERM2NAME = term2name,
+    pAdjustMethod = "none",
+    minGSSize = 1)
 head(gsea_nvsnptf)
 dotplot(gsea_nvsnptf)
+
+head(go_nvsnptf)
 
 
 
