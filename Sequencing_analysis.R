@@ -1525,257 +1525,110 @@ dev.off()
 ### GO enrichment analysis ----
 
 #GO enrichment analysis using cluterProfiler in R
-#Can do a GSEA analysis where you put in a ranked list of
-# genes and it does kind of a rolling window approach and
-# stops at some point for sig GO terms
-#Or can just do a plain GO analysis that looks for enriched
-# terms in a hard set of genes
-#I have to pool across reps within a treatment anyway
-#Rank genes by average frequency change bt treats per rep per timepoint
-# then feed that into GSEA
-# (in order to capture hits to same pathway but dift genes)
+#GSEA analysis looks for terms that are biased up/down across all genes w/ term
+#enrichment looks for overrepresentation of terms in genes at the top
+# -- this one is what we use
 
-
-
-
-#Calculate gene frequency differences
+#Calculate gene frequencies
 gnamefreq <- summarize(
   group_by(
     filter(mutpopd, !is.na(Locus.Tag)), 
-    Locus.Tag, Product, #gene_category,
+    Locus.Tag, Product,
     across(any_of(sampcols))),
-  total_freq = sum(freq0),
   indep_freq = 1-prod(1-freq0))
-
-
-
-# gnamefreq_s2 <- 
-#   summarize(
-#     group_by(gnamefreq,
-#              Locus.Tag, Product, Timepoint, Pop, Treat_C),
-#     PvsNP_maxdiff = 
-#       case_when(
-#         any(Treat_P == "P") & any(Treat_P == "NP") ~
-#           max(total_freq[Treat_P == "P"]) -
-#           max(total_freq[Treat_P == "NP"]),
-#         any(Treat_P == "P") ~ max(total_freq[Treat_P == "P"]),
-#         any(Treat_P == "NP") ~ -max(total_freq[Treat_P == "NP"]),
-#         TRUE ~ NA)
-#   )
-
-#To try:
-# Calculate total/indep freq per timepoint per pop per treat per locus
-# calculate max freq per pop per treat per locus
-# then....
 
 #There are no missing combos to fill in (filled in previously)
 
+non0_mean <- function(x, cond) {
+  x <- x[cond]
+  if(length(x) > 0) {return(mean(x))} else {return(0)}
+}
 gnamefreq_sum <- 
   summarize(
-    group_by(gnamefreq, Locus.Tag, Product),
-    PvsNP_tf = 
-      mean(total_freq[Treat_P == "P"]) - mean(total_freq[Treat_P == "NP"]),
-    CvsNC_inP_tf = 
-      mean(total_freq[Treat_C == "C" & Treat_P == "P"]) -
-      mean(total_freq[Treat_C == "NC" & Treat_P == "P"]),
-    CvsNC_inNP_tf = 
-      mean(total_freq[Treat_C == "C" & Treat_P == "NP"]) -
-      mean(total_freq[Treat_C == "NC" & Treat_P == "NP"]),
-    PvsNP_if = 
-      mean(indep_freq[Treat_P == "P"]) - mean(indep_freq[Treat_P == "NP"]),
-    CvsNC_inP_if = 
-      mean(indep_freq[Treat_C == "C" & Treat_P == "P"]) -
-      mean(indep_freq[Treat_C == "NC" & Treat_P == "P"]),
-    CvsNC_inNP_if = 
-      mean(indep_freq[Treat_C == "C" & Treat_P == "NP"]) -
-      mean(indep_freq[Treat_C == "NC" & Treat_P == "NP"]),
-    PvsNP_nhits =
-      sum(indep_freq > 0.1 & Treat_P == "P" & Timepoint == 8) - 
-      sum(indep_freq > 0.1 & Treat_P == "NP" & Timepoint == 8),
-    PvsNP_max = 
-      max(total_freq[Treat_P == "P" & Timepoint == 8]) -
-      max(total_freq[Treat_P == "NP" & Timepoint == 8]),
+    group_by(filter(gnamefreq, indep_freq >= 0.1), Locus.Tag, Product),
     PvsNP_non0mean = 
-      ifelse(any(total_freq >= 0.1 & Treat_P == "P" & Timepoint == 8),
-             mean(total_freq[total_freq >= 0.1 & Treat_P == "P" & Timepoint == 8]),
-             0) -
-      ifelse(any(total_freq >= 0.1 & Treat_P == "NP" & Timepoint == 8),
-             mean(total_freq[total_freq >= 0.1 & Treat_P == "NP" & Timepoint == 8]),
-             0),
-    PvsNP_non0sum = 
-      ifelse(any(total_freq >= 0.1 & Treat_P == "P" & Timepoint == 8),
-             sum(total_freq[total_freq >= 0.1 & Treat_P == "P" & Timepoint == 8]),
-             0) -
-      ifelse(any(total_freq >= 0.1 & Treat_P == "NP" & Timepoint == 8),
-             sum(total_freq[total_freq >= 0.1 & Treat_P == "NP" & Timepoint == 8]),
-             0),
-    PvsNP_sqsum =
-      sum(indep_freq[Treat_P == "P" & Timepoint == 8]**2) -
-      sum(indep_freq[Treat_P == "NP" & Timepoint == 8]**2),
+      non0_mean(indep_freq, Treat_P == "P" & Timepoint == 8) -
+      non0_mean(indep_freq, Treat_P == "NP" & Timepoint == 8),
+    CvsNC_inNP_non0mean =
+      non0_mean(indep_freq, Treat_C == "C" & Treat_P == "NP" & Timepoint == 8) -
+      non0_mean(indep_freq, Treat_C == "NC" & Treat_P == "NP" & Timepoint == 8),
+    CvsNC_inP_non0mean =
+      non0_mean(indep_freq, Treat_C == "C" & Treat_P == "P") -
+      non0_mean(indep_freq, Treat_C == "NC" & Treat_P == "P")
   )
 
-gnamefreq_sum3 <- 
-  summarize(
-    group_by(
-      summarize(
-        group_by(gnamefreq, Locus.Tag, Product, Pop, Treat_P, Treat_C),
-        avgfreq = 
-          ifelse(any(indep_freq >= 0.1), mean(indep_freq[indep_freq > 0.1]), 0)),
-      Locus.Tag, Product),
-    PvsNP_non0mean_Tmean = 
-      ifelse(any(avgfreq >= 0.1 & Treat_P == "P"),
-             mean(avgfreq[avgfreq >= 0.1 & Treat_P == "P"]),
-             0) -
-      ifelse(any(avgfreq >= 0.1 & Treat_P == "NP"),
-             mean(avgfreq[avgfreq >= 0.1 & Treat_P == "NP"]),
-             0)
-  )
-
-gnamefreq_sum2 <- 
-  group_modify(
-    group_by(gnamefreq, Locus.Tag, Product), #, gene_category),
-    ~ {
-      mtc <- myTryCatch({
-        out <- 
-          data.frame(
-            NCvC_inP_pval = NA,
-            NCvC_inP_est = NA,
-            NCvC_inNP_pval = NA,
-            NCvC_inNP_est = NA,
-            NPvP_inC_pval = NA,
-            NPvP_inC_est = NA,
-            NPvP_inNC_pval = NA,
-            NPvP_inNC_est = NA)
-        
-        if(any(filter(.x, Treat_P == "P")$indep_freq > 0)) {
-          #First test for significant effect of C vs NC within P treats
-          # across all timepoints
-          full_lme_P <- lmer(
-            indep_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
-            data = filter(.x, Treat_P == "P"),
-            REML = FALSE)
-          red_lme_P <- lmer(
-            indep_freq ~ as.factor(Timepoint) + (1|Pop),
-            data = filter(.x, Treat_P == "P"),
-            REML = FALSE)
-          
-          out$NCvC_inP_pval <- anova(red_lme_P, full_lme_P)$`Pr(>Chisq)`[2]
-          out$NCvC_inP_est <- coef(summary(full_lme_P))["Treat_CC", "Estimate"]
-        }
-        
-        if(any(filter(.x, Timepoint == 8)$indep_freq > 0)) {
-          #Then do NC vs C, P vs NP contrasts for Timepoint 8
-          full_lme_T8 <- lmer(
-            indep_freq ~ Treat_C*Treat_P + (1|Pop),
-            data = filter(.x, Timepoint == 8),
-            REML = FALSE)
-          full_emm_T8 <- emmeans(full_lme_T8, ~ Treat_C * Treat_P)
-          emm_within_P <- 
-            as.data.frame(contrast(full_emm_T8, method = "pairwise", by = "Treat_P"))
-          emm_within_C <- 
-            as.data.frame(contrast(full_emm_T8, method = "pairwise", by = "Treat_C"))
-          
-          out$NCvC_inNP_pval <- emm_within_P[emm_within_P$Treat_P == "NP", "p.value"]
-          out$NCvC_inNP_est <- emm_within_P[emm_within_P$Treat_P == "NP", "estimate"]
-          out$NPvP_inC_pval <- emm_within_C[emm_within_C$Treat_C == "C", "p.value"]
-          out$NPvP_inC_est <- emm_within_C[emm_within_C$Treat_C == "C", "estimate"]
-          out$NPvP_inNC_pval <- emm_within_C[emm_within_C$Treat_C == "NC", "p.value"]
-          out$NPvP_inNC_est <- emm_within_C[emm_within_C$Treat_C == "NC", "estimate"]  
-        }
-        
-        out
-      })
-      
-      if(is.null(mtc$error)) {
-        return(
-          cbind(mtc$value,
-                "warn" = ifelse(is.null(mtc$warning), NA, as.character(mtc$warning)),
-                "error" = NA))
-      } else {
-        return(
-          cbind(data.frame(
-            NCvC_inP_pval = NA,
-            NCvC_inP_est = NA,
-            NCvC_inNP_pval = NA,
-            NCvC_inNP_est = NA,
-            NPvP_inC_pval = NA,
-            NPvP_inC_est = NA,
-            NPvP_inNC_pval = NA,
-            NPvP_inNC_est = NA),
-            "warn" = ifelse(is.null(mtc$warning), NA, as.character(mtc$warning)),
-            "error" = as.character(mtc$warning)))
-      }
-    })
-
-gnamefreq_sumjoin <- full_join(gnamefreq_sum, gnamefreq_sum2,
-                               relationship = "one-to-one")
-gnamefreq_sumjoin <- full_join(gnamefreq_sumjoin, gnamefreq_sum3,
-                               relationship = "one-to-one")
-
-ggplot(data = gnamefreq_sumjoin,
-       aes(x = CvsNC_inP_if, NCvC_inP_est)) +
-  geom_point()
-
-gnamefreq_sumjoin <- arrange(gnamefreq_sumjoin, desc(PvsNP_non0mean_Tmean))
-gsea_nvsnptf <- 
-  GSEA(geneList = setNames(gnamefreq_sumjoin$PvsNP_non0mean_Tmean, 
-                           gnamefreq_sumjoin$Locus.Tag),
-       TERM2GENE = term2gene,
-       TERM2NAME = term2name,
-       pAdjustMethod = "none",
-       minGSSize = 2)
-go_nvsnptf <-
-  enricher(
-    gene = filter(gnamefreq_sumjoin,
-                  !is.na(PvsNP_non0mean_Tmean), 
-                  PvsNP_non0mean_Tmean > 0.25)$Locus.Tag,
-    TERM2GENE = term2gene,
-    TERM2NAME = term2name,
-    pAdjustMethod = "BH",
-    pvalueCutoff = 0.1,
-    minGSSize = 2)
-View(as.data.frame(go_nvsnptf))
-head(gsea_nvsnptf)
-dotplot(gsea_nvsnptf)
-
-head(go_nvsnptf)
-
-
-
-tmp <- filter(gnamefreq_sumjoin,
-       !is.na(NPvP_inNC_pval), 
-       NPvP_inNC_pval < 0.05,
-       NPvP_inNC_est < 0)
-tmp <- left_join(tmp, term2gene, relationship = "one-to-many")
-tmp <- left_join(tmp, term2name, relationship = "many-to-one")
-View(filter(tmp, grepl("pil", Product)))
-
-
-
-tmptbl <- table(tmp$name)
-head(tmptbl[order(tmptbl, decreasing = TRUE)], 60)
-View(filter(tmp, grepl("pil", Product)))
-View(filter(term2name, grepl("pil", name)))
-
-print(
-  ggplot(
-    data = mutate(filter(mutpop, everabove_010_noanc == TRUE,
-                         Locus.Tag == "PEANHK_05378", Timepoint == 8),
-                  Pop = as.numeric(Pop)),
-    aes(x = Pop, y = freq0, group = mut_id)) +
-    geom_point() +
-    facet_nested(. ~ Treat_P * Treat_C,
-                 labeller = labeller(
-                   Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
-                   Treat_C = c("NC" = "Pseudomonas-only",
-                               "C" = "All bacteria"),
-                   Treat_P = c("NP" = "No-phage",
-                               "P" = "Phage-added"))) +
-    #scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
-    #labs(x = "Timepoint (days)", y = "Frequency") +
-    theme_bw() +
-    NULL)
-
+goPvsNP <-
+  filter(
+    as.data.frame(
+      enricher(
+        gene = filter(gnamefreq_sum, PvsNP_non0mean > 0.15)$Locus.Tag,
+        TERM2GENE = term2gene,
+        TERM2NAME = term2name,
+        pAdjustMethod = "BH",
+        pvalueCutoff = 0.5,
+        qvalueCutoff = 0.5,
+        minGSSize = 2)),
+      pvalue <= 0.05)
+goCvsNC_inNP <-
+  filter(
+    as.data.frame(
+      enricher(
+        gene = filter(gnamefreq_sum, CvsNC_inNP_non0mean > 0.15)$Locus.Tag,
+        TERM2GENE = term2gene,
+        TERM2NAME = term2name,
+        pAdjustMethod = "BH",
+        pvalueCutoff = 0.5,
+        qvalueCutoff = 0.5,
+        minGSSize = 2)),
+      pvalue <= 0.05)
+goCvsNC_inP <-
+  filter(
+    as.data.frame(
+      enricher(
+        gene = filter(gnamefreq_sum, CvsNC_inP_non0mean > 0.15)$Locus.Tag,
+        TERM2GENE = term2gene,
+        TERM2NAME = term2name,
+        pAdjustMethod = "BH",
+        pvalueCutoff = 0.5,
+        qvalueCutoff = 0.5,
+        minGSSize = 2)),
+      pvalue <= 0.05)
+goNPvsP <-
+  filter(
+    as.data.frame(
+      enricher(
+        gene = filter(gnamefreq_sum, PvsNP_non0mean < -0.15)$Locus.Tag,
+        TERM2GENE = term2gene,
+        TERM2NAME = term2name,
+        pAdjustMethod = "BH",
+        pvalueCutoff = 0.5,
+        qvalueCutoff = 0.5,
+        minGSSize = 2)),
+    pvalue <= 0.05)
+goNCvsC_inNP <-
+  filter(
+    as.data.frame(
+      enricher(
+        gene = filter(gnamefreq_sum, CvsNC_inNP_non0mean < -0.15)$Locus.Tag,
+        TERM2GENE = term2gene,
+        TERM2NAME = term2name,
+        pAdjustMethod = "BH",
+        pvalueCutoff = 0.5,
+        qvalueCutoff = 0.5,
+        minGSSize = 2)),
+    pvalue <= 0.05)
+goNCvsC_inP <-
+  filter(
+    as.data.frame(
+      enricher(
+        gene = filter(gnamefreq_sum, CvsNC_inP_non0mean < -0.15)$Locus.Tag,
+        TERM2GENE = term2gene,
+        TERM2NAME = term2name,
+        pAdjustMethod = "BH",
+        pvalueCutoff = 0.5,
+        qvalueCutoff = 0.5,
+        minGSSize = 2)),
+    pvalue <= 0.05)
 
 
 ## Comparing isolate vs population sequencing ----
