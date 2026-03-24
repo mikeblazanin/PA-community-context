@@ -710,25 +710,10 @@ mutationsd_sum <- mutate(group_by(mutationsd_sum, across(any_of(mutcols))),
                          nas = sum(is.na(sd_gn), is.na(sd_gpd), is.na(sd_go), is.na(sd_gpm)),
                          sdmin = min(sd_gn, sd_gpd, sd_go, sd_gpm))
 # any(!mutationsd_sum$nas %in% c(0, 4))
-View(mutationsd_sum[order(mutationsd_sum$sdmin, decreasing = TRUE),
-                    c("gene_name", "gene_product", "genes_overlapping",
-                      "genes_promoter", "Gene", "Product",
-                      "sd_gn", "sd_gpd", "sd_go", "sd_gpm", "sdmin")])
-
-#Check for annotations among 'known' genes
-tmp <- 
-  summarize(group_by(
-    left_join(
-      separate_longer_delim(
-        filter(
-          summarize(group_by(mutationsd,
-                             Locus.Tag, gene_category, Product, GOsmerge_ind)),
-          !is.na(GOsmerge_ind), GOsmerge_ind != "-"),
-        cols = GOsmerge_ind, delim = "|"),
-      term2name),
-    Locus.Tag, gene_category, Product, GOsmerge_ind, name))
-#View(filter(tmp, gene_category == "pilus"))
-#View(filter(tmp, grepl("pil", name)))
+# View(mutationsd_sum[order(mutationsd_sum$sdmin, decreasing = TRUE),
+#                     c("gene_name", "gene_product", "genes_overlapping",
+#                       "genes_promoter", "Gene", "Product",
+#                       "sd_gn", "sd_gpd", "sd_go", "sd_gpm", "sdmin")])
 
 #Overwrite original mutations frame with re-joined version
 mutations <-
@@ -741,70 +726,74 @@ mutations <-
              }}))
 
 ##Shared analysis labeling: gene categories ----
-mutations <- mutate(
-  ungroup(mutations),
-  gene_category = case_when(
-    grepl("CupB3", Product) ~ "pilus",
-    grepl("Wsp", Product) ~ "biofilm",
-    grepl("MorA", Product) ~ "biofilm",
-    grepl("RhlR", Product) ~ "QS",
-    grepl("LasR", Product) ~ "QS",
-    grepl("LasI", Product) ~ "QS",
-    grepl("quorum", Product) ~ "QS",
-    grepl("LasA", Product) ~ "LasA_LasB",
-    grepl("LasB", Product) ~ "LasA_LasB",
-    grepl("Mut", Product) ~ "mutator",
-    grepl("Tps", Product) ~ "TPS system",
-    grepl("type VI", Product) ~ "T6SS",
-    grepl("Type VI", Product) ~ "T6SS",
-    grepl("Tse", Product) ~ "T6SS",
-    grepl("T2SS", Product) ~ "T2SS",
-    grepl("type II secretion system", Product) ~ "T2SS",
-    grepl("flagella", Product) ~ "flagella",
-    grepl("Thioredoxin family protein/Helix-turn-helix domain-containing protein", Product) ~ "mystery_1",
-    grepl("FimX", Product) ~ "pilus",
-    grepl("pil", Product, ignore.case = TRUE) ~ "pilus",
-    grepl("pilus", Product) ~ "pilus",
-    TRUE ~ "other"),
-  gene_catpilnot = ifelse(gene_category == "pilus", "pilus", "other"),
-  pilmut_struc = ifelse(
-    gene_category == "pilus",
-    case_when(
-      grepl("4b", Product) ~ "4b",
-      grepl("IVB", Product) ~ "4b",
-      grepl("TadZ", Product) ~ "unknown",
-      grepl("PilT", Product) ~ "motor",
-      grepl("PilB", Product) ~ "motor",
-      grepl("PilQ", Product) ~ "OMP",
-      grepl("PilS", Product) ~ "regulatory",
-      grepl("PilM", Product) ~ "alignment_sc",
-      grepl("PilC", Product) ~ "motor",
-      grepl("pilC", Product) ~ "motor",
-      grepl("PilN", Product) ~ "alignment_sc",
-      grepl("PilZ", Product) ~ "motor",
-      grepl("TadG", Product) ~ "unknown",
-      grepl("PilU", Product) ~ "motor",
-      grepl("PilR", Product) ~ "regulatory",
-      grepl("PilO", Product) ~ "alignment_sc",
-      grepl("FimV", Product) ~ "OMP",
-      grepl("PilJ", Product) ~ "regulatory",
-      grepl("PilF", Product) ~ "OMP",
-      grepl("PilY1", Product) ~ "fiber",
-      grepl("CupB3", Product) ~ "usher_chaperone_assembly",
-      grepl("PilV", Product) ~ "fiber",
-      grepl("PilG", Product) ~ "regulatory",
-      grepl("PilK", Product) ~ "tbd",
-      grepl("PilP", Product) ~ "alignment_sc",
-      grepl("PilD", Product) ~ "usher_chaperone_assembly",
-      grepl("PilE", Product) ~ "fiber",
-      grepl("PilX", Product) ~ "fiber",
-      grepl("FleP", Product) ~ "regulatory",
-      grepl("PilM", Product) ~ "alignment",
-      grepl("PilR", Product) ~ "regulatory",
-      grepl("PilP", Product) ~ "alignment_sc",
-      grepl("FimL", Product) ~ "regulatory",
-      TRUE ~ "tbd"),
-    NA))
+genecatmutate <- function(df) {
+  return(
+    mutate(
+      ungroup(df),
+      gene_category = case_when(
+        grepl("CupB3", Product) ~ "pilus",
+        grepl("Wsp", Product) ~ "biofilm",
+        grepl("MorA", Product) ~ "biofilm",
+        grepl("RhlR", Product) ~ "QS",
+        grepl("LasR", Product) ~ "QS",
+        grepl("LasI", Product) ~ "QS",
+        grepl("quorum", Product) ~ "QS",
+        grepl("LasA", Product) ~ "LasA_LasB",
+        grepl("LasB", Product) ~ "LasA_LasB",
+        grepl("Mut", Product) ~ "mutator",
+        grepl("Tps", Product) ~ "TPS system",
+        grepl("type VI", Product) ~ "T6SS",
+        grepl("Type VI", Product) ~ "T6SS",
+        grepl("Tse", Product) ~ "T6SS",
+        grepl("T2SS", Product) ~ "T2SS",
+        grepl("type II secretion system", Product) ~ "T2SS",
+        grepl("flagella", Product) ~ "flagella",
+        grepl("Thioredoxin family protein/Helix-turn-helix domain-containing protein", Product) ~ "mystery_1",
+        grepl("FimX", Product) ~ "pilus",
+        grepl("pil", Product, ignore.case = TRUE) ~ "pilus",
+        grepl("pilus", Product) ~ "pilus",
+        TRUE ~ "other"),
+      gene_catpilnot = ifelse(gene_category == "pilus", "pilus", "other"),
+      pilmut_struc = ifelse(
+        gene_category == "pilus",
+        case_when(
+          grepl("4b", Product) ~ "4b",
+          grepl("IVB", Product) ~ "4b",
+          grepl("TadZ", Product) ~ "unknown",
+          grepl("PilT", Product) ~ "motor",
+          grepl("PilB", Product) ~ "motor",
+          grepl("PilQ", Product) ~ "OMP",
+          grepl("PilS", Product) ~ "regulatory",
+          grepl("PilM", Product) ~ "alignment_sc",
+          grepl("PilC", Product) ~ "motor",
+          grepl("pilC", Product) ~ "motor",
+          grepl("PilN", Product) ~ "alignment_sc",
+          grepl("PilZ", Product) ~ "motor",
+          grepl("TadG", Product) ~ "unknown",
+          grepl("PilU", Product) ~ "motor",
+          grepl("PilR", Product) ~ "regulatory",
+          grepl("PilO", Product) ~ "alignment_sc",
+          grepl("FimV", Product) ~ "OMP",
+          grepl("PilJ", Product) ~ "regulatory",
+          grepl("PilF", Product) ~ "OMP",
+          grepl("PilY1", Product) ~ "fiber",
+          grepl("CupB3", Product) ~ "usher_chaperone_assembly",
+          grepl("PilV", Product) ~ "fiber",
+          grepl("PilG", Product) ~ "regulatory",
+          grepl("PilK", Product) ~ "tbd",
+          grepl("PilP", Product) ~ "alignment_sc",
+          grepl("PilD", Product) ~ "usher_chaperone_assembly",
+          grepl("PilE", Product) ~ "fiber",
+          grepl("PilX", Product) ~ "fiber",
+          grepl("FleP", Product) ~ "regulatory",
+          grepl("PilM", Product) ~ "alignment",
+          grepl("PilR", Product) ~ "regulatory",
+          grepl("PilP", Product) ~ "alignment_sc",
+          grepl("FimL", Product) ~ "regulatory",
+          TRUE ~ "tbd"),
+        NA))
+  )
+}
 #TODO
 # need to fix gene_short for intergenic/multihit cases bc it's just
 #  pulling the last bit instead of each last bit
@@ -838,6 +827,24 @@ mutations <- mutate(
 #     TRUE ~ "nomatch")
 # )
 
+mutations <- genecatmutate(mutations)
+mutationsd <- genecatmutate(mutationsd)
+
+
+#Check for annotations among 'known' genes
+tmp <- 
+  summarize(group_by(
+    left_join(
+      separate_longer_delim(
+        filter(
+          summarize(group_by(mutationsd,
+                             Locus.Tag, gene_category, Product, GOsmerge_ind)),
+          !is.na(GOsmerge_ind), GOsmerge_ind != "-"),
+        cols = GOsmerge_ind, delim = "|"),
+      term2name),
+    Locus.Tag, gene_category, Product, GOsmerge_ind, name))
+#View(filter(tmp, gene_category == "pilus"))
+#View(filter(tmp, grepl("pil", name)))
 
 #Incorporate repetitive regions ----
 rptdat <- rbind(read.csv("PA14_PA14_BLAST.csv"),
@@ -875,25 +882,34 @@ if(FALSE) {
   ggplot(data = rptcov, aes(x = 1:length(rptcov), y = cov)) + geom_line()
 }
 
-mutations$rpt_hit_id <- NA
-for(i in 1:nrow(mutations)) {
-  matches <- filter(rptdat,
-                    seq_id == mutations$seq_id[i] &
-                    ((query.start <= mutations$position_start[i] &
-                      query.end >= mutations$position_start[i]) |
-                    (query.start <= mutations$position_end[i] &
-                       query.end >= mutations$position_end[i])))
-  
-  if(nrow(matches) > 0) {
-    mutations$rpt_hit_id[i] <-
-      as.character(matches$rpt_hit_id[which.max(matches$bit.score)])
-  } else {
-    mutations$rpt_hit_id[i] <- "none"
+id_rpthit <- function(mutdf, rptdf) {
+  mutdf$rpt_hit_id <- NA
+  for(i in 1:nrow(mutdf)) {
+    matches <- filter(rptdf,
+                      seq_id == mutdf$seq_id[i] &
+                        ((query.start <= mutdf$position_start[i] &
+                            query.end >= mutdf$position_start[i]) |
+                           (query.start <= mutdf$position_end[i] &
+                              query.end >= mutdf$position_end[i])))
+    
+    if(nrow(matches) > 0) {
+      mutdf$rpt_hit_id[i] <-
+        as.character(matches$rpt_hit_id[which.max(matches$bit.score)])
+    } else {
+      mutdf$rpt_hit_id[i] <- "none"
+    }
   }
+  return(mutdf)
 }
 
 mutations <- 
-  left_join(mutations,
+  left_join(id_rpthit(mutations, rptdat),
+            select(mutate(rptdat, 
+                          rpt_bit_score = bit.score,
+                          rpt_match_seq = subject),
+                   seq_id, rpt_hit_id, rpt_bit_score, rpt_match_seq))
+mutationsd <- 
+  left_join(id_rpthit(mutationsd, rptdat),
             select(mutate(rptdat, 
                           rpt_bit_score = bit.score,
                           rpt_match_seq = subject),
