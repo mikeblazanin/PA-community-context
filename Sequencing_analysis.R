@@ -1532,132 +1532,6 @@ ggplot(filter(goPvsNP, pvalue < 0.01),
   scale_size_continuous(limits = c(NA, -2), transform = "log10")
   scale_y_discrete(
     breaks = goPvsNP$Description[order(goPvsNP$FoldEnrichment, decreasing = TRUE)])
-       
-
-
-## Comparing isolate vs population sequencing ----
-
-#For isolate samples, fill in all the missing mutation-sample combinations
-# with NA
-mutcomp <- 
-  complete(
-    ungroup(mutate(mutisol, freq = 1)),
-    #Create the nesting defining each unique mutation
-    nesting(!!!syms(intersect(mutcols, colnames(mutisol)))),
-    #Create the nesting defining each population
-    nesting(!!!syms(intersect(sampcols, colnames(mutisol))))
-    #Columns left out (and therefore filled in by NA by default):
-    # mut_and_samp_cols
-  )
-
-mutcomp <-
-  select(mutcomp,
-         -any_of(c(setdiff(mut_and_samp_cols, "freq"),
-                   "title", "seqrun", "SeqCoastid")))
-
-mutcomp <- 
-  mutate(ungroup(mutcomp),
-         freq0 = ifelse(is.na(freq), 0, freq),
-         resis_cat_num = recode(resis_cat,
-                                resis = 1, part = 0.5, suscep = 0))
-
-mutcomp <-
-  summarize(
-    group_by(mutcomp,
-             across(any_of(c(mutcols,
-                             "seqtype", "Timepoint", "Pop",
-                             "Treat", "Treat_C", "Treat_P")))),
-    isolfreq = mean(freq0),
-    avgresis = mean(resis_cat_num))
-
-mutcomp <-
-  full_join(
-    mutcomp,
-    select(filter(mutpop),
-           -c(multiple_polymorphic_SNPs_in_same_codon,
-              new_read_count, new_read_count_basis,
-              ref_read_count, ref_read_count_basis,
-              seqrun, SeqCoastid,
-              Isol, title)))
-
-#Re-run crossing to fill in all the missing mutation-sample combinations
-# with NA
-mutcomp <- 
-  complete(
-    ungroup(mutcomp),
-    #Create the nesting defining each unique mutation
-    nesting(!!!syms(intersect(mutcols, colnames(mutcomp)))),
-    #Create the nesting defining each sample
-    nesting(!!!syms(intersect(sampcols, colnames(mutcomp)))),
-    #Columns left out (and therefore filled in by NA by default):
-    # mut_and_samp_cols
-  )
-
-mutcomp <- 
-  mutate(ungroup(mutcomp),
-         freq0 = ifelse(is.na(freq), 0, freq))
-
-mutcomp <- mutate(
-  group_by(mutcomp, seqtype, mut_id, Treat, Pop),
-  everabove_010_orisolmut = 
-    any((!is.na(everabove_010) & everabove_010 == TRUE) | 
-          (!is.na(isolfreq) & isolfreq > 0)))
-
-tmp <- filter(mutcomp,
-              everabove_010_orisolmut == TRUE, 
-              gene_category == "pilus", Treat %in% c("NCP", "CP"))
-
-png("./plots/isolmut_vs_popmut_pilus.png", width = 16, height = 8, units = "in",
-    res = 150)
-ggplot(tmp,
-  aes(x = Timepoint, y = freq0, color = gene_name, fill = gene_name,
-      shape = as.factor(avgresis), group = mut_id)) +
-  geom_line() +
-  geom_point(alpha = 0.5, aes(size = isolfreq)) +
-  facet_grid(Treat ~ Pop) +
-  scale_size_continuous(breaks = c(0, 0.5, 1), range = c(0, 4))
-dev.off()
-
-
-tmp <- filter(mutcomp,
-              everabove_010_orisolmut == TRUE, 
-              Treat %in% c("NCP", "CP"))
-
-png("./plots/isolmut_vs_popmut.png", width = 16, height = 8, units = "in",
-    res = 150)
-ggplot(tmp,
-       aes(x = Timepoint, y = freq0, 
-           color = gene_category == "pilus",
-           group = mut_id)) +
-  geom_line() +
-  geom_point(alpha = 0.5, aes(size = isolfreq)) +
-  facet_grid(Treat ~ Pop) +
-  scale_size_continuous(breaks = c(0, 0.5, 1),
-                        range = c(0, 4))
-dev.off()
-
-# View(
-#   select(
-#     filter(mutisol,
-#            !mut_id %in% c("2958", "3198", "7885", "11212")),
-#     Timepoint, Treat, Pop, Isol, Treat_C, Treat_P,
-#     clearing_avg, EOP_avg, Plaque_morphology, resis_cat, 
-#     twitch_cat,
-#     gene_category, concise_mut, freq0))
-
-# ggplot(data = filter(mutisol,
-#                      !mut_id %in% c("2958", "3198", "7885", "11212")),
-#        aes(x = freq0)) +
-#   geom_histogram()
-
-
-# ggplot(data = mutisol2_sum,
-#        aes(x = isolavg_freq, y = freq0, color = gene_name)) +
-#   geom_point(alpha = 0.5) +
-#   facet_grid(Treat ~ Pop) +
-#   theme() +
-#   guides(color = "none")
-
 
 
 ##Isolate analyses ----
@@ -1937,6 +1811,145 @@ print(
     NULL
 )
 dev.off()
+
+## Comparing isolate vs population sequencing ----
+
+#For isolate samples, fill in all the missing mutation-sample combinations
+# with NA
+mutcomp <- 
+  complete(
+    ungroup(mutate(mutisol, freq = 1)),
+    #Create the nesting defining each unique mutation
+    nesting(!!!syms(intersect(mutcols, colnames(mutisol)))),
+    #Create the nesting defining each population
+    nesting(!!!syms(intersect(sampcols, colnames(mutisol))))
+    #Columns left out (and therefore filled in by NA by default):
+    # mut_and_samp_cols
+  )
+
+mutcomp <-
+  select(mutcomp,
+         -any_of(c(setdiff(mut_and_samp_cols, "freq"),
+                   "title", "seqrun", "SeqCoastid")))
+
+mutcomp <- 
+  mutate(ungroup(mutcomp),
+         freq0 = ifelse(is.na(freq), 0, freq),
+         resis_cat_num = recode(resis_cat,
+                                resis = 1, part = 0.5, suscep = 0))
+
+mutcomp <-
+  summarize(
+    group_by(mutcomp,
+             across(any_of(c(mutcols,
+                             "seqtype", "Timepoint", "Pop",
+                             "Treat", "Treat_C", "Treat_P")))),
+    isolfreq = mean(freq0),
+    avgresis = mean(resis_cat_num))
+
+mutcomp <-
+  full_join(
+    mutcomp,
+    select(filter(mutpop),
+           -c(multiple_polymorphic_SNPs_in_same_codon,
+              new_read_count, new_read_count_basis,
+              ref_read_count, ref_read_count_basis,
+              seqrun, SeqCoastid,
+              Isol, title)))
+
+#Re-run crossing to fill in all the missing mutation-sample combinations
+# with NA
+mutcomp <- 
+  complete(
+    ungroup(mutcomp),
+    #Create the nesting defining each unique mutation
+    nesting(!!!syms(intersect(mutcols, colnames(mutcomp)))),
+    #Create the nesting defining each sample
+    nesting(!!!syms(intersect(sampcols, colnames(mutcomp)))),
+    #Columns left out (and therefore filled in by NA by default):
+    # mut_and_samp_cols
+  )
+
+mutcomp <- 
+  mutate(ungroup(mutcomp),
+         freq0 = ifelse(is.na(freq), 0, freq))
+
+mutcomp <- mutate(
+  group_by(mutcomp, seqtype, mut_id, Treat, Pop),
+  everabove_010_orisolmut = 
+    any((!is.na(everabove_010) & everabove_010 == TRUE) | 
+          (!is.na(isolfreq) & isolfreq > 0)))
+
+tmp <- filter(mutcomp,
+              everabove_010_orisolmut == TRUE, 
+              gene_category == "pilus", Treat %in% c("NCP", "CP"))
+
+png("./plots/isolmut_vs_popmut_pilus.png", width = 16, height = 8, units = "in",
+    res = 150)
+ggplot(tmp,
+       aes(x = Timepoint, y = freq0, color = gene_name, fill = gene_name,
+           shape = as.factor(avgresis), group = mut_id)) +
+  geom_line() +
+  geom_point(alpha = 0.5, aes(size = isolfreq)) +
+  facet_grid(Treat ~ Pop) +
+  scale_size_continuous(breaks = c(0, 0.5, 1), range = c(0, 4))
+dev.off()
+
+
+tmp <- mutate(filter(mutcomp,
+              everabove_010_orisolmut == TRUE, 
+              Treat %in% c("NCP", "CP")),
+              gene_category = 
+                ifelse(gene_category == "pilus", "pilus", "other"),
+              Pop = as.numeric(Pop))
+
+png("./plots/isolmut_vs_popmut.png", width = 16, height = 8, units = "in",
+    res = 150)
+ggplot(tmp,
+       aes(x = Timepoint, y = freq0, 
+           color = gene_category,
+           group = mut_id)) +
+  geom_line() +
+  geom_point(alpha = 0.5, aes(size = isolfreq)) +
+  facet_nested(Treat_P * Treat_C ~ Pop,
+               labeller = labeller(
+                 Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
+                 Treat_C = c("NC" = "Pseudomonas-only",
+                             "C" = "All bacteria"),
+                 Treat_P = c("NP" = "No-phage",
+                             "P" = "Phage-added"))) +
+  scale_size_continuous(name = "Frequency among\nisolate sequencing",
+                        breaks = c(0, 0.5, 1),
+                        range = c(0, 4)) +
+  scale_color_manual(breaks = c("pilus", "other"),
+                     values = my_cols[c(6, 8)],
+                     name = "Gene function") +
+  labs(y = "Frequency in population sequencing")
+dev.off()
+
+# View(
+#   select(
+#     filter(mutisol,
+#            !mut_id %in% c("2958", "3198", "7885", "11212")),
+#     Timepoint, Treat, Pop, Isol, Treat_C, Treat_P,
+#     clearing_avg, EOP_avg, Plaque_morphology, resis_cat, 
+#     twitch_cat,
+#     gene_category, concise_mut, freq0))
+
+# ggplot(data = filter(mutisol,
+#                      !mut_id %in% c("2958", "3198", "7885", "11212")),
+#        aes(x = freq0)) +
+#   geom_histogram()
+
+
+# ggplot(data = mutisol2_sum,
+#        aes(x = isolavg_freq, y = freq0, color = gene_name)) +
+#   geom_point(alpha = 0.5) +
+#   facet_grid(Treat ~ Pop) +
+#   theme() +
+#   guides(color = "none")
+
+
 
 
 ##Old code ----
