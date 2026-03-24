@@ -1,6 +1,5 @@
 ##TODO ----
 #Top priority:
-# Fix gene_name by locus matching style for mut trajectory & other
 # Create new gene_category2 with more conservative type IV pilus only
 # check gene_category for pilus GO genes
 # fix gene cat analy to remove synonymous mutations
@@ -475,32 +474,9 @@ mutations <- mutate(mutations,
                     Treat = factor(Treat,
                                    levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
-##Shared analysis labeling ----
+##Shared analysis labeling: mutation categories ----
 mutations <- mutate(
   ungroup(mutations),
-  gene_category = case_when(
-    grepl("CupB3", gene_name) ~ "pilus",
-    grepl("Wsp", gene_name) ~ "biofilm",
-    grepl("MorA", gene_name) ~ "biofilm",
-    grepl("RhlR", gene_name) ~ "QS",
-    grepl("LasR", gene_name) ~ "QS",
-    grepl("LasI", gene_name) ~ "QS",
-    grepl("quorum", gene_name) ~ "QS",
-    grepl("LasA", gene_name) ~ "LasA_LasB",
-    grepl("LasB", gene_name) ~ "LasA_LasB",
-    grepl("Mut", gene_name) ~ "mutator",
-    grepl("Tps", gene_name) ~ "TPS system",
-    grepl("type VI", gene_name) ~ "T6SS",
-    grepl("Type VI", gene_name) ~ "T6SS",
-    grepl("Tse", gene_name) ~ "T6SS",
-    grepl("T2SS", gene_name) ~ "T2SS",
-    grepl("type II secretion system", gene_name) ~ "T2SS",
-    grepl("flagella", gene_name) ~ "flagella",
-    grepl("Thioredoxin family protein/Helix-turn-helix domain-containing protein", gene_name) ~ "mystery_1",
-    grepl("FimX", gene_name) ~ "pilus",
-    grepl("pil", gene_name, ignore.case = TRUE) ~ "pilus",
-    grepl("pilus", gene_name) ~ "pilus",
-    TRUE ~ "other"),
   mutation_category2 = case_when(
     mutation_category == "small_indel" & grepl("intergenic", gene_position) ~
       "small_indel_intergenic",
@@ -517,77 +493,8 @@ mutations <- mutate(
     mutation_category2 %in% c("small_indel_inframe", "snp_nonsynonymous") ~ "nonsyn change",
     mutation_category2 %in% c("snp_synonymous") ~ "silent",
     grepl("\\|", mutation_category2) ~ "multigene",
-    TRUE ~ "other"),
-  pilmut_struc = ifelse(
-    gene_category == "pilus",
-    case_when(
-      grepl("4b", gene_name) ~ "4b",
-      grepl("IVB", gene_name) ~ "4b",
-      grepl("TadZ", gene_name) ~ "unknown",
-      grepl("PilT", gene_name) ~ "motor",
-      grepl("PilB", gene_name) ~ "motor",
-      grepl("PilQ", gene_name) ~ "OMP",
-      grepl("PilS", gene_name) ~ "regulatory",
-      grepl("PilM", gene_name) ~ "alignment_sc",
-      grepl("PilC", gene_name) ~ "motor",
-      grepl("pilC", gene_name) ~ "motor",
-      grepl("PilN", gene_name) ~ "alignment_sc",
-      grepl("PilZ", gene_name) ~ "motor",
-      grepl("TadG", gene_name) ~ "unknown",
-      grepl("PilU", gene_name) ~ "motor",
-      grepl("PilR", gene_name) ~ "regulatory",
-      grepl("PilO", gene_name) ~ "alignment_sc",
-      grepl("FimV", gene_name) ~ "OMP",
-      grepl("PilJ", gene_name) ~ "regulatory",
-      grepl("PilF", gene_name) ~ "OMP",
-      grepl("PilY1", gene_name) ~ "fiber",
-      grepl("CupB3", gene_name) ~ "usher_chaperone_assembly",
-      grepl("PilV", gene_name) ~ "fiber",
-      grepl("PilG", gene_name) ~ "regulatory",
-      grepl("PilK", gene_name) ~ "tbd",
-      grepl("PilP", gene_name) ~ "alignment_sc",
-      grepl("PilD", gene_name) ~ "usher_chaperone_assembly",
-      grepl("PilE", gene_name) ~ "fiber",
-      grepl("PilX", gene_name) ~ "fiber",
-      grepl("FleP", gene_name) ~ "regulatory",
-      grepl("PilM", gene_name) ~ "alignment",
-      grepl("PilR", gene_name) ~ "regulatory",
-      grepl("PilP", gene_name) ~ "alignment_sc",
-      grepl("FimL", gene_name) ~ "regulatory",
-      TRUE ~ "tbd"),
-    NA))
-#TODO
-# need to fix gene_short for intergenic/multihit cases bc it's just
-#  pulling the last bit instead of each last bit
-#   gene_short = coalesce(
-#     # 1) Capitalized short symbol at end, e.g. "… PilT" or "… PilY1"
-#     str_extract(gene_name, "([A-Z][A-Za-z0-9]+)$"),
-#     # 2) Gene token immediately following "protein"
-#     str_extract(gene_name, "(?i)\\bPil[A-Za-z0-9]*(?=$|/)"),
-#     # 3) As a final fallback use the provided gene_name column
-#     gene_name),
-#   concise_mut = case_when(
-#     mut_id %in% c("2958", "3198", "7885", "11212") ~ "", #(ancestral mutations)
-#     grepl("snp", mutation_category) ~
-#       ifelse(grepl("intergenic", gene_position),
-#              paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
-#              paste0(gene_short, " (", aa_ref_seq, "->", aa_new_seq, ")")),
-#     mutation_category == "small_indel" & type == "DEL" ~
-#       ifelse(grepl("intergenic", gene_position),
-#              paste0(gene_short, " (intergenic ", size, "bp DEL)"),
-#              paste0(gene_short, " (", size, "bp DEL)")),
-#     mutation_category == "small_indel" & type == "INS" ~
-#       ifelse(grepl("intergenic", gene_position),
-#              paste0(gene_short, " (intergenic ", nchar(new_seq), "bp INS)"),
-#              paste0(gene_short, " (", nchar(new_seq), "bp INS)")),
-#     mutation_category == "small_indel" & type == "SUB" ~
-#       ifelse(grepl("intergenic", gene_position),
-#              paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
-#              paste0(gene_short, " (nt ", ref_seq, "->", new_seq, ")")),
-#     mutation_category == "large_deletion" ~
-#       paste0(gene_short, " (", size, "bp DEL)"),
-#     TRUE ~ "nomatch")
-# )
+    TRUE ~ "other")
+)
 
 ##Incorporate annotations ----
 bakta <- read.csv("PA14_annotated.csv")
@@ -662,15 +569,15 @@ for (i in which(!is.na(mutations$Locus.Tag))) {
   if(nrow(matches) == 0) {
     promgenes <- c()
     #preceding gene (in promoter if on the + strand)
-    before <- max(which(anno$Stop < mutations$position[i]))
+    before <- max(which(anno$Stop < mutations$position_start[i]))
     if(anno$Strand[before] == "-" & 
-       (mutations$position[i] - anno$Stop[before]) <= 150) {
+       (mutations$position_start[i] - anno$Stop[before]) <= 150) {
       promgenes <- before
     }
     #following gene (in promoter if on the - strand)
-    after <- min(which(anno$Start > mutations$position[i]))
+    after <- min(which(anno$Start > mutations$position_end[i]))
     if(anno$Strand[after] == "+" &
-       (anno$Start[after] - mutations$position[i]) <= 150) {
+       (anno$Start[after] - mutations$position_end[i]) <= 150) {
       promgenes <- c(promgenes, after)
     }
     promgenes <- anno$Locus.Tag[promgenes]
@@ -729,11 +636,11 @@ mutationsd <- list(
   filter(mutations, mutation_category3 == "multigene"),
   filter(mutations, mutation_category3 == "intergenic"),
   filter(mutations, 
-                     grepl("\\|", Locus.Tag) & 
-                       !mutation_category3 %in% c("multigene", "intergenic")),
+         grepl("\\|", Locus.Tag) & 
+           !mutation_category3 %in% c("multigene", "intergenic")),
   filter(mutations, 
-                     !grepl("\\|", Locus.Tag) & 
-                       !mutation_category3 %in% c("multigene", "intergenic"))
+         !grepl("\\|", Locus.Tag) & 
+           !mutation_category3 %in% c("multigene", "intergenic"))
 )
 if(sum(sapply(FUN = nrow, X = mutationsd)) != nrow(mutations)) {
   stop("missing some cases in mutations splitting")}
@@ -803,10 +710,10 @@ mutationsd_sum <- mutate(group_by(mutationsd_sum, across(any_of(mutcols))),
                          nas = sum(is.na(sd_gn), is.na(sd_gpd), is.na(sd_go), is.na(sd_gpm)),
                          sdmin = min(sd_gn, sd_gpd, sd_go, sd_gpm))
 # any(!mutationsd_sum$nas %in% c(0, 4))
-# View(mutationsd_sum[order(mutationsd_sum$sdmin, decreasing = TRUE), 
-#                     c("gene_name", "gene_product", "genes_overlapping", 
-#                       "genes_promoter", "Gene", "Product", 
-#                       "sd_gn", "sd_gpd", "sd_go", "sd_gpm", "sdmin")])
+View(mutationsd_sum[order(mutationsd_sum$sdmin, decreasing = TRUE),
+                    c("gene_name", "gene_product", "genes_overlapping",
+                      "genes_promoter", "Gene", "Product",
+                      "sd_gn", "sd_gpd", "sd_go", "sd_gpm", "sdmin")])
 
 #Check for annotations among 'known' genes
 tmp <- 
@@ -822,6 +729,115 @@ tmp <-
     Locus.Tag, gene_category, Product, GOsmerge_ind, name))
 #View(filter(tmp, gene_category == "pilus"))
 #View(filter(tmp, grepl("pil", name)))
+
+#Overwrite original mutations frame with re-joined version
+mutations <-
+  summarize(
+    group_by(mutationsd, across(any_of(c("mut_id", sampcols)))),
+    across(.cols = -any_of(sampcols),
+           .fns = function(x) {
+             if(length(unique(x)) == 1) {as.character(x[1])
+             } else {paste(x, collapse = "|")
+             }}))
+
+##Shared analysis labeling: gene categories ----
+mutations <- mutate(
+  ungroup(mutations),
+  gene_category = case_when(
+    grepl("CupB3", Product) ~ "pilus",
+    grepl("Wsp", Product) ~ "biofilm",
+    grepl("MorA", Product) ~ "biofilm",
+    grepl("RhlR", Product) ~ "QS",
+    grepl("LasR", Product) ~ "QS",
+    grepl("LasI", Product) ~ "QS",
+    grepl("quorum", Product) ~ "QS",
+    grepl("LasA", Product) ~ "LasA_LasB",
+    grepl("LasB", Product) ~ "LasA_LasB",
+    grepl("Mut", Product) ~ "mutator",
+    grepl("Tps", Product) ~ "TPS system",
+    grepl("type VI", Product) ~ "T6SS",
+    grepl("Type VI", Product) ~ "T6SS",
+    grepl("Tse", Product) ~ "T6SS",
+    grepl("T2SS", Product) ~ "T2SS",
+    grepl("type II secretion system", Product) ~ "T2SS",
+    grepl("flagella", Product) ~ "flagella",
+    grepl("Thioredoxin family protein/Helix-turn-helix domain-containing protein", Product) ~ "mystery_1",
+    grepl("FimX", Product) ~ "pilus",
+    grepl("pil", Product, ignore.case = TRUE) ~ "pilus",
+    grepl("pilus", Product) ~ "pilus",
+    TRUE ~ "other"),
+  gene_catpilnot = ifelse(gene_category == "pilus", "pilus", "other"),
+  pilmut_struc = ifelse(
+    gene_category == "pilus",
+    case_when(
+      grepl("4b", Product) ~ "4b",
+      grepl("IVB", Product) ~ "4b",
+      grepl("TadZ", Product) ~ "unknown",
+      grepl("PilT", Product) ~ "motor",
+      grepl("PilB", Product) ~ "motor",
+      grepl("PilQ", Product) ~ "OMP",
+      grepl("PilS", Product) ~ "regulatory",
+      grepl("PilM", Product) ~ "alignment_sc",
+      grepl("PilC", Product) ~ "motor",
+      grepl("pilC", Product) ~ "motor",
+      grepl("PilN", Product) ~ "alignment_sc",
+      grepl("PilZ", Product) ~ "motor",
+      grepl("TadG", Product) ~ "unknown",
+      grepl("PilU", Product) ~ "motor",
+      grepl("PilR", Product) ~ "regulatory",
+      grepl("PilO", Product) ~ "alignment_sc",
+      grepl("FimV", Product) ~ "OMP",
+      grepl("PilJ", Product) ~ "regulatory",
+      grepl("PilF", Product) ~ "OMP",
+      grepl("PilY1", Product) ~ "fiber",
+      grepl("CupB3", Product) ~ "usher_chaperone_assembly",
+      grepl("PilV", Product) ~ "fiber",
+      grepl("PilG", Product) ~ "regulatory",
+      grepl("PilK", Product) ~ "tbd",
+      grepl("PilP", Product) ~ "alignment_sc",
+      grepl("PilD", Product) ~ "usher_chaperone_assembly",
+      grepl("PilE", Product) ~ "fiber",
+      grepl("PilX", Product) ~ "fiber",
+      grepl("FleP", Product) ~ "regulatory",
+      grepl("PilM", Product) ~ "alignment",
+      grepl("PilR", Product) ~ "regulatory",
+      grepl("PilP", Product) ~ "alignment_sc",
+      grepl("FimL", Product) ~ "regulatory",
+      TRUE ~ "tbd"),
+    NA))
+#TODO
+# need to fix gene_short for intergenic/multihit cases bc it's just
+#  pulling the last bit instead of each last bit
+#   gene_short = coalesce(
+#     # 1) Capitalized short symbol at end, e.g. "… PilT" or "… PilY1"
+#     str_extract(gene_name, "([A-Z][A-Za-z0-9]+)$"),
+#     # 2) Gene token immediately following "protein"
+#     str_extract(gene_name, "(?i)\\bPil[A-Za-z0-9]*(?=$|/)"),
+#     # 3) As a final fallback use the provided gene_name column
+#     gene_name),
+#   concise_mut = case_when(
+#     mut_id %in% c("2958", "3198", "7885", "11212") ~ "", #(ancestral mutations)
+#     grepl("snp", mutation_category) ~
+#       ifelse(grepl("intergenic", gene_position),
+#              paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
+#              paste0(gene_short, " (", aa_ref_seq, "->", aa_new_seq, ")")),
+#     mutation_category == "small_indel" & type == "DEL" ~
+#       ifelse(grepl("intergenic", gene_position),
+#              paste0(gene_short, " (intergenic ", size, "bp DEL)"),
+#              paste0(gene_short, " (", size, "bp DEL)")),
+#     mutation_category == "small_indel" & type == "INS" ~
+#       ifelse(grepl("intergenic", gene_position),
+#              paste0(gene_short, " (intergenic ", nchar(new_seq), "bp INS)"),
+#              paste0(gene_short, " (", nchar(new_seq), "bp INS)")),
+#     mutation_category == "small_indel" & type == "SUB" ~
+#       ifelse(grepl("intergenic", gene_position),
+#              paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
+#              paste0(gene_short, " (nt ", ref_seq, "->", new_seq, ")")),
+#     mutation_category == "large_deletion" ~
+#       paste0(gene_short, " (", size, "bp DEL)"),
+#     TRUE ~ "nomatch")
+# )
+
 
 #Incorporate repetitive regions ----
 rptdat <- rbind(read.csv("PA14_PA14_BLAST.csv"),
@@ -1023,12 +1039,10 @@ if(make_slowplots) {
   print(
     ggplot(
       data = mutate(filter(mutpop, everabove_010 == TRUE),
-                    gene_category = 
-                      ifelse(gene_category == "pilus", "pilus", "other"),
                     Pop = as.numeric(Pop)),
       aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
-          color = gene_category)) +
-      geom_line(aes(alpha = gene_category)) +
+          color = gene_catpilnot)) +
+      geom_line(aes(alpha = gene_catpilnot)) +
       facet_nested(Treat_P * Treat_C ~ Pop,
                  labeller = labeller(
                    Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
@@ -1055,12 +1069,10 @@ if(make_slowplots) {
   print(
     ggplot(
       data = mutate(filter(mutpop, everabove_010_noanc == TRUE),
-                    gene_category = 
-                      ifelse(gene_category == "pilus", "pilus", "other"),
                     Pop = as.numeric(Pop)),
       aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
-          color = gene_category)) +
-      geom_line(aes(alpha = gene_category)) +
+          color = gene_catpilnot)) +
+      geom_line(aes(alpha = gene_catpilnot)) +
       facet_nested(Treat_P * Treat_C ~ Pop,
                    labeller = labeller(
                      Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
@@ -1673,13 +1685,6 @@ if(make_slowplots) {
 #mut_id 11212 is fixed in pop 9 across all treatments & timepoints
 mutisol <- filter(mutisol, !mut_id %in% c("2958", "3198", "7885", "11212"))
 
-#Redefine gene category for cleaner plotting
-mutisol <- mutate(
-  mutisol,
-  gene_category2 = 
-    factor(ifelse(gene_category == "pilus", "pilus", "other"),
-           levels = c("pilus", "other")))
-
 #Note: we sequenced more NCP isols than CP
                     
 if(make_slowplots) {
@@ -1699,7 +1704,7 @@ if(make_slowplots) {
                 summarize(group_by(mutisol, resis_cat, Treat_C, Treat_P, Treat), 
                           n = n()),
               aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
-    facet_nested(Treat_P * Treat_C ~ gene_category2,
+    facet_nested(Treat_P * Treat_C ~ gene_catpilnot,
                  labeller = labeller(
                    Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
                    Treat_C = c("NC" = "Pseudomonas-only",
@@ -1899,15 +1904,13 @@ dev.off()
 tmp <- mutate(filter(mutcomp,
               everabove_010_orisolmut == TRUE, 
               Treat %in% c("NCP", "CP")),
-              gene_category = 
-                ifelse(gene_category == "pilus", "pilus", "other"),
               Pop = as.numeric(Pop))
 
 png("./plots/isolmut_vs_popmut.png", width = 16, height = 8, units = "in",
     res = 150)
 ggplot(tmp,
        aes(x = Timepoint, y = freq0, 
-           color = gene_category,
+           color = gene_catpilnot,
            group = mut_id)) +
   geom_line() +
   geom_point(alpha = 0.5, aes(size = isolfreq)) +
