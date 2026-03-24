@@ -1,4 +1,10 @@
 ##TODO ----
+##TODO: manually check GO annotation e.g. for PilT
+##TODO: fix gene_name by locus matching style for mut trajectory & other analyses
+##TODO: check Ian's ideas about KEGG/BRITE
+
+##TODO: adjust coverage analysis for repetitive regions
+
 #Best ideas
 # Get total # reads (not just aligned reads)
 # run isols in polym mode, try to figure out contamination (where are bg muts
@@ -392,7 +398,9 @@ mutcols <-
     "InterPro_accession", "InterPro_annotations", "InterPro_GOs", 
     "Pathways", "InterPro_GOs_clean",
     #Columns from anno merged df
-    "GOsmerge")
+    "GOsmerge",
+    #Columns from BLAST for repeat regions
+    "rpt_hit_id", "rpt_bit_score", "rpt_match_seq")
 sampcols <- c("seqrun", "SeqCoastid", "seqtype", "Timepoint", "Pop", "Treat", 
               "Isol", "title", "Treat_C", "Treat_P",
               "clearing_avg", "EOP_avg", "Plaque_morphology", "resis", 
@@ -819,8 +827,65 @@ tmp <-
 View(filter(tmp, gene_category == "pilus"))
 View(filter(tmp, grepl("pil", name)))
 
-##TODO: manually check GO annotation e.g. for PilT
-##TODO: fix gene_name by locus matching style for mut trajectory & other analyses
+#Incorporate repetitive regions ----
+rptdat <- rbind(read.csv("PA14_PA14_BLAST.csv"),
+                #there were no hits for PA14 vs H6
+                read.csv("PA14_AX1_BLAST.csv"),
+                read.csv("PA14_EF_BLAST.csv"),
+                read.csv("PA14_SA_BLAST.csv"))
+
+#drop trivial full self-hit
+rptdat <- filter(rptdat, !(alignment.length == 6541479 & pct.identity == 100))
+
+rptdat$rpt_hit_id <- as.character(1:nrow(rptdat))
+
+#Rename query (seq_id) and subject values
+rptdat <- mutate(rptdat,
+                 query = gsub("contig_", "", query),
+                 seq_id = query,
+                 subject = gsub("contig_", "", subject),
+                 subject = gsub("e82cc082e40344a9", "EF", subject),
+                 subject = gsub("6a49b35b19134f7e", "SA", subject),
+                 subject = gsub("PP203295", "H6_1", subject))
+
+if(FALSE) {
+  rptcov <- rep(0, n = max(rptdat$query.end))
+  for(i in 1:nrow(rptdat)) {
+    rptcov[rptdat$query.start[i]:rptdat$query.end[i]] <-
+      rptcov[rptdat$query.start[i]:rptdat$query.end[i]] + 1
+  }
+  ggplot(data = rptdat,
+         aes(xmin = query.start, xmax = query.end, 
+             ymin = 0, ymax = 1,
+             fill = subject)) +
+    geom_rect(alpha = 0.5) +
+    guides(fill = "none")
+  ggplot(data = rptcov, aes(x = 1:length(rptcov), y = cov)) + geom_line()
+}
+
+mutations$rpt_hit_id <- NA
+for(i in 1:nrow(mutations)) {
+  matches <- filter(rptdat,
+                    seq_id == mutations$seq_id[i] &
+                    ((query.start <= mutations$position_start[i] &
+                      query.end >= mutations$position_start[i]) |
+                    (query.start <= mutations$position_end[i] &
+                       query.end >= mutations$position_end[i])))
+  
+  if(nrow(matches) > 0) {
+    mutations$rpt_hit_id[i] <-
+      as.character(matches$rpt_hit_id[which.max(matches$bit.score)])
+  } else {
+    mutations$rpt_hit_id[i] <- "none"
+  }
+}
+
+mutations <- 
+  left_join(mutations,
+            select(mutate(rptdat, 
+                          rpt_bit_score = bit.score,
+                          rpt_match_seq = subject),
+                   seq_id, rpt_hit_id, rpt_bit_score, rpt_match_seq))
 
 #Split samples by type ----
 mutpop <- filter(mutations, Isol == "Pop")
@@ -1118,6 +1183,7 @@ if(make_slowplots) {
 
 ##TODO - add pilus annotations from GO terms
 ##TODO - remove synonymous mutations
+##TODO - click on alignment evidence for a few of the mystery mutations
 
 gcat_freq <- summarize(
   group_by(
@@ -1464,6 +1530,18 @@ goNCvsC_inP <-
         qvalueCutoff = 0.5,
         minGSSize = 2)),
     pvalue <= 0.05)
+
+
+goPvsNP$Description <- factor(goPvsNP$Description,
+                              levels = goPvsNP$Description)
+ggplot(filter(goPvsNP, pvalue < 0.01),
+       aes(x = FoldEnrichment, y = Description, size = pvalue)) +
+  geom_point() +
+  scale_x_continuous(limits = c(0, NA)) +
+  scale_size_continuous(limits = c(NA, -2), transform = "log10")
+  scale_y_discrete(
+    breaks = goPvsNP$Description[order(goPvsNP$FoldEnrichment, decreasing = TRUE)])
+       
 
 
 ## Comparing isolate vs population sequencing ----
