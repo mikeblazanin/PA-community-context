@@ -1,43 +1,40 @@
 ##TODO ----
-##TODO: manually check GO annotation e.g. for PilT
-##TODO: fix gene_name by locus matching style for mut trajectory & other analyses
-##TODO: check Ian's ideas about KEGG/BRITE
+#Top priority:
+# Fix gene_name by locus matching style for mut trajectory & other
+# Create new gene_category2 with more conservative type IV pilus only
+# check gene_category for pilus GO genes
+# fix gene cat analy to remove synonymous mutations
+# Update gene cat stats using old & new pilus category
+# Correlate phage freq vs freq of old & new pilus category
+# fix gene_short for intergenic/multihit cases
 
-##TODO: adjust coverage analysis for repetitive regions
-
-#Best ideas
-# Get total # reads (not just aligned reads)
+#Maybe:
+# adjust coverage analysis for repetitive regions
+# Get total # reads (not just aligned reads) & use as denom for coverage analy
 # run isols in polym mode, try to figure out contamination (where are bg muts
 #  (in isols!?!)
-# compare pilus gene size to # of muts
-# Plot mutations in N samples vs freq plot
-#  (n reflects mut accessibility, freq reflects selection)
 # why are cov-based densities of other bact higher in NC treats?
-# PCA mutisol
-# Convert big deletions into deletions at ea gene via annotations file
-# PCA but casting paste(gene_name, mutation_cat3 a la mutisol)
-# Diversity metrics of each pop-timepoint
-# Look at pilus structure & where genes act in pilus construction
-# ID genes mutated more highly in one treat vs others
 # Look for dift fates of phages depending on initial inocula 3-10 & pilus muts
 # Is there anything in common among the populations where phage went ~extinct?
 #  Some way those 5 pops cluster?
-# How often are the same gene targeted with different mutations?
+
+#Other ideas:
+# check Ian's ideas about KEGG/BRITE
+# compare pilus gene size to # of muts
+# Plot mutations in N samples vs freq plot
+#  (n reflects mut accessibility, freq reflects selection)
+# PCA mutisol
+# PCA but casting paste(gene_name, mutation_cat3 a la mutisol)
+# Diversity metrics of each pop-timepoint
 # fst
 # parallel selection - Toby
 # outlier analysis - Chelsea/Toby
-
-#Good ideas
 # ML on mutpop to predict treatment or phage density
 # ML on mutisol to predict treatment or resistance or twitching
-# Mutations associated with phage density
-
-#Other ideas
 # plot mutation trajectories excluding those that appear in control treatments
 # Discriminant analysis to look for diff genes
 # ID mutations that are moving together
 # correlated coevol mutation
-
 
 ##Setup ----
 library(tidyr)
@@ -233,7 +230,6 @@ if(make_slowplots) {
     
   png("./plots/density_fromseq.png", width = 10, height = 7, units = "in",
       res = 150)
-  ##TODO: use total reads as denom, not total aligned reads
   print(
     ggplot(
       data = filter(covbysp, Treat != "Anc"),
@@ -1180,11 +1176,6 @@ if(make_slowplots) {
 }
 
 ###Analyze gene category frequencies CHANGE TO ONLY PILUS ----
-
-##TODO - add pilus annotations from GO terms
-##TODO - remove synonymous mutations
-##TODO - click on alignment evidence for a few of the mystery mutations
-
 gcat_freq <- summarize(
   group_by(
     filter(
