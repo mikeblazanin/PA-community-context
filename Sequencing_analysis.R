@@ -820,8 +820,8 @@ tmp <-
         cols = GOsmerge_ind, delim = "|"),
       term2name),
     Locus.Tag, gene_category, Product, GOsmerge_ind, name))
-View(filter(tmp, gene_category == "pilus"))
-View(filter(tmp, grepl("pil", name)))
+#View(filter(tmp, gene_category == "pilus"))
+#View(filter(tmp, grepl("pil", name)))
 
 #Incorporate repetitive regions ----
 rptdat <- rbind(read.csv("PA14_PA14_BLAST.csv"),
@@ -1187,8 +1187,8 @@ gcat_freq <- summarize(
   indep_freq = 1-prod(1-freq0),
   avg_freq = mean(freq0))
 
-View(summarize(group_by(gcat_freq, Treat, gene_category),
-          avg_total = mean(total_freq)))
+# View(summarize(group_by(gcat_freq, Treat, gene_category),
+#           avg_total = mean(total_freq)))
 
 ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1")),
        aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
@@ -1626,7 +1626,8 @@ tmp <- filter(mutcomp,
 png("./plots/isolmut_vs_popmut.png", width = 16, height = 8, units = "in",
     res = 150)
 ggplot(tmp,
-       aes(x = Timepoint, y = freq0, color = gene_category,
+       aes(x = Timepoint, y = freq0, 
+           color = gene_category == "pilus",
            group = mut_id)) +
   geom_line() +
   geom_point(alpha = 0.5, aes(size = isolfreq)) +
