@@ -1,5 +1,6 @@
 ##TODO ----
 #Top priority:
+# fix mutation categories to use manual mutation category
 # fix gene cat analy to remove synonymous mutations
 # Update gene cat stats using old & new pilus category
 # Correlate phage freq vs freq of old & new pilus category
@@ -379,7 +380,7 @@ mutcols <-
     "repeat_seq", "seq_id", "size", "snp_type", "transl_table", "type", 
     #columns from my analyses:
     "mut_id", "gene_category", "mutation_category2", "mutation_category3",
-    "pilmut_struc", "gene_short", "concise_mut", "mut_combin",
+    "pilmut_struc", "gene_short", "concise_mut", "mut_combin", "gene_catpilnot",
     #Columns from eggnog and bakta:
     "Sequence.Id", "Type", "Start", "Stop", "Strand", "Locus.Tag", "Gene", 
     "Product", "DbXrefs", "seed_ortholog", "evalue", "score", "eggNOG_OGs", 
@@ -961,6 +962,7 @@ mutpopd <- filter(mutpopd, Treat != "Anc")
 
 #Fix treatment columns post-duplication
 mutpop <- mutate(mutpop,
+                 freq = as.numeric(freq),
                  freq0 = ifelse(is.na(freq), 0, freq),
                  freq01 = ifelse(freq0 == 0, 0.01, freq0),
                  Treat_C = factor(
@@ -976,20 +978,21 @@ mutpop <- mutate(mutpop,
                  Treat = factor(Treat,
                                 levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 mutpopd <- mutate(mutpopd,
-                 freq0 = ifelse(is.na(freq), 0, freq),
-                 freq01 = ifelse(freq0 == 0, 0.01, freq0),
-                 Treat_C = factor(
-                   ifelse(Treat %in% c("NCP", "NN"), "NC",
-                          ifelse(Treat %in% c("CNP", "CP"), "C",
-                                 Treat)),
-                   levels = c("Anc", "NC", "C")),
-                 Treat_P = factor(
-                   ifelse(Treat %in% c("NN", "CNP"), "NP",
-                          ifelse(Treat %in% c("NCP", "CP"), "P",
-                                 Treat)),
-                   levels = c("Anc", "NP", "P")),
-                 Treat = factor(Treat,
-                                levels = c("Anc", "NN", "CNP", "NCP", "CP")))
+                  freq = as.numeric(freq),
+                  freq0 = ifelse(is.na(freq), 0, freq),
+                  freq01 = ifelse(freq0 == 0, 0.01, freq0),
+                  Treat_C = factor(
+                    ifelse(Treat %in% c("NCP", "NN"), "NC",
+                           ifelse(Treat %in% c("CNP", "CP"), "C",
+                                  Treat)),
+                    levels = c("Anc", "NC", "C")),
+                  Treat_P = factor(
+                    ifelse(Treat %in% c("NN", "CNP"), "NP",
+                           ifelse(Treat %in% c("NCP", "CP"), "P",
+                                  Treat)),
+                    levels = c("Anc", "NP", "P")),
+                  Treat = factor(Treat,
+                                 levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
 mutpop <- mutate(group_by(mutpop, 
                           across(any_of(c(mutcols, "seqtype", "Treat", "Pop")))),
@@ -1164,7 +1167,7 @@ if(make_slowplots) {
                      Treat_P = c("NP" = "No-phage",
                                  "P" = "Phage-added"))) +
       scale_x_continuous(breaks = c(0, 1, 2, 4, 8), limits = c(0, 9)) +
-      scale_color_manual(name = "Gene name", values = my_cols2) +
+      #scale_color_manual(name = "Gene name", values = my_cols2) +
       scale_linetype_manual(
         name = "Putative mutation effect",
         breaks = c("loss of function", "nonsyn change", "intergenic", "silent"),
@@ -1210,45 +1213,37 @@ if(make_slowplots) {
   dev.off()
 }
 
-###Analyze gene category frequencies CHANGE TO ONLY PILUS ----
+###Analyze pilus category frequencies ----
 gcat_freq <- summarize(
-  group_by(
-    filter(
-      mutpop, gene_name != "type 4b pilus Flp biogenesis protein TadZ"), 
-    gene_category,
-    across(any_of(sampcols))),
+  group_by(mutpop, gene_catpilnot, across(any_of(sampcols))),
   total_freq = sum(freq0),
-  max_freq = max(freq0),
-  indep_freq = 1-prod(1-freq0),
-  avg_freq = mean(freq0))
+  indep_freq = 1-prod(1-freq0))
 
-# View(summarize(group_by(gcat_freq, Treat, gene_category),
-#           avg_total = mean(total_freq)))
-
-ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1")),
+####Plots ----
+ggplot(data = filter(gcat_freq, gene_catpilnot == "pilus"),
        aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
   geom_point() +
   geom_line(aes(group = paste(Pop, Timepoint))) +
-  facet_grid(Treat_P ~ gene_category) +
+  facet_grid(Treat_P ~ gene_catpilnot) +
   #scale_y_log10() +
   NULL
 
-ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1")),
+ggplot(data = filter(gcat_freq, gene_catpilnot == "pilus"),
        aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
   geom_point() +
   geom_line(aes(group = paste(Pop, Timepoint))) +
-  facet_grid(Treat_P ~ gene_category) +
+  facet_grid(Treat_P ~ gene_catpilnot) +
   #scale_y_log10() +
   NULL
 
-png("./plots/gene_freq_pop_diff_total_PNP.png", width = 20, height = 4,
+png("./plots/gene_freq_pop_diff_total_PNP.png", width = 6, height = 5,
     units = "in", res = 150)
-ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1"),
-                     Timepoint == 8),
+ggplot(data = filter(gcat_freq, 
+                     gene_catpilnot == "pilus", Timepoint == 8),
        aes(x = Treat_P, y = total_freq)) +
   geom_point() +
-  geom_line(aes(group = paste(gene_category, Pop))) +
-  facet_nested(~ gene_category + Treat_C,
+  geom_line(aes(group = paste(gene_catpilnot, Pop))) +
+  facet_nested(~ gene_catpilnot + Treat_C,
                labeller = labeller(
                  Treat_C = c("NC" = "Only\nPseudo.",
                              "C" = "All\nBacteria"))) +
@@ -1264,14 +1259,14 @@ ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1"),
   NULL
 dev.off()
 
-png("./plots/gene_freq_pop_diff_total_CNC.png", width = 20, height = 4,
+png("./plots/gene_freq_pop_diff_total_CNC.png", width = 6, height = 5,
     units = "in", res = 150)
-ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1"),
-                     Timepoint != 0),
+ggplot(data = filter(gcat_freq, 
+                     gene_catpilnot == "pilus", Timepoint != 0),
        aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
   geom_point() +
-  geom_line(aes(group = paste(gene_category, Pop, Timepoint))) +
-  facet_nested(~ gene_category + Treat_P,
+  geom_line(aes(group = paste(gene_catpilnot, Pop, Timepoint))) +
+  facet_nested(~ gene_catpilnot + Treat_P,
                labeller = labeller(
                  Treat_P = c("NP" = "No Phage",
                              "P" = "Phage\nAdded"))) +
@@ -1290,17 +1285,17 @@ ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1"),
   NULL
 dev.off()
 
-png("./plots/gene_freq_pop_diff_indep_PNP.png", width = 20, height = 4,
+png("./plots/gene_freq_pop_diff_indep_PNP.png", width = 6, height = 5,
     units = "in", res = 150)
-ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1"),
-                     Timepoint == 8),
+ggplot(data = filter(gcat_freq, 
+                     gene_catpilnot == "pilus", Timepoint == 8),
        aes(x = Treat_P, y = indep_freq)) +
   geom_point() +
-  geom_line(aes(group = paste(gene_category, Pop))) +
-  facet_nested(~ gene_category + Treat_C,
-             labeller = labeller(
-               Treat_C = c("NC" = "Only\nPseudo.",
-                           "C" = "All\nBacteria"))) +
+  geom_line(aes(group = paste(gene_catpilnot, Pop))) +
+  facet_nested(~ gene_catpilnot + Treat_C,
+               labeller = labeller(
+                 Treat_C = c("NC" = "Only\nPseudo.",
+                             "C" = "All\nBacteria"))) +
   scale_y_continuous(limits = c(0, 1)) +
   labs(x = "", y = "Total frequency\nTimepoint 8\n(assuming indep.)") +
   scale_x_discrete(breaks = c("NP", "P"),
@@ -1313,14 +1308,14 @@ ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1"),
   NULL
 dev.off()
 
-png("./plots/gene_freq_pop_diff_indep_CNC.png", width = 20, height = 4,
+png("./plots/gene_freq_pop_diff_indep_CNC.png", width = 6, height = 5,
     units = "in", res = 150)
-ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1"),
-                     Timepoint != 0),
+ggplot(data = filter(gcat_freq, 
+                     gene_catpilnot == "pilus", Timepoint != 0),
        aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
   geom_point() +
-  geom_line(aes(group = paste(gene_category, Pop, Timepoint))) +
-  facet_nested(~ gene_category + Treat_P,
+  geom_line(aes(group = paste(gene_catpilnot, Pop, Timepoint))) +
+  facet_nested(~ gene_catpilnot + Treat_P,
                labeller = labeller(
                  Treat_P = c("NP" = "No Phage",
                              "P" = "Phage\nAdded"))) +
@@ -1339,39 +1334,32 @@ ggplot(data = filter(gcat_freq, !gene_category %in% c("other", "mystery_1"),
   NULL
 dev.off()
 
-ggplot(data = filter(gcat_freq, gene_category == "pilus"),
-       aes(x = Treat_C, y = total_freq, color = gene_category)) +
+ggplot(data = filter(gcat_freq, gene_catpilnot == "pilus"),
+       aes(x = Treat_C, y = total_freq, color = gene_catpilnot)) +
   geom_point() +
-  geom_line(aes(group = paste(gene_category, Pop))) +
+  geom_line(aes(group = paste(gene_catpilnot, Pop))) +
   facet_grid(Treat_P ~ Timepoint) +
   #scale_y_log10() +
   NULL
 
-ggplot(data = filter(gcat_freq, gene_category == "pilus"),
-       aes(x = Treat_C, y = indep_freq, color = Pop)) +
+ggplot(data = filter(gcat_freq, gene_catpilnot == "pilus"),
+       aes(x = Treat_C, y = indep_freq, color = gene_catpilnot)) +
   geom_point() +
-  geom_line(aes(group = paste(gene_category, Pop))) +
-  facet_grid(Treat_P ~ Timepoint) +
-  #scale_y_log10() +
-  NULL
-
-ggplot(data = filter(gcat_freq, gene_category == "pilus"),
-       aes(x = Treat_C, y = max_freq, color = Pop)) +
-  geom_point() +
-  geom_line(aes(group = paste(gene_category, Pop))) +
+  geom_line(aes(group = paste(gene_catpilnot, Pop))) +
   facet_grid(Treat_P ~ Timepoint) +
   #scale_y_log10() +
   NULL
 
 
+####Stats ----
 totalfreq_full_lme <- 
   lmer(total_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
-             data = filter(gcat_freq, gene_category == "pilus",
+             data = filter(gcat_freq, gene_catpilnot == "pilus",
                            Treat_P == "P", Timepoint != 0),
        REML = FALSE)
 totalfreq_reduced_lme <-
   lmer(total_freq ~ as.factor(Timepoint) + (1|Pop),
-       data = filter(gcat_freq, gene_category == "pilus",
+       data = filter(gcat_freq, gene_catpilnot == "pilus",
                      Treat_P == "P", Timepoint != 0),
        REML = FALSE)
 anova(totalfreq_reduced_lme, totalfreq_full_lme)
@@ -1379,75 +1367,17 @@ totalfreq_full_lme
 
 indepfreq_full_lme <- 
   lmer(indep_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
-       data = filter(gcat_freq, gene_category == "pilus",
+       data = filter(gcat_freq, gene_catpilnot == "pilus",
                      Treat_P == "P", Timepoint != 0),
        REML = FALSE)
 indepfreq_reduced_lme <- 
   lmer(indep_freq ~ as.factor(Timepoint) + (1|Pop),
-       data = filter(gcat_freq, gene_category == "pilus",
+       data = filter(gcat_freq, gene_catpilnot == "pilus",
                      Treat_P == "P", Timepoint != 0),
        REML = FALSE)
 anova(indepfreq_reduced_lme, indepfreq_full_lme)
 indepfreq_full_lme
 
-maxfreq_full_lme <- 
-  lmer(max_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
-       data = filter(gcat_freq, gene_category == "pilus",
-                     Treat_P == "P", Timepoint != 0),
-       REML = FALSE)
-maxfreq_reduced_lme <- 
-  lmer(max_freq ~ as.factor(Timepoint) + (1|Pop),
-       data = filter(gcat_freq, gene_category == "pilus",
-                     Treat_P == "P", Timepoint != 0),
-       REML = FALSE)
-anova(maxfreq_reduced_lme, maxfreq_full_lme)
-maxfreq_full_lme
-
-gcat_type_freq_pil <- summarize(
-  group_by(
-    filter(
-      mutpop, gene_category == "pilus",
-      gene_name != "type 4b pilus Flp biogenesis protein TadZ"), 
-    gene_category, mutation_category3,
-    across(any_of(sampcols))),
-  total_freq = sum(freq0),
-  indep_freq = 1-prod(1-freq0),
-  avg_freq = mean(freq0))
-
-ggplot(data = gcat_type_freq_pil,
-       aes(x = Treat_C, y = indep_freq, color = mutation_category3)) +
-  geom_point() +
-  geom_line(aes(group = paste(mutation_category3, Pop))) +
-  facet_grid(Treat_P * mutation_category3 ~ Timepoint) +
-  #scale_y_log10() +
-  NULL
-
-totalfreq_pil_full_lme <- 
-  lmer(total_freq ~ 
-         Treat_C + mutation_category3 + as.factor(Timepoint) + (1|Pop),
-       data = filter(gcat_type_freq_pil, 
-                     Treat_P == "P", Timepoint != 0),
-       REML = FALSE)
-totalfreq_pil_reduced_lme <-
-  lmer(total_freq ~ mutation_category3 + as.factor(Timepoint) + (1|Pop),
-       data = filter(gcat_type_freq_pil, 
-                     Treat_P == "P", Timepoint != 0),
-       REML = FALSE)
-anova(totalfreq_pil_reduced_lme, totalfreq_pil_full_lme)
-totalfreq_pil_full_lme
-
-indepfreq_pil_full_lme <- 
-  lmer(indep_freq ~ Treat_C + mutation_category3 + as.factor(Timepoint) + (1|Pop),
-       data = filter(gcat_type_freq_pil, 
-                     Treat_P == "P", Timepoint != 0),
-       REML = FALSE)
-indepfreq_pil_reduced_lme <- 
-  lmer(indep_freq ~ mutation_category3 + as.factor(Timepoint) + (1|Pop),
-       data = filter(gcat_type_freq_pil, 
-                     Treat_P == "P", Timepoint != 0),
-       REML = FALSE)
-anova(indepfreq_pil_reduced_lme, indepfreq_pil_full_lme)
-indepfreq_pil_full_lme
 
 ### GO enrichment analysis ----
 
