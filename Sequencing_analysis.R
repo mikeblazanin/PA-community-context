@@ -474,30 +474,13 @@ mutations <- mutate(mutations,
                     Treat = factor(Treat,
                                    levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
-##Shared analysis labeling: mutation categories ----
-mutations <- mutate(
-  ungroup(mutations),
-  mutation_category2 = case_when(
-    mutation_category == "small_indel" & grepl("intergenic", gene_position) ~
-      "small_indel_intergenic",
-    mutation_category == "small_indel" & grepl("coding", gene_position) &
-      (nchar(ref_seq) - nchar(new_seq)) %% 3 == 0 ~ "small_indel_inframe",
-    mutation_category == "small_indel" & grepl("coding", gene_position) &
-      (nchar(ref_seq) - nchar(new_seq)) %% 3 != 0 ~ "small_indel_frameshift",
-    grepl("intergenic", gene_position) ~ paste0(mutation_category, "_intergenic"),
-    TRUE ~ mutation_category),
-  mutation_category3 = case_when(
-    mutation_category2 %in% 
-      c("large_deletion", "small_indel_frameshift", "snp_nonsense") ~ "loss of function",
-    grepl("intergenic", mutation_category2) ~ "intergenic",
-    mutation_category2 %in% c("small_indel_inframe", "snp_nonsynonymous") ~ "nonsyn change",
-    mutation_category2 %in% c("snp_synonymous") ~ "silent",
-    grepl("\\|", mutation_category2) ~ "multigene",
-    TRUE ~ "other")
-)
-
 ##Incorporate annotations ----
 bakta <- read.csv("PA14_annotated.csv")
+bakta$Locus.Tag[bakta$Locus.Tag == ""] <-
+  paste0("PEANK_MB", 
+        formatC(1:sum(bakta$Locus.Tag == ""),
+                width = floor(log10(sum(bakta$Locus.Tag == "")))+1,
+                flag = "0"))
 
 eggnog <- read.delim("PA14_eggnog_out3.emapper.annotations",
                      comment = "#",
@@ -560,6 +543,7 @@ term2name <- data.frame(
 #Manually determine Locus.Tag values because locus_tag from breseq
 # is not a match
 mutations$Locus.Tag <- "unmatched"
+mutations$mutation_category_manual <- NA
 mutations$Locus.Tag[mutations$size == 6541479] <- NA #no coverage sample
 for (i in which(!is.na(mutations$Locus.Tag))) {
   matches <- anno[(anno$Start <= mutations$position_start[i] & 
@@ -567,31 +551,35 @@ for (i in which(!is.na(mutations$Locus.Tag))) {
                     (anno$Start <= mutations$position_end[i] &
                        anno$Stop >= mutations$position_end[i]), ]
   if(nrow(matches) == 0) {
+    mutations$mutation_category_manual[i] <- "intergenic"
     promgenes <- c()
     #preceding gene (in promoter if on the + strand)
     before <- max(which(anno$Stop < mutations$position_start[i]))
     if(anno$Strand[before] == "-" & 
        (mutations$position_start[i] - anno$Stop[before]) <= 150) {
       promgenes <- before
-    }
+    } else {promgenes <- c(NA)}
     #following gene (in promoter if on the - strand)
     after <- min(which(anno$Start > mutations$position_end[i]))
     if(anno$Strand[after] == "+" &
        (anno$Start[after] - mutations$position_end[i]) <= 150) {
       promgenes <- c(promgenes, after)
-    }
-    promgenes <- anno$Locus.Tag[promgenes]
-    mutations$Locus.Tag[i] <- paste(promgenes[promgenes != ""], collapse = "|")
+    } else {promgenes <- c(promgenes, NA)}
+    if(any(!is.na(promgenes))) {promgenes <- anno$Locus.Tag[promgenes]}
+    mutations$Locus.Tag[i] <- paste(promgenes, collapse = "|")
+    #mutations$Locus.Tag[i] <- paste(promgenes[promgenes != ""], collapse = "|")
   } else if(nrow(matches) == 1) {
+    mutations$mutation_category_manual[i] <- "genic"
     mutations$Locus.Tag[i] <- matches$Locus.Tag[1]
   } else { #nrow(matches) > 1
-    myrows <- which(!is.na(matches$Locus.Tag) & matches$Locus.Tag != "")
+    #myrows <- which(!is.na(matches$Locus.Tag) & matches$Locus.Tag != "")
     #If only one match has a locus tag, use that one
-    if(length(myrows) == 1) {
-      mutations$Locus.Tag[i] <- matches$Locus.Tag[myrows]
-    } else {
-      mutations$Locus.Tag[i] <- paste(matches$Locus.Tag[myrows], collapse = "|")
-    }
+    # if(length(myrows) == 1) {
+    #   mutations$Locus.Tag[i] <- matches$Locus.Tag
+    # } else {
+    mutations$mutation_category_manual[i] <- "multigene"
+    mutations$Locus.Tag[i] <- paste(matches$Locus.Tag, collapse = "|")
+    #}
   } 
 }
 
@@ -633,19 +621,19 @@ for (i in which(!is.na(mutations$Locus.Tag))) {
 # gene_product
 #   uses the original gene names with / or , in them
 mutationsd <- list(
-  filter(mutations, mutation_category3 == "multigene"),
-  filter(mutations, mutation_category3 == "intergenic"),
+  filter(mutations, mutation_category_manual == "multigene"),
+  filter(mutations, mutation_category_manual == "intergenic"),
   filter(mutations, 
-         grepl("\\|", Locus.Tag) & 
-           !mutation_category3 %in% c("multigene", "intergenic")),
-  filter(mutations, 
-         !grepl("\\|", Locus.Tag) & 
-           !mutation_category3 %in% c("multigene", "intergenic"))
+         #grepl("\\|", Locus.Tag) & 
+           !mutation_category_manual %in% c("multigene", "intergenic"))
+  # filter(mutations, 
+  #        !grepl("\\|", Locus.Tag) & 
+  #          !mutation_category_manual %in% c("multigene", "intergenic"))
 )
 if(sum(sapply(FUN = nrow, X = mutationsd)) != nrow(mutations)) {
   stop("missing some cases in mutations splitting")}
 
-##multigene hits (bc of overlapping genes) have | in 17 columns
+##multigene hits (bc of overlapping genes) have | in 16 columns
 # they use , in genes_overlapping
 # also will have to re-make concise_mut
 # they may also have / or , in names in gene_product (as all types do)
@@ -657,7 +645,7 @@ mutationsd[[1]] <- separate_longer_delim(
   cols = all_of(c("aa_new_seq", "aa_position", "aa_ref_seq", "codon_new_seq",
                   "codon_number", "codon_position", "codon_ref_seq", "gene_name",
                   "gene_position", "gene_product", "gene_strand", "locus_tag",
-                  "mutation_category", "snp_type", "transl_table", "mutation_category2",
+                  "mutation_category", "snp_type", "transl_table", #"mutation_category2",
                   "Locus.Tag",
                   "genes_overlapping")),
   delim = "|")
@@ -695,7 +683,7 @@ mutationsd <- do.call(rbind, mutationsd)
 mutationsd <- 
   left_join(
     mutate(mutationsd,
-           Locus.Tag = ifelse(Locus.Tag == "" | Locus.Tag == "unmatched",
+           Locus.Tag = ifelse(Locus.Tag == "NA" | Locus.Tag == "unmatched",
                               NA, Locus.Tag)), 
     anno,
     na_matches = "never")
@@ -725,11 +713,28 @@ mutations <-
              } else {paste(x, collapse = "|")
              }}))
 
-##Shared analysis labeling: gene categories ----
-genecatmutate <- function(df) {
+##Shared analysis labeling ----
+catmutate <- function(df) {
   return(
     mutate(
       ungroup(df),
+      mutation_category2 = case_when(
+        mutation_category == "small_indel" & grepl("intergenic", gene_position) ~
+          "small_indel_intergenic",
+        mutation_category == "small_indel" & grepl("coding", gene_position) &
+          (nchar(ref_seq) - nchar(new_seq)) %% 3 == 0 ~ "small_indel_inframe",
+        mutation_category == "small_indel" & grepl("coding", gene_position) &
+          (nchar(ref_seq) - nchar(new_seq)) %% 3 != 0 ~ "small_indel_frameshift",
+        grepl("intergenic", gene_position) ~ paste0(mutation_category, "_intergenic"),
+        TRUE ~ mutation_category),
+      mutation_category3 = case_when(
+        mutation_category2 %in% 
+          c("large_deletion", "small_indel_frameshift", "snp_nonsense") ~ "loss of function",
+        grepl("intergenic", mutation_category2) ~ "intergenic",
+        mutation_category2 %in% c("small_indel_inframe", "snp_nonsynonymous") ~ "nonsyn change",
+        mutation_category2 %in% c("snp_synonymous") ~ "silent",
+        grepl("\\|", mutation_category2) ~ "multigene",
+        TRUE ~ "other"),
       gene_category = case_when(
         grepl("CupB3", Product) ~ "pilus",
         grepl("Wsp", Product) ~ "biofilm",
@@ -827,8 +832,8 @@ genecatmutate <- function(df) {
 #     TRUE ~ "nomatch")
 # )
 
-mutations <- genecatmutate(mutations)
-mutationsd <- genecatmutate(mutationsd)
+mutations <- catmutate(mutations)
+mutationsd <- catmutate(mutationsd)
 
 
 #Check for annotations among 'known' genes
