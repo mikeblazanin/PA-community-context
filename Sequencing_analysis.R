@@ -1414,90 +1414,142 @@ gnamefreq_sum <-
       non0_mean(indep_freq, Treat_C == "NC" & Treat_P == "P")
   )
 
+gochangecutoff <- 0.15
 goPvsNP <-
-  filter(
+  cbind(Treat = "P", Context = "All",
+    filter(
     as.data.frame(
       enricher(
-        gene = filter(gnamefreq_sum, PvsNP_non0mean > 0.15)$Locus.Tag,
+        gene = filter(gnamefreq_sum, PvsNP_non0mean > gochangecutoff)$Locus.Tag,
         TERM2GENE = term2gene,
         TERM2NAME = term2name,
         pAdjustMethod = "BH",
         pvalueCutoff = 0.5,
         qvalueCutoff = 0.5,
         minGSSize = 2)),
-      pvalue <= 0.05)
+      pvalue <= 0.05))
 goCvsNC_inNP <-
+  cbind(Treat = "C", Context = "NP",
   filter(
     as.data.frame(
       enricher(
-        gene = filter(gnamefreq_sum, CvsNC_inNP_non0mean > 0.15)$Locus.Tag,
+        gene = filter(gnamefreq_sum, CvsNC_inNP_non0mean > gochangecutoff)$Locus.Tag,
         TERM2GENE = term2gene,
         TERM2NAME = term2name,
         pAdjustMethod = "BH",
         pvalueCutoff = 0.5,
         qvalueCutoff = 0.5,
         minGSSize = 2)),
-      pvalue <= 0.05)
+      pvalue <= 0.05))
 goCvsNC_inP <-
+  cbind(Treat = "C", Context = "P",
   filter(
     as.data.frame(
       enricher(
-        gene = filter(gnamefreq_sum, CvsNC_inP_non0mean > 0.15)$Locus.Tag,
+        gene = filter(gnamefreq_sum, CvsNC_inP_non0mean > gochangecutoff)$Locus.Tag,
         TERM2GENE = term2gene,
         TERM2NAME = term2name,
         pAdjustMethod = "BH",
         pvalueCutoff = 0.5,
         qvalueCutoff = 0.5,
         minGSSize = 2)),
-      pvalue <= 0.05)
+      pvalue <= 0.05))
 goNPvsP <-
+  cbind(Treat = "NP", Context = "All",
   filter(
     as.data.frame(
       enricher(
-        gene = filter(gnamefreq_sum, PvsNP_non0mean < -0.15)$Locus.Tag,
+        gene = filter(gnamefreq_sum, PvsNP_non0mean < -gochangecutoff)$Locus.Tag,
         TERM2GENE = term2gene,
         TERM2NAME = term2name,
         pAdjustMethod = "BH",
         pvalueCutoff = 0.5,
         qvalueCutoff = 0.5,
         minGSSize = 2)),
-    pvalue <= 0.05)
+    pvalue <= 0.05))
 goNCvsC_inNP <-
+  cbind(Treat = "NC", Context = "NP",
   filter(
     as.data.frame(
       enricher(
-        gene = filter(gnamefreq_sum, CvsNC_inNP_non0mean < -0.15)$Locus.Tag,
+        gene = filter(gnamefreq_sum, CvsNC_inNP_non0mean < -gochangecutoff)$Locus.Tag,
         TERM2GENE = term2gene,
         TERM2NAME = term2name,
         pAdjustMethod = "BH",
         pvalueCutoff = 0.5,
         qvalueCutoff = 0.5,
         minGSSize = 2)),
-    pvalue <= 0.05)
+    pvalue <= 0.05))
 goNCvsC_inP <-
+  cbind(Treat = "NC", Context = "P",
   filter(
     as.data.frame(
       enricher(
-        gene = filter(gnamefreq_sum, CvsNC_inP_non0mean < -0.15)$Locus.Tag,
+        gene = filter(gnamefreq_sum, CvsNC_inP_non0mean < -gochangecutoff)$Locus.Tag,
         TERM2GENE = term2gene,
         TERM2NAME = term2name,
         pAdjustMethod = "BH",
         pvalueCutoff = 0.5,
         qvalueCutoff = 0.5,
         minGSSize = 2)),
-    pvalue <= 0.05)
+    pvalue <= 0.05))
+gores <- do.call(rbind,
+                 list(goCvsNC_inNP, goCvsNC_inP, 
+                      goNCvsC_inNP, goNCvsC_inP,
+                      goPvsNP, goNPvsP))
+gores <- mutate(gores,
+                FoldPlot = ifelse(Treat %in% c("NC", "NP"),
+                                  -FoldEnrichment,
+                                  FoldEnrichment),
+                TreatPlot = ifelse(grepl("P", Treat), "P", "C"))
 
 
-goPvsNP$Description <- factor(goPvsNP$Description,
-                              levels = goPvsNP$Description)
-ggplot(filter(goPvsNP, pvalue < 0.01),
-       aes(x = FoldEnrichment, y = Description, size = pvalue)) +
+p1 <- ggplot(
+  mutate(
+    arrange(
+      filter(gores, !grepl("GO:", Description), pvalue < 0.01, 
+             TreatPlot == "P", Count > 1),
+      FoldPlot),
+    Description = factor(Description, levels = Description)),
+  aes(x = FoldPlot, y = Description, size = -log10(p.adjust))) +
   geom_point() +
-  scale_x_continuous(limits = c(0, NA)) +
-  scale_size_continuous(limits = c(NA, -2), transform = "log10")
-  scale_y_discrete(
-    breaks = goPvsNP$Description[order(goPvsNP$FoldEnrichment, decreasing = TRUE)])
+  scale_size_continuous(breaks = c(3, 2, 1), labels = c("0.001", "0.01", "0.1"),
+                        limits = c(3, 0.5), range = c(0, 5),
+                        name = "Adjusted p-value") +
+  # scale_color_manual(breaks = c(TRUE, FALSE),
+  #                    values = my_cols[c(6, 5)]) +
+  geom_vline(xintercept = 0, lty = 2) +
+  #guides(color = "none") +
+  labs(x = "Fold change in phage-added treatment vs no-phage", y = "") +
+  theme_bw() +
+  NULL
 
+p2 <- ggplot(
+  mutate(
+    arrange(filter(gores, !grepl("GO:", Description), pvalue < 0.01, 
+                   TreatPlot == "C", Count > 1),
+            FoldPlot),
+    Description = factor(Description, levels = Description)), 
+  aes(x = FoldPlot, y = Description, size = -log10(p.adjust))) +
+  geom_point() +
+  scale_size_continuous(breaks = c(3, 2, 1), labels = c("0.001", "0.01", "0.1"),
+                        limits = c(3, 0.5), range = c(0, 5),
+                        name = "Adjusted p-value") +
+  facet_grid(Context ~ ., scales = "free_y",
+             labeller = labeller(
+               Context = c("NP" = "In no-phage treatment",
+                           "P" = "In phage-added treatment"))) +
+  geom_vline(xintercept = 0, lty = 2) +
+  #guides(color = "none") +
+  labs(x = "Fold change in all bacteria treatment vs Pseudomonas-only", y = "") +
+  theme_bw() +
+  NULL
+  
+png("./plots/GOhits.png", width = 12, height = 8,
+    units = "in", res = 150)
+cowplot::plot_grid(p1, p2, nrow = 2, labels = "AUTO",
+                   align = "v", axis = "lr")
+dev.off()
 
 ##Isolate analyses ----
 
