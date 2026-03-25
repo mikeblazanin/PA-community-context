@@ -6,6 +6,7 @@
 # fix gene_short for intergenic/multihit cases
 
 #Maybe:
+# create gene_category2 which ID's type IV pilus genes more-specifically
 # adjust coverage analysis for repetitive regions
 # Get total # reads (not just aligned reads) & use as denom for coverage analy
 # run isols in polym mode, try to figure out contamination (where are bg muts
