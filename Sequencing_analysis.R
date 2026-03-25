@@ -1,7 +1,5 @@
 ##TODO ----
 #Top priority:
-# Create new gene_category2 with more conservative type IV pilus only
-# check gene_category for pilus GO genes
 # fix gene cat analy to remove synonymous mutations
 # Update gene cat stats using old & new pilus category
 # Correlate phage freq vs freq of old & new pilus category
@@ -757,6 +755,10 @@ catmutate <- function(df) {
         grepl("FimX", Product) ~ "pilus",
         grepl("pil", Product, ignore.case = TRUE) ~ "pilus",
         grepl("pilus", Product) ~ "pilus",
+        grepl("CRISPR", Product) ~ "CRISPR",
+        grepl(paste0(term2name$GOsmerge_ind[grep("pilus|Pilus|pili", term2name$name)],
+                     collapse = "|"),
+              GOsmerge_ind) ~ "pilus",
         TRUE ~ "other"),
       gene_catpilnot = ifelse(gene_category == "pilus", "pilus", "other"),
       pilmut_struc = ifelse(
@@ -834,7 +836,6 @@ catmutate <- function(df) {
 
 mutations <- catmutate(mutations)
 mutationsd <- catmutate(mutationsd)
-
 
 #Check for annotations among 'known' genes
 tmp <- 
