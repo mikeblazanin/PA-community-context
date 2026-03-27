@@ -16,6 +16,7 @@
 # Look for dift fates of phages depending on initial inocula 3-10 & pilus muts
 # Is there anything in common among the populations where phage went ~extinct?
 #  Some way those 5 pops cluster?
+# Diversity metrics
 
 #Other ideas:
 # check Ian's ideas about KEGG/BRITE
@@ -34,6 +35,9 @@
 # Discriminant analysis to look for diff genes
 # ID mutations that are moving together
 # correlated coevol mutation
+# Use CVTK or lofreq to call mutations
+#  Brennan et al. PNAS 2022
+#  Buffalo & Coop. PNAS 2020
 
 ##Setup ----
 library(tidyr)
@@ -1243,7 +1247,7 @@ ggplot(data = filter(gcat_freq,
        aes(x = Treat_P, y = total_freq)) +
   geom_point() +
   geom_line(aes(group = paste(gene_catpilnot, Pop))) +
-  facet_nested(~ gene_catpilnot + Treat_C,
+  facet_grid(~ Treat_C,
                labeller = labeller(
                  Treat_C = c("NC" = "Only\nPseudo.",
                              "C" = "All\nBacteria"))) +
@@ -1261,18 +1265,19 @@ dev.off()
 
 png("./plots/gene_freq_pop_diff_total_CNC.png", width = 6, height = 5,
     units = "in", res = 150)
-ggplot(data = filter(gcat_freq, 
+f7c <- 
+  ggplot(data = filter(gcat_freq, 
                      gene_catpilnot == "pilus", Timepoint != 0),
        aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
   geom_point() +
   geom_line(aes(group = paste(gene_catpilnot, Pop, Timepoint))) +
-  facet_nested(~ gene_catpilnot + Treat_P,
+  facet_grid(~ Treat_P,
                labeller = labeller(
                  Treat_P = c("NP" = "No Phage",
                              "P" = "Phage\nAdded"))) +
   #scale_y_continuous(limits = c(0, 1)) +
   scale_color_manual(name = "Timepoint\n(days)", values = my_cols[c(1:3, 7)]) +
-  labs(x = "", y = "Total frequency\n(assuming exclus.)") +
+  labs(x = "", y = "Total pilus mut. freq.\n(assuming exclus.)") +
   scale_x_discrete(breaks = c("NC", "C"),
                    labels = c("Only Pseudo.", "All Bacteria")) +
   theme_bw() +
@@ -1283,6 +1288,7 @@ ggplot(data = filter(gcat_freq,
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14)) +
   NULL
+f7c
 dev.off()
 
 png("./plots/gene_freq_pop_diff_indep_PNP.png", width = 6, height = 5,
@@ -1292,7 +1298,7 @@ ggplot(data = filter(gcat_freq,
        aes(x = Treat_P, y = indep_freq)) +
   geom_point() +
   geom_line(aes(group = paste(gene_catpilnot, Pop))) +
-  facet_nested(~ gene_catpilnot + Treat_C,
+  facet_grid(~ Treat_C,
                labeller = labeller(
                  Treat_C = c("NC" = "Only\nPseudo.",
                              "C" = "All\nBacteria"))) +
@@ -1310,28 +1316,29 @@ dev.off()
 
 png("./plots/gene_freq_pop_diff_indep_CNC.png", width = 6, height = 5,
     units = "in", res = 150)
-ggplot(data = filter(gcat_freq, 
+f7d <- 
+  ggplot(data = filter(gcat_freq, 
                      gene_catpilnot == "pilus", Timepoint != 0),
        aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
   geom_point() +
   geom_line(aes(group = paste(gene_catpilnot, Pop, Timepoint))) +
-  facet_nested(~ gene_catpilnot + Treat_P,
+  facet_grid(~ Treat_P,
                labeller = labeller(
                  Treat_P = c("NP" = "No Phage",
                              "P" = "Phage\nAdded"))) +
   scale_y_continuous(limits = c(0, 1)) +
   scale_color_manual(name = "Timepoint\n(days)", values = my_cols[c(1:3, 7)]) +
-  labs(x = "", y = "Total frequency\n(assuming indep.)") +
+  labs(x = "", y = "Total pilus mut. freq.\n(assuming indep.)") +
   scale_x_discrete(breaks = c("NC", "C"),
                    labels = c("Only Pseudo.", "All Bacteria")) +
   theme_bw() +
   theme(axis.title = element_text(size = 16),
         axis.text.x = element_text(size = 14, angle = 45, hjust = 1),
-        axis.text.y = element_blank(),
         strip.text = element_text(size = 13),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14)) +
   NULL
+f7d
 dev.off()
 
 ggplot(data = filter(gcat_freq, gene_catpilnot == "pilus"),
@@ -1352,6 +1359,8 @@ ggplot(data = filter(gcat_freq, gene_catpilnot == "pilus"),
 
 
 ####Stats ----
+
+#Effect of C
 totalfreq_full_lme <- 
   lmer(total_freq ~ Treat_C + as.factor(Timepoint) + (1|Pop),
              data = filter(gcat_freq, gene_catpilnot == "pilus",
@@ -1376,6 +1385,33 @@ indepfreq_reduced_lme <-
                      Treat_P == "P", Timepoint != 0),
        REML = FALSE)
 anova(indepfreq_reduced_lme, indepfreq_full_lme)
+indepfreq_full_lme
+
+#Effect of P
+totalfreq_full_lmeP <- 
+  lmer(total_freq ~ Treat_P + Treat_C + (1|Pop),
+       data = filter(gcat_freq, gene_catpilnot == "pilus",
+                     Timepoint == 8),
+       REML = FALSE)
+totalfreq_reduced_lmeP <-
+  lmer(total_freq ~ Treat_C + (1|Pop),
+       data = filter(gcat_freq, gene_catpilnot == "pilus",
+                     Timepoint == 8),
+       REML = FALSE)
+anova(totalfreq_reduced_lmeP, totalfreq_full_lmeP)
+totalfreq_full_lmeP
+
+indepfreq_full_lmeP <- 
+  lmer(indep_freq ~ Treat_P + Treat_C + (1|Pop),
+       data = filter(gcat_freq, gene_catpilnot == "pilus",
+                     Timepoint == 8),
+       REML = FALSE)
+indepfreq_reduced_lmeP <- 
+  lmer(indep_freq ~ Treat_C + (1|Pop),
+       data = filter(gcat_freq, gene_catpilnot == "pilus",
+                     Timepoint == 8),
+       REML = FALSE)
+anova(indepfreq_reduced_lmeP, indepfreq_full_lmeP)
 indepfreq_full_lme
 
 
@@ -1504,7 +1540,7 @@ gores <- mutate(gores,
                 TreatPlot = ifelse(grepl("P", Treat), "P", "C"))
 
 
-p1 <- ggplot(
+f7a <- ggplot(
   mutate(
     arrange(
       filter(gores, !grepl("GO:", Description), pvalue < 0.01, 
@@ -1524,7 +1560,7 @@ p1 <- ggplot(
   theme_bw() +
   NULL
 
-p2 <- ggplot(
+f7b <- ggplot(
   mutate(
     arrange(filter(gores, !grepl("GO:", Description), pvalue < 0.01, 
                    TreatPlot == "C", Count > 1),
@@ -1537,18 +1573,22 @@ p2 <- ggplot(
                         name = "Adjusted p-value") +
   facet_grid(Context ~ ., scales = "free_y",
              labeller = labeller(
-               Context = c("NP" = "In no-phage treatment",
-                           "P" = "In phage-added treatment"))) +
+               Context = c("NP" = "In no-phage\ntreatment",
+                           "P" = "In phage-added\ntreatment"))) +
   geom_vline(xintercept = 0, lty = 2) +
   #guides(color = "none") +
   labs(x = "Fold change in all bacteria treatment vs Pseudomonas-only", y = "") +
   theme_bw() +
   NULL
   
-png("./plots/GOhits.png", width = 12, height = 8,
+png("./plots/GOhits.png", width = 12, height = 12,
     units = "in", res = 150)
-cowplot::plot_grid(p1, p2, nrow = 2, labels = "AUTO",
-                   align = "v", axis = "lr")
+cowplot::plot_grid(
+  cowplot::plot_grid(f7a, f7b, nrow = 2, align = "v", axis = "lr",
+                     labels = c("A", "B")),
+  cowplot::plot_grid(f7c, f7d, nrow = 1, align = "h", axis = "tb",
+                     labels = c("C", "D")),
+  nrow = 2, rel_heights = c(1, 0.8))
 dev.off()
 
 ##Isolate analyses ----
