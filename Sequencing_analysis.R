@@ -496,19 +496,32 @@ colnames(eggnog) <-
                   skip = 4, nrows = 1))
 colnames(eggnog)[colnames(eggnog) == "query"] <- "Locus.Tag"
 
-interpro <- read.table("PA14_interpro_out.tsv", sep = "\t",
-                       stringsAsFactors = FALSE, header = FALSE,
-                       quote = "", #don't allow quotes
-                       comment.char = "") #don't allow comments
-colnames(interpro) <- 
-  c("Locus.Tag", "seqMD5", "seq_len", "analysis", "signat_accession",
-    "signat_description", "start", "stop", "e-value_score",
-    "match_status", "query_date", "InterPro_accession",
-    "InterPro_annotations", "InterPro_GOs", "Pathways")
-interpro_sum <- 
-  summarize(group_by(interpro, Locus.Tag),
-            across(everything(),
-                   ~ paste(., collapse = ";")))
+if("PA14_interpro_out.tsv" %in% list.files()) {
+  interpro <- read.table("PA14_interpro_out.tsv", sep = "\t",
+                         stringsAsFactors = FALSE, header = FALSE,
+                         quote = "", #don't allow quotes
+                         comment.char = "") #don't allow comments
+  colnames(interpro) <- 
+    c("Locus.Tag", "seqMD5", "seq_len", "analysis", "signat_accession",
+      "signat_description", "start", "stop", "e-value_score",
+      "match_status", "query_date", "InterPro_accession",
+      "InterPro_annotations", "InterPro_GOs", "Pathways")
+  
+  interpro_sum <- 
+    summarize(group_by(filter(interpro, InterPro_GOs != "-"), 
+                       Locus.Tag),
+              across(everything(),
+                     ~ paste(., collapse = ";")))
+  
+  write.table(interpro_sum, file = "PA14_interpro_out_sum.tsv",
+              sep = "\t", quote = TRUE, qmethod = "double")
+}
+
+interpro_sum <- read.table("PA14_interpro_out_sum.tsv", sep = "\t",
+                           stringsAsFactors = FALSE, header = TRUE,
+                           comment = "", #don't allow comments
+                           check.names = FALSE,
+                           allowEscapes = TRUE) 
 
 anno = full_join(bakta, eggnog)
 anno = full_join(anno, interpro_sum)
