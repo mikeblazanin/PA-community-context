@@ -5,3 +5,4 @@
 *.tiff
 *.png
 aggregate_resis_data.csv
+ignored_files/*
