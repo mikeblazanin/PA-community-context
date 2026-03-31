@@ -5,6 +5,7 @@
 # Update gene cat stats using old & new pilus category
 # Correlate phage freq vs freq of old & new pilus category
 # fix gene_short for intergenic/multihit cases
+# Take a look at H6 sequencing to see what we can resolve if anything
 
 #Maybe:
 # create gene_category2 which ID's type IV pilus genes more-specifically
@@ -421,14 +422,10 @@ mut_and_samp_cols <-
     "freq_change", "abs_freq_rate", "rel_freq_rate", "lfreq01", "freq_cat",
     "isolfreq", "everabove_010_orisolmut")
 
-mutations <- read.table("mutations_compare_all.tsv", sep = "\t",
+mutations <- read.table("mutations_compare_all_MRM3.tsv", sep = "\t",
                         stringsAsFactors = FALSE, header = TRUE,
                         quote = '', #don't allow quotes
                         comment.char = "") #don't allow comments since we use # for isolates
-
-#Missing samples:
-# 4777_25 - AX T0 P0 Anc #0 - expected bc reference
-# 5174_134 - PA T0 P3 Anc #1 - expected bc reference
 
 #Drop columns that contain no info
 mutations <- select(mutations,
@@ -456,6 +453,16 @@ mutations <- separate_wider_delim(
   names = c("seqrun", "SeqCoastid", "seqtype",
             "Timepoint", "Pop", "Treat", "Isol"),
   cols_remove = FALSE)
+
+runcombos <- unique(paste(mutations$seqrun, mutations$SeqCoastid))
+allcombos <- c(paste("4777", 1:58), paste("5174", 1:134))
+runcombos[!runcombos %in% allcombos]
+allcombos[!allcombos %in% runcombos]
+
+#Missing samples:
+# 4777_25 - AX T0 P0 Anc #0 - expected bc reference
+# 5174_133 - doesn't exist, SeqCoast skipped a tube ID for some reason
+# 5174_134 - PA T0 P3 Anc #1 - expected bc reference
 
 #Drop non-PA results
 nonPAmuts <- filter(mutations, seqtype != "PA" | seq_id != "PA14_1")
@@ -1014,12 +1021,10 @@ mutpopd <- mutate(mutpopd,
 mutpop <- mutate(group_by(mutpop, 
                           across(any_of(c(mutcols, "seqtype", "Treat", "Pop")))),
                  everabove_010 = any(freq0 > 0.1, na.rm = TRUE),
-                 everabove_010_noanc = any(freq0[Timepoint != 0] > 0.1, na.rm = TRUE),
                  fixed = all(freq0 == 1))
 mutpopd <- mutate(group_by(mutpopd, 
                           across(any_of(c(mutcols, "seqtype", "Treat", "Pop")))),
                  everabove_010 = any(freq0 > 0.1, na.rm = TRUE),
-                 everabove_010_noanc = any(freq0[Timepoint != 0] > 0.1, na.rm = TRUE),
                  fixed = all(freq0 == 1))
 
 ### Filter out fixed-nonvariate mutations ----
@@ -1106,12 +1111,12 @@ if(make_slowplots) {
   )
   dev.off()
   
-  png("./plots/mut_trajectories_above010_noanc.png", 
+  png("./plots/mut_trajectories.png", 
       width = 12, height = 7, units = "in",
       res = 150)
   print(
     ggplot(
-      data = mutate(filter(mutpop, everabove_010_noanc == TRUE),
+      data = mutate(mutpop,
                     Pop = as.numeric(Pop)),
       aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
           color = gene_catpilnot)) +
@@ -1464,84 +1469,108 @@ gnamefreq_sum <-
   )
 
 gochangecutoff <- 0.15
-goPvsNP <-
-  cbind(Treat = "P", Context = "All",
-    filter(
-    as.data.frame(
-      enricher(
-        gene = filter(gnamefreq_sum, PvsNP_non0mean > gochangecutoff)$Locus.Tag,
-        TERM2GENE = term2gene,
-        TERM2NAME = term2name,
-        pAdjustMethod = "BH",
-        pvalueCutoff = 0.5,
-        qvalueCutoff = 0.5,
-        minGSSize = 2)),
-      pvalue <= 0.05))
-goCvsNC_inNP <-
-  cbind(Treat = "C", Context = "NP",
-  filter(
-    as.data.frame(
-      enricher(
-        gene = filter(gnamefreq_sum, CvsNC_inNP_non0mean > gochangecutoff)$Locus.Tag,
-        TERM2GENE = term2gene,
-        TERM2NAME = term2name,
-        pAdjustMethod = "BH",
-        pvalueCutoff = 0.5,
-        qvalueCutoff = 0.5,
-        minGSSize = 2)),
-      pvalue <= 0.05))
-goCvsNC_inP <-
-  cbind(Treat = "C", Context = "P",
-  filter(
-    as.data.frame(
-      enricher(
-        gene = filter(gnamefreq_sum, CvsNC_inP_non0mean > gochangecutoff)$Locus.Tag,
-        TERM2GENE = term2gene,
-        TERM2NAME = term2name,
-        pAdjustMethod = "BH",
-        pvalueCutoff = 0.5,
-        qvalueCutoff = 0.5,
-        minGSSize = 2)),
-      pvalue <= 0.05))
-goNPvsP <-
-  cbind(Treat = "NP", Context = "All",
-  filter(
-    as.data.frame(
-      enricher(
-        gene = filter(gnamefreq_sum, PvsNP_non0mean < -gochangecutoff)$Locus.Tag,
-        TERM2GENE = term2gene,
-        TERM2NAME = term2name,
-        pAdjustMethod = "BH",
-        pvalueCutoff = 0.5,
-        qvalueCutoff = 0.5,
-        minGSSize = 2)),
-    pvalue <= 0.05))
-goNCvsC_inNP <-
-  cbind(Treat = "NC", Context = "NP",
-  filter(
-    as.data.frame(
-      enricher(
-        gene = filter(gnamefreq_sum, CvsNC_inNP_non0mean < -gochangecutoff)$Locus.Tag,
-        TERM2GENE = term2gene,
-        TERM2NAME = term2name,
-        pAdjustMethod = "BH",
-        pvalueCutoff = 0.5,
-        qvalueCutoff = 0.5,
-        minGSSize = 2)),
-    pvalue <= 0.05))
-goNCvsC_inP <-
-  cbind(Treat = "NC", Context = "P",
-  filter(
-    as.data.frame(
-      enricher(
-        gene = filter(gnamefreq_sum, CvsNC_inP_non0mean < -gochangecutoff)$Locus.Tag,
-        TERM2GENE = term2gene,
-        TERM2NAME = term2name,
-        pAdjustMethod = "BH",
-        pvalueCutoff = 0.5,
-        qvalueCutoff = 0.5,
-        minGSSize = 2)),
-    pvalue <= 0.05))
+if(!any(gnamefreq_sum$PvsNP_non0mean > gochangecutoff)) {
+  goPvsNP <- NULL
+} else {
+  goPvsNP <-
+    cbind(Treat = "P", Context = "All",
+          filter(
+            as.data.frame(
+              enricher(
+                gene = filter(gnamefreq_sum, PvsNP_non0mean > gochangecutoff)$Locus.Tag,
+                TERM2GENE = term2gene,
+                TERM2NAME = term2name,
+                pAdjustMethod = "BH",
+                pvalueCutoff = 0.5,
+                qvalueCutoff = 0.5,
+                minGSSize = 2)),
+            pvalue <= 0.05))
+}
+if(!any(gnamefreq_sum$CvsNC_inNP_non0mean > gochangecutoff)) {
+  goCvsNC_inNP <- NULL
+} else {
+  goCvsNC_inNP <-
+    cbind(Treat = "C", Context = "NP",
+          filter(
+            as.data.frame(
+              enricher(
+                gene = filter(gnamefreq_sum, CvsNC_inNP_non0mean > gochangecutoff)$Locus.Tag,
+                TERM2GENE = term2gene,
+                TERM2NAME = term2name,
+                pAdjustMethod = "BH",
+                pvalueCutoff = 0.5,
+                qvalueCutoff = 0.5,
+                minGSSize = 2)),
+            pvalue <= 0.05))
+}
+if(!any(gnamefreq_sum$CvsNC_inP_non0mean > gochangecutoff)) {
+  goCvsNC_inP <- NULL
+} else {
+  goCvsNC_inP <-
+    cbind(Treat = "C", Context = "P",
+          filter(
+            as.data.frame(
+              enricher(
+                gene = filter(gnamefreq_sum, CvsNC_inP_non0mean > gochangecutoff)$Locus.Tag,
+                TERM2GENE = term2gene,
+                TERM2NAME = term2name,
+                pAdjustMethod = "BH",
+                pvalueCutoff = 0.5,
+                qvalueCutoff = 0.5,
+                minGSSize = 2)),
+            pvalue <= 0.05))
+}
+if(!any(gnamefreq_sum$PvsNP_non0mean < -gochangecutoff)) {
+  goNPvsP <- NULL
+} else {
+  goNPvsP <-
+    cbind(Treat = "NP", Context = "All",
+          filter(
+            as.data.frame(
+              enricher(
+                gene = filter(gnamefreq_sum, PvsNP_non0mean < -gochangecutoff)$Locus.Tag,
+                TERM2GENE = term2gene,
+                TERM2NAME = term2name,
+                pAdjustMethod = "BH",
+                pvalueCutoff = 0.5,
+                qvalueCutoff = 0.5,
+                minGSSize = 2)),
+            pvalue <= 0.05))
+}
+if(!any(gnamefreq_sum$CvsNC_inNP_non0mean < -gochangecutoff)) {
+  goNCvsC_inNP <- NULL
+} else {
+  goNCvsC_inNP <-
+    cbind(Treat = "NC", Context = "NP",
+          filter(
+            as.data.frame(
+              enricher(
+                gene = filter(gnamefreq_sum, CvsNC_inNP_non0mean < -gochangecutoff)$Locus.Tag,
+                TERM2GENE = term2gene,
+                TERM2NAME = term2name,
+                pAdjustMethod = "BH",
+                pvalueCutoff = 0.5,
+                qvalueCutoff = 0.5,
+                minGSSize = 2)),
+            pvalue <= 0.05))
+}
+if(!any(gnamefreq_sum$CvsNC_inP_non0mean < -gochangecutoff)) {
+  goNCvsC_inP <- NULL
+} else {
+  goNCvsC_inP <-
+    cbind(Treat = "NC", Context = "P",
+          filter(
+            as.data.frame(
+              enricher(
+                gene = filter(gnamefreq_sum, CvsNC_inP_non0mean < -gochangecutoff)$Locus.Tag,
+                TERM2GENE = term2gene,
+                TERM2NAME = term2name,
+                pAdjustMethod = "BH",
+                pvalueCutoff = 0.5,
+                qvalueCutoff = 0.5,
+                minGSSize = 2)),
+            pvalue <= 0.05))
+}
 gores <- do.call(rbind,
                  list(goCvsNC_inNP, goCvsNC_inP, 
                       goNCvsC_inNP, goNCvsC_inP,
@@ -1562,8 +1591,9 @@ f7a <- ggplot(
     Description = factor(Description, levels = Description)),
   aes(x = FoldPlot, y = Description, size = -log10(p.adjust))) +
   geom_point() +
-  scale_size_continuous(breaks = c(3, 2, 1), labels = c("0.001", "0.01", "0.1"),
-                        limits = c(3, 0.5), range = c(0, 5),
+  scale_size_continuous(breaks = c(4, 3, 2, 1), 
+                        labels = c("0.0001", "0.001", "0.01", "0.1"),
+                        limits = c(4, 0.5), range = c(0, 5),
                         name = "Adjusted p-value") +
   # scale_color_manual(breaks = c(TRUE, FALSE),
   #                    values = my_cols[c(6, 5)]) +
