@@ -824,41 +824,37 @@ catmutate <- function(df) {
           grepl("PilP", Product) ~ "alignment_sc",
           grepl("FimL", Product) ~ "regulatory",
           TRUE ~ "tbd"),
-        NA))
+        NA),
+      gene_short = case_when(
+        !Gene %in% c("", "|NA", "NA|", NA) ~ Gene,
+        !is.na(Product) ~ Product,
+        TRUE ~ ""),
+      concise_mut = case_when(
+        mut_id %in% c("1071", "1167", "2787", "5034") ~ "", #(ancestral mutations)
+        grepl("snp", mutation_category) ~
+          ifelse(mutation_category_manual == "intergenic",
+                 ifelse(gene_short == "",
+                        paste0("intergenic nt ", ref_seq, "->", new_seq, ""),
+                        paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")")),
+                 paste0(gene_short, " (", aa_ref_seq, "->", aa_new_seq, ")")),
+        mutation_category == "small_indel" & type == "DEL" ~
+          ifelse(mutation_category_manual == "intergenic",
+                 paste0(gene_short, " (intergenic ", size, "bp DEL)"),
+                 paste0(gene_short, " (", size, "bp DEL)")),
+        mutation_category == "small_indel" & type == "INS" ~
+          ifelse(mutation_category_manual == "intergenic",
+                 paste0(gene_short, " (intergenic ", nchar(new_seq), "bp INS)"),
+                 paste0(gene_short, " (", nchar(new_seq), "bp INS)")),
+        mutation_category == "small_indel" & type == "SUB" ~
+          ifelse(mutation_category_manual == "intergenic",
+                 paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
+                 paste0(gene_short, " (nt ", ref_seq, "->", new_seq, ")")),
+        mutation_category == "large_deletion" ~
+          paste0(gene_short, " (", size, "bp DEL)"),
+        TRUE ~ "nomatch")
+      )
   )
 }
-#TODO
-# need to fix gene_short for intergenic/multihit cases bc it's just
-#  pulling the last bit instead of each last bit
-#   gene_short = coalesce(
-#     # 1) Capitalized short symbol at end, e.g. "… PilT" or "… PilY1"
-#     str_extract(gene_name, "([A-Z][A-Za-z0-9]+)$"),
-#     # 2) Gene token immediately following "protein"
-#     str_extract(gene_name, "(?i)\\bPil[A-Za-z0-9]*(?=$|/)"),
-#     # 3) As a final fallback use the provided gene_name column
-#     gene_name),
-#   concise_mut = case_when(
-#     mut_id %in% c("2958", "3198", "7885", "11212") ~ "", #(ancestral mutations)
-#     grepl("snp", mutation_category) ~
-#       ifelse(grepl("intergenic", gene_position),
-#              paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
-#              paste0(gene_short, " (", aa_ref_seq, "->", aa_new_seq, ")")),
-#     mutation_category == "small_indel" & type == "DEL" ~
-#       ifelse(grepl("intergenic", gene_position),
-#              paste0(gene_short, " (intergenic ", size, "bp DEL)"),
-#              paste0(gene_short, " (", size, "bp DEL)")),
-#     mutation_category == "small_indel" & type == "INS" ~
-#       ifelse(grepl("intergenic", gene_position),
-#              paste0(gene_short, " (intergenic ", nchar(new_seq), "bp INS)"),
-#              paste0(gene_short, " (", nchar(new_seq), "bp INS)")),
-#     mutation_category == "small_indel" & type == "SUB" ~
-#       ifelse(grepl("intergenic", gene_position),
-#              paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
-#              paste0(gene_short, " (nt ", ref_seq, "->", new_seq, ")")),
-#     mutation_category == "large_deletion" ~
-#       paste0(gene_short, " (", size, "bp DEL)"),
-#     TRUE ~ "nomatch")
-# )
 
 mutations <- catmutate(mutations)
 mutationsd <- catmutate(mutationsd)
