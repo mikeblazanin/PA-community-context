@@ -1699,7 +1699,7 @@ isol_freq_sum <-
                gene_category == "pilus" ~ "pilus",
                gene_category == "biofilm" ~ "biofilm",
                TRUE ~ "other")),
-      gene_category, across(any_of(sampcols))),
+      gene_category, across(any_of(sampcols)), mutation_category3),
     mut_genes = {
       mygenes <- gene_short[!mut_id %in% ids_out]
       case_when(
@@ -1718,7 +1718,7 @@ isol_freq_sum <-
     gene_category,
     #Columns left out (and therefore filled in by "none"):
     # mut_genes
-    fill = list("mut_genes" = "none")
+    fill = list("mut_genes" = "none", "mutation_category3" = "none")
   )
 
 #Manually recode large deletion to "multiple"
@@ -1733,6 +1733,8 @@ pil_order <-
   c("none", "multiple", #"intergenic",
     pil_order[!pil_order %in% c("none", "multiple", "intergenic")])
 
+
+### Plots of mutation types ----
 if(make_slowplots) {
   png("./plots/isolmut_pilus_freq.png",
       width = 9, height = 5, units = "in", res = 150)
@@ -1741,11 +1743,13 @@ if(make_slowplots) {
       filter(isol_freq_sum, gene_category == "pilus"),
       mut_genes = factor(mut_genes, levels = pil_order)),
     aes(x = resis_cat)) +
-    geom_bar(aes(fill = mut_genes), position = "fill") +
-    facet_grid(~ Treat_C,
-               labeller = labeller(
-                 Treat_C = c("NC" = "Only Pseudo.",
-                             "C" = "All Bacteria"))) +
+    geom_bar(aes(fill = mut_genes),position = "fill") +
+    facet_nested(. ~ Treat_P * Treat_C,
+                 labeller = labeller(
+                   Treat_C = c("NC" = "Pseudomonas-only",
+                               "C" = "All bacteria"),
+                   Treat_P = c("NP" = "No-phage",
+                               "P" = "Phage-added"))) +
     scale_x_discrete(limits = c("suscep", "part", "resis"),
                      labels = c("Susceptible", "Partial", "Resistant")) +
     scale_fill_manual(
@@ -1762,66 +1766,57 @@ if(make_slowplots) {
           legend.text = element_text(size = 13),
           legend.title = element_text(size = 18),
           strip.text = element_text(size = 18)) +
-    geom_text(data = summarize(group_by(isol_freq_sum, resis_cat, Treat_C), 
+    geom_text(data = summarize(group_by(isol_freq_sum, resis_cat, Treat_C, Treat_P),
+                               n = length(unique(title))),
+              aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
+    NULL
+  dev.off()
+  
+  png("./plots/isolmut_pilus_muttypes.png",
+      width = 9, height = 5, units = "in", res = 150)
+  ggplot(
+    mutate(
+      filter(isol_freq_sum, gene_category == "pilus"),
+      mutation_category3 = factor(
+        mutation_category3,
+        levels = c("none", "silent", "nonsyn change", "loss of function"))),
+    aes(x = resis_cat)) +
+    geom_bar(aes(fill = mutation_category3),position = "fill") +
+    facet_nested(. ~ Treat_P * Treat_C,
+                 labeller = labeller(
+                   Treat_C = c("NC" = "Pseudomonas-only",
+                               "C" = "All bacteria"),
+                   Treat_P = c("NP" = "No-phage",
+                               "P" = "Phage-added"))) +
+    scale_x_discrete(limits = c("suscep", "part", "resis"),
+                     labels = c("Susceptible", "Partial", "Resistant")) +
+    scale_fill_manual(
+      name = "Mutation effect",
+      limits = c("none", "silent", "nonsyn change", "loss of function"),
+      values = brewer_pal(palette = "Blues")(5)[-1]) +
+    labs(x = "Isolates' Resistance to Phage",
+         y = "Frequency") +
+    theme_bw() +
+    theme(axis.text.x = element_text(size = 14),
+          axis.text.y = element_blank(),
+          axis.title = element_text(size = 18),
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size = 18),
+          strip.text = element_text(size = 18)) +
+    geom_text(data = summarize(group_by(isol_freq_sum, resis_cat, Treat_C, Treat_P),
                                n = length(unique(title))),
               aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
     NULL
   dev.off()
 }
 
-### Plots of mutation types ----
 
 #Filter out fixed-nonvariate mutations
 #mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
 #mut_id 11212 is fixed in pop 9 across all treatments & timepoints
-mutisol <- filter(mutisol, !mut_id %in% c("2958", "3198", "7885", "11212"))
+mutisol <- filter(mutisol, !mut_id %in% ids_out)
 
 #Note: we sequenced more NCP isols than CP
-                    
-if(make_slowplots) {
-  png("./plots/isolmut_types3.png", width = 7, height = 5, units = "in",
-      res = 150)
-  ggplot(
-    data = mutate(mutisol,
-                  mutation_category2 = factor(
-                    mutation_category2,
-                    levels = c("large_deletion", "small_indel_frameshift",
-                               "snp_nonsense", "small_indel_inframe", 
-                               "snp_nonsynonymous", "small_indel_intergenic",
-                               "snp_intergenic", "snp_synonymous"))),
-    aes(x = resis_cat)) +
-    geom_bar(aes(fill = mutation_category2), position = "fill") +
-    geom_text(data = 
-                summarize(group_by(mutisol, resis_cat, Treat_C, Treat_P, Treat), 
-                          n = n()),
-              aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
-    facet_nested(Treat_P * Treat_C ~ gene_catpilnot,
-                 labeller = labeller(
-                   Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
-                   Treat_C = c("NC" = "Pseudomonas-only",
-                               "C" = "All bacteria"),
-                   Treat_P = c("NP" = "No-phage",
-                               "P" = "Phage-added"))) +
-    scale_x_discrete(limits = c("part", "resis"),
-                     labels = c("Partial", "Resistant")) +
-    scale_fill_manual(values = my_cols[c(8, 1:7)], 
-                      name = "Mutation type",
-                      labels = c("Large deletion", "Frameshift indel",
-                                 "Nonsense SNP", "In-frame indel",
-                                 "Nonsynonymous SNP", "Intergenic indel",
-                                 "Intergenic SNP", "Synonymous SNP")) +
-    labs(x = "Isolates' Resistance to Phage",
-         y = "Frequency") +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 90, size = 14, 
-                                     hjust = 1, vjust = 0.5),
-          axis.text.y = element_blank(),
-          axis.title = element_text(size = 18),
-          legend.text = element_text(size = 13),
-          legend.title = element_text(size = 18))
-  dev.off()
-}
-
 
 png("./plots/isol_pilmuts_byresis.png", width = 8, height = 10, units = "in",
     res = 150)
@@ -2020,25 +2015,3 @@ ggplot(tmp,
                      name = "Gene function") +
   labs(y = "Frequency in population sequencing")
 dev.off()
-
-# View(
-#   select(
-#     filter(mutisol,
-#            !mut_id %in% c("2958", "3198", "7885", "11212")),
-#     Timepoint, Treat, Pop, Isol, Treat_C, Treat_P,
-#     clearing_avg, EOP_avg, Plaque_morphology, resis_cat, 
-#     twitch_cat,
-#     gene_category, concise_mut, freq0))
-
-# ggplot(data = filter(mutisol,
-#                      !mut_id %in% c("2958", "3198", "7885", "11212")),
-#        aes(x = freq0)) +
-#   geom_histogram()
-
-
-# ggplot(data = mutisol2_sum,
-#        aes(x = isolavg_freq, y = freq0, color = gene_name)) +
-#   geom_point(alpha = 0.5) +
-#   facet_grid(Treat ~ Pop) +
-#   theme() +
-#   guides(color = "none")
