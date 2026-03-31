@@ -1,10 +1,6 @@
 ##TODO ----
 #Top priority:
-# fix mutation categories to use manual mutation category
-# fix gene cat analy to remove synonymous mutations
-# Update gene cat stats using old & new pilus category
 # Correlate phage freq vs freq of old & new pilus category
-# fix gene_short for intergenic/multihit cases
 # Take a look at H6 sequencing to see what we can resolve if anything
 
 #Maybe:
@@ -1232,7 +1228,8 @@ if(make_slowplots) {
 
 ###Analyze pilus category frequencies ----
 gcat_freq <- summarize(
-  group_by(mutpop, gene_catpilnot, across(any_of(sampcols))),
+  group_by(filter(mutpop, mutation_category != "snp_synonymous"), 
+           gene_catpilnot, across(any_of(sampcols))),
   total_freq = sum(freq0),
   indep_freq = 1-prod(1-freq0))
 
@@ -1438,7 +1435,7 @@ indepfreq_full_lme
 #Calculate gene frequencies
 gnamefreq <- summarize(
   group_by(
-    filter(mutpopd, !is.na(Locus.Tag)), 
+    filter(mutpopd, !is.na(Locus.Tag), mutation_category != "snp_synonymous"), 
     Locus.Tag, Product,
     across(any_of(sampcols))),
   indep_freq = 1-prod(1-freq0))
