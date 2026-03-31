@@ -833,9 +833,7 @@ catmutate <- function(df) {
         mut_id %in% c("1071", "1167", "2787", "5034") ~ "", #(ancestral mutations)
         grepl("snp", mutation_category) ~
           ifelse(mutation_category_manual == "intergenic",
-                 ifelse(gene_short == "",
-                        paste0("intergenic nt ", ref_seq, "->", new_seq, ""),
-                        paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")")),
+                 paste0(gene_short, " (intergenic nt ", ref_seq, "->", new_seq, ")"),
                  paste0(gene_short, " (", aa_ref_seq, "->", aa_new_seq, ")")),
         mutation_category == "small_indel" & type == "DEL" ~
           ifelse(mutation_category_manual == "intergenic",
@@ -851,7 +849,8 @@ catmutate <- function(df) {
                  paste0(gene_short, " (nt ", ref_seq, "->", new_seq, ")")),
         mutation_category == "large_deletion" ~
           paste0(gene_short, " (", size, "bp DEL)"),
-        TRUE ~ "nomatch")
+        TRUE ~ "nomatch"),
+      concise_mut = trimws(concise_mut, which = "both"),
       )
   )
 }
@@ -1666,14 +1665,18 @@ nice_isoltable <-
     select(
       mutate(ungroup(mutisol),
              mut_combin = ifelse(
-               mut_id %in% c("2958", "3198", "7885", "11212"),
+               mut_id %in% ids_out,
                NA,
-               paste0(mutation_category2, " [", concise_mut, "]"))),
+               paste0(mutation_category2, " [", concise_mut, "]")),
+             genecat_tmp = ifelse(
+               gene_category %in% c("pilus", "mutator", "biofilm"),
+               gene_category,
+               "other")),
       Timepoint, Treat, Pop, Isol, Treat_C, Treat_P,
       clearing_avg, EOP_avg, Plaque_morphology, resis_cat, 
       twitch_cat,
-      gene_category, mut_combin),
-    names_from = gene_category,
+      genecat_tmp, mut_combin),
+    names_from = genecat_tmp,
     names_prefix = "mut_in_",
     values_from = mut_combin,
     values_fn = function(x) {
@@ -1698,9 +1701,9 @@ isol_freq_sum <-
                TRUE ~ "other")),
       gene_category, across(any_of(sampcols))),
     mut_genes = {
-      mygenes <- gene_short[!mut_id %in% c("2958", "3198", "7885", "11212")]
+      mygenes <- gene_short[!mut_id %in% ids_out]
       case_when(
-        any(mutation_category3 == "intergenic") ~ "intergenic",
+        any(mutation_category_manual == "intergenic") ~ "intergenic",
         length(mygenes) == 1 ~ paste(mygenes, collapse = " "),
         length(mygenes) == 0 ~ "none",
         length(mygenes) > 1 ~ "multiple",
@@ -1721,14 +1724,13 @@ isol_freq_sum <-
 #Manually recode large deletion to "multiple"
 isol_freq_sum <- 
   mutate(isol_freq_sum,
-         mut_genes = ifelse(
-           mut_genes == "[twitching motility protein PilU]–[type IV pilus twitching motility protein PilT]",
-         "multiple",
-         mut_genes))
+         mut_genes = ifelse(mut_genes == "pilU|pilT",
+                            "multiple",
+                            mut_genes))
 
 pil_order <- unique(isol_freq_sum[isol_freq_sum$gene_category == "pilus", ]$mut_genes)
 pil_order <-
-  c("none", "multiple", "intergenic",
+  c("none", "multiple", #"intergenic",
     pil_order[!pil_order %in% c("none", "multiple", "intergenic")])
 
 if(make_slowplots) {
@@ -1740,13 +1742,17 @@ if(make_slowplots) {
       mut_genes = factor(mut_genes, levels = pil_order)),
     aes(x = resis_cat)) +
     geom_bar(aes(fill = mut_genes), position = "fill") +
+    facet_grid(~ Treat_C,
+               labeller = labeller(
+                 Treat_C = c("NC" = "Only Pseudo.",
+                             "C" = "All Bacteria"))) +
     scale_x_discrete(limits = c("suscep", "part", "resis"),
                      labels = c("Susceptible", "Partial", "Resistant")) +
     scale_fill_manual(
       name = "Pilus Genes\nMutated",
       limits = pil_order,
-      values = c("gray70", "black", "gray30",
-                 viridis_pal()(length(pil_order)-3))) +
+      values = c("gray70", "black", #"gray30",
+                 viridis_pal()(length(pil_order)-2))) +
     labs(x = "Isolates' Resistance to Phage",
          y = "Frequency") +
     theme_bw() +
@@ -1754,8 +1760,9 @@ if(make_slowplots) {
           axis.text.y = element_blank(),
           axis.title = element_text(size = 18),
           legend.text = element_text(size = 13),
-          legend.title = element_text(size = 18)) +
-    geom_text(data = summarize(group_by(isol_freq_sum, resis_cat), 
+          legend.title = element_text(size = 18),
+          strip.text = element_text(size = 18)) +
+    geom_text(data = summarize(group_by(isol_freq_sum, resis_cat, Treat_C), 
                                n = length(unique(title))),
               aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
     NULL
