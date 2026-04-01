@@ -1,19 +1,18 @@
 ##TODO ----
 #Top priority:
-# Correlate phage freq vs freq of old & new pilus category
-# Take a look at H6 sequencing to see what we can resolve if anything
+# Correlate phage freq vs freq of pilus category
+# redo coverage
 
 #Maybe:
 # create gene_category2 which ID's type IV pilus genes more-specifically
 # adjust coverage analysis for repetitive regions
 # Get total # reads (not just aligned reads) & use as denom for coverage analy
-# run isols in polym mode, try to figure out contamination (where are bg muts
-#  (in isols!?!)
 # why are cov-based densities of other bact higher in NC treats?
 # Look for dift fates of phages depending on initial inocula 3-10 & pilus muts
 # Is there anything in common among the populations where phage went ~extinct?
 #  Some way those 5 pops cluster?
 # Diversity metrics
+# Make mutation trajectory plots for non-PA data
 
 #Other ideas:
 # check Ian's ideas about KEGG/BRITE
