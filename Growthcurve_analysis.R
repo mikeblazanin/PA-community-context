@@ -187,7 +187,8 @@ dev.off()
 
 png("../plots/max_dens_norm_nopops.png", width = 7, height = 4, units = "in",
     res = 150)
-ggplot(data = dat_sum,
+f5c <- 
+  ggplot(data = dat_sum,
        aes(x = Bact_timepoint, y = max_dens_norm,
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 3, alpha = 0.5, position = position_dodge(width = 0.5)) +
@@ -209,6 +210,7 @@ ggplot(data = dat_sum,
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
+f5c
 dev.off()
 
 png("../plots/max_percap_norm.png", width = 10, height = 4, units = "in",
@@ -243,7 +245,8 @@ dev.off()
 
 png("../plots/max_percap_norm_nopops.png", width = 7, height = 4, units = "in",
     res = 150)
-ggplot(data = dat_sum,
+f5b <- 
+  ggplot(data = dat_sum,
        aes(x = Bact_timepoint, y = max_percap_norm,
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 3, alpha = 0.5, position = position_dodge(width = 0.5)) +
@@ -265,6 +268,7 @@ ggplot(data = dat_sum,
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
+f5b
 dev.off()
 
 png("../plots/auc_norm.png", width = 10, height = 4, units = "in",
@@ -299,7 +303,8 @@ dev.off()
 
 png("../plots/auc_norm_nopops.png", width = 7, height = 4, units = "in",
     res = 150)
-ggplot(data = dat_sum,
+f5d <- 
+  ggplot(data = dat_sum,
        aes(x = Bact_timepoint, y = auc_norm,
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 3, alpha = 0.5, position = position_dodge(width = 0.5)) +
@@ -321,6 +326,7 @@ ggplot(data = dat_sum,
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
+f5d
 dev.off()
 
 for(pop in unique(dat$Bact_pop)) {
@@ -407,7 +413,8 @@ dev.off()
 
 png("../plots/lag_norm_nopops.png", width = 7, height = 4, units = "in",
     res = 150)
-ggplot(data = dat_sum,
+f5a <- 
+  ggplot(data = dat_sum,
        aes(x = Bact_timepoint, y = lag_norm,
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 3, alpha = 0.5, position = position_dodge(width = 0.5)) +
@@ -429,6 +436,22 @@ ggplot(data = dat_sum,
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
+f5a
+dev.off()
+
+png("../plots/fig5.png", width = 13, height = 9, units = "in",
+    res = 150)
+cowplot::plot_grid(
+  cowplot::plot_grid(
+    f5a + guides(color = "none", fill = "none", shape = "none"), 
+    f5b + guides(color = "none", fill = "none", shape = "none"),
+    f5c + guides(color = "none", fill = "none", shape = "none"),
+    f5d + guides(color = "none", fill = "none", shape = "none"),
+    nrow = 2, labels = "AUTO",
+    align = "hv", axis = "tblr"),
+  cowplot::get_legend(f5a),
+  ncol = 2, rel_widths = c(1, 0.3))
 dev.off()
 
 write.csv(dat_sum, "../growth_curve_metrics.csv", row.names = FALSE)
+setwd("..")
