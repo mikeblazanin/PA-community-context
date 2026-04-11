@@ -369,12 +369,14 @@ density <- mutate(group_by(density, Timepoint, treat_P, treat_C, Pop, Strain),
               #Initial densities were estimated for the inoculation
               # source, which was diluted 10:10000 for phage or
               # 100:10000 for bacteria into the actual flask
-              cfu_ml = ifelse(Timepoint == 0 & Pop == "H6",
-                              10/10000 * Count/10**Dilution,
-                              cfu_ml),
-              cfu_ml = ifelse(Timepoint == 0 & Pop != "H6",
-                              100/10000 * Count/10**Dilution,
-                              cfu_ml),
+              cfu_ml = case_when(
+                Timepoint != 0 ~ cfu_ml,
+                Timepoint == 0 & Strain == "H6" & treat_P == "NP" ~ 0,
+                Timepoint == 0 & Strain == "H6" & treat_P == "P" ~
+                  10/10000 * Count/10**Dilution,
+                Timepoint == 0 & (Strain == "PA" | treat_C == "C") ~ 
+                  100/10000 * Count/10**Dilution,
+                Timepoint == 0 & Strain != "PA" & treat_C != "C" ~ 0),
               S_cfu_ml = ifelse(!is.na(Small_count),
                                 400*Small_count/10**Small_dilution,
                                 0),
@@ -402,12 +404,16 @@ density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("P", "NP"),
 density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("C", "NC"),
                     mut_col = "treat_C")
 
-saveRDS(density, file = "density.rds")
-
 #Change factor orders
 density <- mutate(density,
                   treat_C = factor(treat_C, levels = c("NC", "C")),
                   treat_P = factor(treat_P, levels = c("NP", "P")))
+
+#Write to file for other scripts to use
+saveRDS(select(density,
+               Timepoint, Pop, Strain, treat_P, treat_C,
+               cfu_ml, bd, log_cfuml),
+        file = "density.rds")
 
 density_sum <- summarize(group_by(density,
                               Timepoint, treat_P, treat_C, Strain),
