@@ -358,6 +358,13 @@ density <- mutate(density,
                   treat_P = ifelse(Phage_treat == "+", "P", "NP"),
                   treat_C = ifelse(Comm_treat == "+", "C", "NC"))
 
+#Cross ancestral rows into each other treatment
+density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("P", "NP"),
+                    mut_col = "treat_P")
+density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("C", "NC"),
+                    mut_col = "treat_C")
+
+
 #Calculate total density, large freq
 # for total density, note counts are for 2.5 uL
 density <- mutate(group_by(density, Timepoint, treat_P, treat_C, Pop, Strain),
@@ -398,11 +405,6 @@ density <- mutate(density,
                               cfu_ml),
               log_cfuml = log10(cfu_ml))
 density <- as.data.frame(density)
-
-density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("P", "NP"),
-                    mut_col = "treat_P")
-density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("C", "NC"),
-                    mut_col = "treat_C")
 
 #Change factor orders
 density <- mutate(density,

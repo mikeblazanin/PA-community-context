@@ -1664,6 +1664,30 @@ gcat_freqw <- pivot_wider(select(ungroup(gcat_freq),
 
 dens_freq <- left_join(gcat_freqw, 
                        mutate(density, Pop = as.character(Pop)))
+dens_freq <- mutate(dens_freq,
+                    H6_pfuml = ifelse(is.na(H6_pfuml) & Treat_P == "NP",
+                                      400,
+                                      H6_pfuml))
+
+ggplot(data = filter(dens_freq, Timepoint != 0,
+                     Treat %in% c("CP", "NCP")),
+       aes(x = total_freq_pilus, y = H6_pfuml, color = Treat)) +
+  geom_point() +
+  scale_y_log10() +
+  geom_smooth(method = "lm")
+ggplot(data = filter(dens_freq, Timepoint != 0,
+                     Treat %in% c("CP", "NCP")),
+       aes(x = indep_freq_pilus, y = H6_pfuml, color = Treat)) +
+  geom_point() +
+  scale_y_log10() +
+  geom_smooth(method = "lm")
+
+summary(lm(data = filter(dens_freq, Timepoint != 0, Treat %in% c("CP", "NCP")),
+           log10(H6_pfuml) ~ total_freq_pilus*Treat))
+summary(lm(data = filter(dens_freq, Timepoint != 0, Treat %in% c("CP", "NCP")),
+           log10(H6_pfuml) ~ indep_freq_pilus*Treat))
+
+
 
 ##Isolate analyses ----
 
