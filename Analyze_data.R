@@ -1506,7 +1506,8 @@ dev.off()
 
 png("plots/EOP_grid_phagetreats2_reordered.png", width = 10, height = 3.5, 
     units = "in", res = 300)
-ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
+ggplot(data = mutate(filter(resis_isols, Bact_treat_P == "P"),
+                     Phage_pop = LETTERS[as.numeric(Phage_pop)-2]),
        aes(x = Bact_isol_forplotting, 
            y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
   geom_tile(aes(fill = log10(EOP2_plot))) +
@@ -1527,8 +1528,7 @@ ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
                         Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
                         Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria"),
                         Bact_timepoint = function(x) paste("Bacterial timepoint", x))) +
-  labs(x = "Bacterial Isolate", y = "Phage timepoint",
-       subtitle = "Replicate population") +
+  labs(x = "Bacterial Isolate", y = "Phage timepoint") +
   NULL
 dev.off()
 
@@ -2291,44 +2291,47 @@ if(F) {
 }
 
 # Multivariate analyses ----
-isol_data <- full_join(
-  dplyr::select(mutate(twitching, Bact_pop = as.character(Bact_pop)), 
-         !c(Date, width, height)),
-  mutate(resis_isols_bactsum_undup,
-         Bact_timepoint = as.character(Bact_timepoint),
-         Bact_pop = as.character(Bact_pop),
-         Bact_isol = as.character(Bact_isol),
-         Bact_treat = plyr::revalue(Bact_treat, c("NCNP" = "NN"), 
-                                    warn_missing = FALSE)))
-isol_data <- full_join(
-  isol_data,
-  pivot_wider(
-    select(
-      filter(pig, Bact_pop != "Blank", Wavelength %in% c(405, 695)),
-      !c(file, Well, Measurements)),
-    id_cols = c("Bact_pop", "Bact_timepoint", "Bact_treat", 
-                "Bact_treat_C", "Bact_treat_P", "Bact_isol"),
-    names_from = "Wavelength", values_from = Meas_norm_norm,
-    names_prefix = "wavelength_"))
 if(!"growth_curve_metrics.csv" %in% list.files()) {
   source("Growthcurve_analysis.R")
   setwd("..") #return wd to parent dir where this script needs it
 }
-isol_data <- full_join(
-  isol_data,
-  read.csv("growth_curve_metrics.csv", 
-           colClasses = c("Bact_pop" = "character", 
-                          "Bact_timepoint" = "character",
-                          "Bact_isol" = "character")))
-isol_data <- full_join(
-  isol_data,
-  select(mutate(filter(biofilm, Bact_treat != "pilA"),
-                biofilm_block_name = block_name),
-         !block_name & !Well))
+
+isol_data <- 
+  Reduce(
+    full_join,
+    list(
+      dplyr::select(mutate(ungroup(twitching_isols), 
+                           Bact_pop = as.character(Bact_pop)), 
+                    !Date),
+      mutate(ungroup(resis_isols_bactsum_undup),
+             Bact_timepoint = as.character(Bact_timepoint),
+             Bact_pop = as.character(Bact_pop),
+             Bact_isol = as.character(Bact_isol),
+             Bact_treat = plyr::revalue(Bact_treat, c("NCNP" = "NN"), 
+                                        warn_missing = FALSE)),
+      pivot_wider(
+        select(
+          filter(ungroup(pig), Bact_pop != "Blank", Wavelength %in% c(405, 695)),
+          !c(file, Well, Measurements)),
+        id_cols = c("Bact_pop", "Bact_timepoint", "Bact_treat", 
+                    "Bact_treat_C", "Bact_treat_P", "Bact_isol"),
+        names_from = "Wavelength", values_from = Meas_norm_norm,
+        names_prefix = "wavelength_"),
+      read.csv("growth_curve_metrics.csv", 
+               colClasses = c("Bact_pop" = "character", 
+                              "Bact_timepoint" = "character",
+                              "Bact_isol" = "character")),
+      select(mutate(filter(ungroup(biofilm), Bact_treat != "pilA"),
+                    biofilm_block_name = block_name),
+             !block_name & !Well)
+    )
+  )
+
 isol_data <- mutate(
   isol_data,
   resis = 1-clearing_avg,
   resis_cat = case_when(
+    Bact_isol == "pilA" ~ "resis",
     Plaque_morphology %in% c("Cloudy", "Tiny") ~ "part",
     Plaque_morphology == "None" ~ "resis",
     Plaque_morphology %in% c("Clear", "Clear?") ~ "suscep",
