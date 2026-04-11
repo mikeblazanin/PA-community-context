@@ -1,5 +1,6 @@
 ##TODO ----
 #Top priority:
+# FIX density calculation in Analyze_data.R
 # Correlate phage freq vs freq of pilus category
 # redo coverage
 
@@ -1080,11 +1081,11 @@ if(make_slowplots) {
                     Pop = as.numeric(Pop)),
       aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
           color = gene_catpilnot)) +
-      geom_line(aes(alpha = gene_catpilnot)) +
+      geom_line(lwd = 1.2, alpha = 0.6) +
       facet_nested(Treat_P * Treat_C ~ Pop,
                  labeller = labeller(
-                   Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
-                   Treat_C = c("NC" = "Pseudomonas-only",
+                   Pop = function(x) {paste0("Pop ", LETTERS[as.numeric(x)-2])},
+                   Treat_C = c("NC" = "Pseudo.-only",
                              "C" = "All bacteria"),
                    Treat_P = c("NP" = "No-phage",
                                "P" = "Phage-added"))) +
@@ -1092,11 +1093,14 @@ if(make_slowplots) {
       scale_color_manual(breaks = c("pilus", "other"),
                          values = my_cols[c(6, 8)],
                          name = "Gene function") +
-      scale_alpha_manual(breaks = c("pilus", "other"),
-                         values = c(0.5, 0.2),
-                         name = "Gene function") +
       labs(x = "Timepoint (days)", y = "Frequency") +
       theme_bw() +
+      theme(axis.text = element_text(size = 13),
+            axis.title = element_text(size = 18),
+            strip.text.x = element_text(size = 15),
+            strip.text.y = element_text(size = 16),
+            legend.title = element_text(size = 17),
+            legend.text = element_text(size = 15)) +
       NULL
   )
   dev.off()
@@ -1106,15 +1110,14 @@ if(make_slowplots) {
       res = 150)
   print(
     ggplot(
-      data = mutate(mutpop,
-                    Pop = as.numeric(Pop)),
+      data = mutate(mutpop, Pop = as.numeric(Pop)),
       aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
           color = gene_catpilnot)) +
-      geom_line(aes(alpha = gene_catpilnot)) +
+      geom_line(lwd = 1.2, alpha = 0.5) +
       facet_nested(Treat_P * Treat_C ~ Pop,
                    labeller = labeller(
-                     Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
-                     Treat_C = c("NC" = "Pseudomonas-only",
+                     Pop = function(x) {paste0("Pop ", LETTERS[as.numeric(x)-2])},
+                     Treat_C = c("NC" = "Pseudo.-only",
                                  "C" = "All bacteria"),
                      Treat_P = c("NP" = "No-phage",
                                  "P" = "Phage-added"))) +
@@ -1122,11 +1125,14 @@ if(make_slowplots) {
       scale_color_manual(breaks = c("pilus", "other"),
                          values = my_cols[c(6, 8)],
                          name = "Gene function") +
-      scale_alpha_manual(breaks = c("pilus", "other"),
-                         values = c(0.5, 0.2),
-                         name = "Gene function") +
       labs(x = "Timepoint (days)", y = "Frequency") +
       theme_bw() +
+      theme(axis.text = element_text(size = 13),
+            axis.title = element_text(size = 18),
+            strip.text.x = element_text(size = 15),
+            strip.text.y = element_text(size = 16),
+            legend.title = element_text(size = 17),
+            legend.text = element_text(size = 15)) +
       NULL
   )
   dev.off()
@@ -1232,6 +1238,12 @@ gcat_freq <- summarize(
   total_freq = sum(freq0),
   indep_freq = 1-prod(1-freq0))
 
+gcatfreq_sum <-
+  summarize(group_by(filter(gcat_freq, Timepoint != 0),
+                     gene_catpilnot, Pop, Treat, Treat_C, Treat_P),
+            avgindep_freq = mean(indep_freq),
+            avgtotal_freq = mean(total_freq))
+
 ####Plots ----
 ggplot(data = filter(gcat_freq, gene_catpilnot == "pilus"),
        aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
@@ -1248,6 +1260,16 @@ ggplot(data = filter(gcat_freq, gene_catpilnot == "pilus"),
   facet_grid(Treat_P ~ gene_catpilnot) +
   #scale_y_log10() +
   NULL
+
+ggplot(filter(gcatfreq_sum, gene_catpilnot == "pilus"),
+       aes(x = Treat_C, y = avgindep_freq)) +
+  geom_line(aes(group = Pop)) +
+  facet_grid(~Treat_P)
+ggplot(filter(gcatfreq_sum, gene_catpilnot == "pilus"),
+       aes(x = Treat_C, y = avgtotal_freq)) +
+  geom_line(aes(group = Pop)) +
+  facet_grid(~Treat_P)
+
 
 png("./plots/gene_freq_pop_diff_total_PNP.png", width = 6, height = 5,
     units = "in", res = 150)
@@ -1624,6 +1646,24 @@ cowplot::plot_grid(
                      labels = c("C", "D")),
   nrow = 2, rel_heights = c(1, 0.8))
 dev.off()
+
+### Mutation frequencies vs population densities ----
+density <- readRDS("density.rds")
+density <- select(filter(density, Strain == "H6", !Pop %in% c(1, 2)),
+                  Timepoint, Pop, treat_P, treat_C, cfu_ml)
+density <- dplyr::rename(density,
+                         Treat_P = treat_P, Treat_C = treat_C,
+                         H6_pfuml = cfu_ml)
+
+gcat_freqw <- pivot_wider(select(ungroup(gcat_freq),
+                                 gene_catpilnot, Timepoint, Pop,
+                                 Treat, Treat_C, Treat_P,
+                                 total_freq, indep_freq),
+                          names_from = gene_catpilnot,
+                          values_from = c(total_freq, indep_freq))
+
+dens_freq <- left_join(gcat_freqw, 
+                       mutate(density, Pop = as.character(Pop)))
 
 ##Isolate analyses ----
 
