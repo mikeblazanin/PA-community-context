@@ -1270,6 +1270,55 @@ ggplot(filter(gcatfreq_sum, gene_catpilnot == "pilus"),
   geom_line(aes(group = Pop)) +
   facet_grid(~Treat_P)
 
+png("./plots/gene_freq_pop_diff_indep_PNP.png", width = 6, height = 5,
+    units = "in", res = 150)
+ggplot(data = filter(gcat_freq, 
+                     gene_catpilnot == "pilus", Timepoint == 8),
+       aes(x = Treat_P, y = indep_freq)) +
+  geom_point() +
+  geom_line(aes(group = paste(gene_catpilnot, Pop))) +
+  facet_grid(~ Treat_C,
+             labeller = labeller(
+               Treat_C = c("NC" = "Only\nPseudo.",
+                           "C" = "All\nBacteria"))) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(x = "", y = "Cumulative frequency\nTimepoint 8\n(assuming indep.)") +
+  scale_x_discrete(breaks = c("NP", "P"),
+                   labels = c("No Phage", "Phage Added")) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text.x = element_text(size = 14, angle = 45, hjust = 1),
+        axis.text.y = element_blank(),
+        strip.text = element_text(size = 13)) +
+  NULL
+dev.off()
+
+png("./plots/gene_freq_pop_diff_indep_CNC.png", width = 6, height = 5,
+    units = "in", res = 150)
+f6c <- 
+  ggplot(data = filter(gcat_freq, 
+                       gene_catpilnot == "pilus", Timepoint != 0),
+         aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
+  geom_point() +
+  geom_line(aes(group = paste(gene_catpilnot, Pop, Timepoint))) +
+  facet_grid(~ Treat_P,
+             labeller = labeller(
+               Treat_P = c("NP" = "No Phage",
+                           "P" = "Phage\nAdded"))) +
+  scale_y_continuous(limits = c(0, 1)) +
+  scale_color_manual(name = "Timepoint\n(days)", values = my_cols[c(1:3, 7)]) +
+  labs(x = "", y = "Cumulative pilus mut. freq.\n(assuming indep.)") +
+  scale_x_discrete(breaks = c("NC", "C"),
+                   labels = c("Only Pseudo.", "All Bacteria")) +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text.x = element_text(size = 14, angle = 45, hjust = 1),
+        strip.text = element_text(size = 13),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14)) +
+  NULL
+f6c
+dev.off()
 
 png("./plots/gene_freq_pop_diff_total_PNP.png", width = 6, height = 5,
     units = "in", res = 150)
@@ -1283,7 +1332,7 @@ ggplot(data = filter(gcat_freq,
                  Treat_C = c("NC" = "Only\nPseudo.",
                              "C" = "All\nBacteria"))) +
   #scale_y_continuous(limits = c(0, 1)) +
-  labs(x = "", y = "Total frequency\nTimepoint 8\n(assuming exclus.)") +
+  labs(x = "", y = "Cumulative frequency\nTimepoint 8\n(assuming exclus.)") +
   scale_x_discrete(breaks = c("NP", "P"),
                    labels = c("No Phage", "Phage Added")) +
   theme_bw() +
@@ -1296,7 +1345,7 @@ dev.off()
 
 png("./plots/gene_freq_pop_diff_total_CNC.png", width = 6, height = 5,
     units = "in", res = 150)
-f7c <- 
+f6d <- 
   ggplot(data = filter(gcat_freq, 
                      gene_catpilnot == "pilus", Timepoint != 0),
        aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
@@ -1308,7 +1357,7 @@ f7c <-
                              "P" = "Phage\nAdded"))) +
   #scale_y_continuous(limits = c(0, 1)) +
   scale_color_manual(name = "Timepoint\n(days)", values = my_cols[c(1:3, 7)]) +
-  labs(x = "", y = "Total pilus mut. freq.\n(assuming exclus.)") +
+  labs(x = "", y = "Cumulative pilus mut. freq.\n(assuming exclus.)") +
   scale_x_discrete(breaks = c("NC", "C"),
                    labels = c("Only Pseudo.", "All Bacteria")) +
   theme_bw() +
@@ -1319,58 +1368,10 @@ f7c <-
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14)) +
   NULL
-f7c
+f6d
 dev.off()
 
-png("./plots/gene_freq_pop_diff_indep_PNP.png", width = 6, height = 5,
-    units = "in", res = 150)
-ggplot(data = filter(gcat_freq, 
-                     gene_catpilnot == "pilus", Timepoint == 8),
-       aes(x = Treat_P, y = indep_freq)) +
-  geom_point() +
-  geom_line(aes(group = paste(gene_catpilnot, Pop))) +
-  facet_grid(~ Treat_C,
-               labeller = labeller(
-                 Treat_C = c("NC" = "Only\nPseudo.",
-                             "C" = "All\nBacteria"))) +
-  scale_y_continuous(limits = c(0, 1)) +
-  labs(x = "", y = "Total frequency\nTimepoint 8\n(assuming indep.)") +
-  scale_x_discrete(breaks = c("NP", "P"),
-                   labels = c("No Phage", "Phage Added")) +
-  theme_bw() +
-  theme(axis.title = element_text(size = 16),
-        axis.text.x = element_text(size = 14, angle = 45, hjust = 1),
-        axis.text.y = element_blank(),
-        strip.text = element_text(size = 13)) +
-  NULL
-dev.off()
 
-png("./plots/gene_freq_pop_diff_indep_CNC.png", width = 6, height = 5,
-    units = "in", res = 150)
-f7d <- 
-  ggplot(data = filter(gcat_freq, 
-                     gene_catpilnot == "pilus", Timepoint != 0),
-       aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
-  geom_point() +
-  geom_line(aes(group = paste(gene_catpilnot, Pop, Timepoint))) +
-  facet_grid(~ Treat_P,
-               labeller = labeller(
-                 Treat_P = c("NP" = "No Phage",
-                             "P" = "Phage\nAdded"))) +
-  scale_y_continuous(limits = c(0, 1)) +
-  scale_color_manual(name = "Timepoint\n(days)", values = my_cols[c(1:3, 7)]) +
-  labs(x = "", y = "Total pilus mut. freq.\n(assuming indep.)") +
-  scale_x_discrete(breaks = c("NC", "C"),
-                   labels = c("Only Pseudo.", "All Bacteria")) +
-  theme_bw() +
-  theme(axis.title = element_text(size = 16),
-        axis.text.x = element_text(size = 14, angle = 45, hjust = 1),
-        strip.text = element_text(size = 13),
-        legend.title = element_text(size = 16),
-        legend.text = element_text(size = 14)) +
-  NULL
-f7d
-dev.off()
 
 ggplot(data = filter(gcat_freq, gene_catpilnot == "pilus"),
        aes(x = Treat_C, y = total_freq, color = gene_catpilnot)) +
@@ -1661,7 +1662,10 @@ gcat_freqw <- pivot_wider(select(ungroup(gcat_freq),
                                  total_freq, indep_freq),
                           names_from = gene_catpilnot,
                           values_from = c(total_freq, indep_freq))
-
+gcat_freqw_sum <- summarize(group_by(filter(gcat_freqw, Timepoint != 0),
+                                     Pop, Treat, Treat_C, Treat_P),
+                            across(contains("freq"), mean))
+                            
 dens_freq <- left_join(gcat_freqw, 
                        mutate(density, Pop = as.character(Pop)))
 dens_freq <- mutate(dens_freq,
@@ -1669,23 +1673,95 @@ dens_freq <- mutate(dens_freq,
                                       400,
                                       H6_pfuml))
 
-ggplot(data = filter(dens_freq, Timepoint != 0,
+f6a <- 
+  ggplot(data = filter(dens_freq, Timepoint != 0,
                      Treat %in% c("CP", "NCP")),
-       aes(x = total_freq_pilus, y = H6_pfuml, color = Treat)) +
-  geom_point() +
-  scale_y_log10() +
-  geom_smooth(method = "lm")
-ggplot(data = filter(dens_freq, Timepoint != 0,
-                     Treat %in% c("CP", "NCP")),
-       aes(x = indep_freq_pilus, y = H6_pfuml, color = Treat)) +
-  geom_point() +
-  scale_y_log10() +
-  geom_smooth(method = "lm")
+       aes(x = indep_freq_pilus, y = log10(H6_pfuml), 
+           color = Treat_C, fill = Treat_C, shape = Treat_C)) +
+  geom_point(size = 3, alpha = 0.7) +
+  scale_y_continuous(labels = math_format(10^.x),
+                     breaks = c(2, 4, 6, 8, 10)) +
+  geom_smooth(method = "lm", show.legend = FALSE) +
+  scale_color_manual(name = "Community Treatment", 
+                     breaks = c("NC", "C"),
+                     labels = c("Only Pseudo.", "All Bacteria"),
+                     values = my_cols[c(3, 7)]) +
+  scale_fill_manual(name = "Community Treatment", 
+                    breaks = c("NC", "C"),
+                    labels = c("Only Pseudo.", "All Bacteria"),
+                    values = my_cols[c(3, 7)]) +
+  scale_shape_manual(name = "Community Treatment",
+                     breaks = c("NC", "C"),
+                     labels = c("Only Pseudo.", "All Bacteria"),
+                     values = c(21, 23)) +
+  labs(x = "Cumulative pilus mut. freq.\n(assuming indep.)",
+       y = "Phage population density (pfu/mL)") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
 
-summary(lm(data = filter(dens_freq, Timepoint != 0, Treat %in% c("CP", "NCP")),
-           log10(H6_pfuml) ~ total_freq_pilus*Treat))
-summary(lm(data = filter(dens_freq, Timepoint != 0, Treat %in% c("CP", "NCP")),
-           log10(H6_pfuml) ~ indep_freq_pilus*Treat))
+f6b <- 
+  ggplot(data = filter(dens_freq, Timepoint != 0,
+                     Treat %in% c("CP", "NCP")),
+       aes(x = total_freq_pilus, y = log10(H6_pfuml), 
+           color = Treat_C, fill = Treat_C, shape = Treat_C)) +
+  geom_point(size = 3, alpha = 0.7) +
+  scale_y_continuous(labels = math_format(10^.x),
+                     breaks = c(2, 4, 6, 8, 10)) +
+  geom_smooth(method = "lm", show.legend = FALSE) +
+  scale_color_manual(name = "Community Treatment", 
+                     breaks = c("NC", "C"),
+                     labels = c("Only Pseudo.", "All Bacteria"),
+                     values = my_cols[c(3, 7)]) +
+  scale_fill_manual(name = "Community Treatment", 
+                    breaks = c("NC", "C"),
+                    labels = c("Only Pseudo.", "All Bacteria"),
+                    values = my_cols[c(3, 7)]) +
+  scale_shape_manual(name = "Community Treatment",
+                     breaks = c("NC", "C"),
+                     labels = c("Only Pseudo.", "All Bacteria"),
+                     values = c(21, 23)) +
+  labs(x = "Cumulative pilus mut. freq.\n(assuming exclus.)",
+       y = "Phage population density (pfu/mL)") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
+
+png("./plots/fig6_density_vs_muts.png", width = 12, height = 10,
+    units = "in", res = 150)
+cowplot::plot_grid(
+  cowplot::plot_grid(f6a + guides(color = "none", fill = "none", shape = "none"), 
+                   f6b + guides(color = "none", fill = "none", shape = "none"), 
+                   cowplot::get_legend(f6a),
+                   rel_widths = c(1, 1, 0.5),
+                   nrow = 1, labels = c("A", "B", ""),
+                   align = "hv", axis = "tblr"),
+  cowplot::plot_grid(f6c + guides(color = "none"), 
+                     f6d + guides(color = "none"),
+                     cowplot::get_legend(f6c),
+                     rel_widths = c(1, 1, 0.5),
+                     nrow = 1, align = "h", axis = "tb",
+                     labels = c("C", "D")),
+  nrow = 2
+)
+dev.off()
+
+densfreq_indeplm <- 
+  lm(data = filter(dens_freq, Timepoint != 0, Treat %in% c("CP", "NCP")),
+     log10(H6_pfuml) ~ Treat + indep_freq_pilus:Treat)
+densfreq_totallm <- 
+  lm(data = filter(dens_freq, Timepoint != 0, Treat %in% c("CP", "NCP")),
+     log10(H6_pfuml) ~ Treat + total_freq_pilus:Treat)
+
+anova(densfreq_indeplm)
+anova(densfreq_totallm)
+
+summary(densfreq_indeplm)
+summary(densfreq_totallm)
 
 
 
