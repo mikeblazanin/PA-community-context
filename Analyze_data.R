@@ -1411,8 +1411,6 @@ ggplot(data = mutate(
   NULL
 dev.off()
 
-png("plots/EOP_points.png", width = 10, height = 3.5, 
-    units = "in", res = 150)
 ggplot(data = filter(resis_isols_bactsum, Bact_treat_P == "P"),
        aes(x = as.factor(Bact_timepoint), y = EOP_avg, group = Bact_pop)) +
   geom_point(position = position_dodge(width = 0.2), alpha = 0.3) +
@@ -1423,8 +1421,6 @@ ggplot(data = filter(resis_isols_bactsum, Bact_treat_P == "P"),
   labs(y = "log10(Susceptibility)") +
   scale_y_log10() +
   theme_bw()
-dev.off()
-
 
 # Pigments ----
 
@@ -1681,8 +1677,6 @@ biofilm$biofilm_norm_log10_norm <-
           re.form = ~ (1|block_name),
           random.only = TRUE)
 
-png("./plots/biofilm.png", width = 10, height = 4, units = "in",
-    res = 150)
 ggplot(data = biofilm, 
        aes(x = Bact_timepoint, y = biofilm_norm, 
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
@@ -1706,10 +1700,7 @@ ggplot(data = biofilm,
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
-dev.off()
 
-png("./plots/biofilm_norm.png", width = 10, height = 4, units = "in",
-    res = 150)
 ggplot(data = biofilm, 
        aes(x = Bact_timepoint, y = 10**biofilm_norm_log10_norm, 
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
@@ -1733,8 +1724,6 @@ ggplot(data = biofilm,
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
-dev.off()
-
 
 pbio <- ggplot(data = biofilm, 
        aes(x = Bact_timepoint, y = biofilm_abs, 
@@ -1832,9 +1821,6 @@ twitching_lm <- lm(data = filter(twitching_isols,
 anova(twitching_lm)
 summary(twitching_lm)
 
-
-png("./plots/motility.png", width = 8, height = 6, units = "in",
-    res = 150)               
 ggplot(data = twitching_isols,
        aes(x = Bact_timepoint, y = cm_day, 
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
@@ -1860,10 +1846,7 @@ ggplot(data = twitching_isols,
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14),
         title = element_text(size = 20))
-dev.off()
 
-png("./plots/motility_norm.png", width = 8, height = 5, units = "in",
-    res = 150)               
 ptwitching_norm <-
   ggplot(data = twitching_isols,
        aes(x = Bact_timepoint, y = cm_day_norm, 
@@ -1890,7 +1873,6 @@ ptwitching_norm <-
         legend.text = element_text(size = 14),
         title = element_text(size = 20))
 print(ptwitching_norm)
-dev.off()
 
 summarize(group_by(twitching_isols, Bact_treat_P, Bact_timepoint),
           across(cm_day_norm,
@@ -2021,62 +2003,6 @@ ggpairs(data = isol_data,
         upper = list(continuous = "smooth"),
         lower = list(continuous = "points"))
 
-png("./plots/maxdens_405nm_treat.png", width = 5, height = 4, units = "in", res = 150)
-ggplot(data = isol_data,
-       aes(x = max_dens_norm, y = wavelength_405, color = Bact_treat_P)) +
-  geom_point() +
-  scale_color_manual(name = "Phage\nTreatment", 
-                     breaks = c("Anc", "NP", "P", "pilA"),
-                     values = my_cols[c(8, 1, 2, 7)],
-                     labels = c("Ancestor", "No Phage", "Phage", "pilA"))
-dev.off()
-
-png("./plots/maxdens_405nm_time.png", width = 5, height = 4, units = "in", res = 150)
-ggplot(data = isol_data,
-       aes(x = max_dens_norm, y = wavelength_405, color = Bact_timepoint)) +
-  geom_point() +
-  scale_color_manual(name = "Timepoint", 
-                     breaks = c(0, 1, 2, 4, 8, "pilA"),
-                     values = my_cols[c(8, 1, 2, 3, 7, 4)])
-dev.off()
-
-png("./plots/maxdens_695nm_treat.png", width = 5, height = 4, units = "in", res = 150)
-ggplot(data = isol_data,
-       aes(x = max_dens_norm, y = wavelength_695, color = Bact_treat_P)) +
-  geom_point() +
-  scale_color_manual(name = "Phage\nTreatment", 
-                     breaks = c("Anc", "NP", "P", "pilA"),
-                     values = my_cols[c(8, 1, 2, 7)],
-                     labels = c("Ancestor", "No Phage", "Phage", "pilA"))
-dev.off()
-
-png("./plots/maxdens_695nm_time.png", width = 5, height = 4, units = "in", res = 150)
-ggplot(data = isol_data,
-       aes(x = max_dens_norm, y = wavelength_695, color = Bact_timepoint)) +
-  geom_point() +
-  scale_color_manual(name = "Timepoint", 
-                     breaks = c(0, 1, 2, 4, 8, "pilA"),
-                     values = my_cols[c(8, 1, 2, 3, 7, 4)])
-dev.off()
-
-
-png("./plots/motility_norm_sensitivesmarked.png", width = 8, height = 6, units = "in",
-    res = 150)
-ptwitching_norm +
-  geom_point(data = filter(isol_data, clearing_avg > 0, !is.na(cm_day_norm)),
-             aes(x = as.factor(Bact_timepoint), y = cm_day_norm),
-             pch = 4, color = "black", size = 3)
-dev.off()
-
-png("./plots/motility_norm_nopops_sensitivesmarked.png", width = 8, height = 6, units = "in",
-    res = 150)
-ptwitching_norm2 +
-  geom_point(data = filter(isol_data, clearing_avg > 0, !is.na(cm_day_norm)),
-             aes(x = Bact_timepoint, y = cm_day_norm,
-                 group = paste(Bact_treat_P, Bact_treat_C)),
-             pch = 4, color = "black", size = 3,
-             position = position_dodge(width = 0.5))
-dev.off()
 
 png("./plots/motility_vs_resis.png", width = 6, height = 5, units = "in",
     res = 150)
@@ -2273,8 +2199,8 @@ pca_base +
                      values = my_cols[c(8, 1, 2)],
                      labels = c("Susceptible", "Partial Resistance", "Full Resistance"))
 dev.off()                        
-             
-png("./plots/PCA_phagetreat&bacttreat.png", width = 11, height = 8, units = "in", res = 150)
+
+#phage treat & bact treat             
 pca_base + 
   geom_polygon(stat = "ellipse", aes(fill = Bact_treat), alpha = 0.2) +
   geom_point(aes(color = Bact_treat, fill = Bact_treat), 
@@ -2294,9 +2220,8 @@ pca_base +
   scale_fill_manual(name = "Treatments",
                     breaks = c("Anc", "NN", "NCP", "CNP", "CP"),
                     values = my_cols[c(8, 7, 1, 5, 3)])
-dev.off()
 
-png("./plots/PCA_time_bytreat.png", width = 16, height = 4, units = "in", res = 150)
+#time by treat
 pca_base + 
   geom_polygon(stat = "ellipse", aes(fill = Bact_timepoint), alpha = 0.2) +
   # geom_polygon(
@@ -2321,9 +2246,8 @@ pca_base +
   scale_fill_manual(name = "Timepoint", 
                     breaks = c(0, 1, 2, 4, 8),
                     values = my_cols[c(8, 1, 2, 3, 7)])
-dev.off()
 
-png("./plots/maxdens_v_resis.png", width = 7, height = 10, units = "in", res = 300)
+
 ggplot(data = filter(isol_data, Bact_treat != "pilA"),
        aes(x = Bact_timepoint, y = max_dens_norm,
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
@@ -2348,7 +2272,6 @@ ggplot(data = filter(isol_data, Bact_treat != "pilA"),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14),
         plot.subtitle = element_text(size = 16))
-dev.off()
 
 ggplot(data = filter(isol_data, Bact_treat != "pilA"),
        aes(x = resis_cat, y = max_dens_norm,
