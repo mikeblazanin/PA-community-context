@@ -1426,62 +1426,6 @@ ggplot(data = filter(resis_isols_bactsum, Bact_treat_P == "P"),
 dev.off()
 
 
-### Population dynamics vs resistance ----
-
-#Calculate average resistance w/in pops
-resis_sum_pops <- summarize(group_by(resis_isols,
-                                     Bact_treat, Bact_treat_C,
-                                     Bact_treat_P, Bact_timepoint,
-                                     Bact_pop,
-                                     Phage_treat, Phage_treat_C,
-                                     Phage_treat_P, Phage_timepoint,
-                                     Phage_pop),
-                            clearing_avg = mean(clearing, na.rm = TRUE))
-
-#Merge with population data
-pop_resis_merge <- 
-  select(
-    full_join(
-      filter(density_mod, Bact_timepoint %in% c(0, 1, 2, 4, 8)),
-      filter(resis_sum_pops, Bact_timepoint == Phage_timepoint),
-      by = c("Bact_timepoint", "Bact_pop", "Bact_treat_P", "Bact_treat_C")),
-    Strain, cfu_ml, bd, Bact_timepoint, Bact_treat_P, Bact_treat_C, Bact_pop,
-    Phage_timepoint, Phage_treat_P, Phage_treat_C, Phage_pop,
-    clearing_avg, change_before, change_after)
-
-png("./plots/phagedens_v_resisfreq.png", width = 5, height = 4, units = "in",
-    res = 150)
-ggplot(data = filter(pop_resis_merge, Phage_treat_P == "P"),
-       aes(y = cfu_ml, x = 1-clearing_avg, color = as.factor(Bact_timepoint))) +
-  geom_point() +
-  scale_y_log10() +
-  labs(y = "pfu/mL", x = "Frequency of resistance") +
-  scale_color_manual(name = "Timepoint", values = my_cols[c(8, 1, 2, 3, 7)]) +
-  theme_bw()
-dev.off()
-  
-png("./plots/changebefore_v_resisfreq.png", width = 5, height = 4, units = "in",
-    res = 150)
-ggplot(data = filter(pop_resis_merge, Phage_treat_P == "P"),
-       aes(y = change_before, x = 1-clearing_avg, color = as.factor(Bact_timepoint))) +
-  geom_point() +
-  scale_y_log10() +
-  labs(y = "Fold-change in pfu/mL from day before", x = "Frequency of resistance") +
-  scale_color_manual(name = "Timepoint", values = my_cols[c(8, 1, 2, 3, 7)]) +
-  theme_bw()
-dev.off()
-
-png("./plots/changeafter_v_resisfreq.png", width = 5, height = 4, units = "in",
-    res = 150)
-ggplot(data = filter(pop_resis_merge, Phage_treat_P == "P"),
-       aes(y = change_after, x = 1-clearing_avg, color = as.factor(Bact_timepoint))) +
-  geom_point() +
-  scale_y_log10() +
-  labs(y = "Fold-change in pfu/mL to day after", x = "Frequency of resistance") +
-  scale_color_manual(name = "Timepoint", values = my_cols[c(8, 1, 2, 3, 7)]) +
-  theme_bw()
-dev.off()
-
 # Pigments ----
 
 pig1 <- import_blockmeasures(
