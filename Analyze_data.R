@@ -1396,10 +1396,10 @@ ggplot(data = mutate(
         legend.position = "bottom",
         panel.spacing.x = unit(.05, "lines")) +
   scale_fill_manual(
-    breaks = c("Clear", "Clear?", "Tiny/Cloudy", "None", NA),
-    labels = c("Clear", "Unconfirmed", "Tiny/Cloudy", "None", "Phage Extinct"),
+    breaks = c("Clear", "Tiny/Cloudy", "None", NA),
+    labels = c("Clear", "Tiny/Cloudy", "None", "Phage Extinct"),
     values = c(scales::seq_gradient_pal(low = "#132B43", high = "#56B1F7")(
-      seq(0, 1, length.out = 4)), "gray"),
+      seq(0, 1, length.out = 3)), "gray"),
     name = "Plaque Morphology") +
   ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Bact_timepoint * Phage_pop,
                       labeller = labeller(
