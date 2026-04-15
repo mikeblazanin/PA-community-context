@@ -1,7 +1,5 @@
 ##TODO ----
 #Top priority:
-# FIX density calculation in Analyze_data.R
-# Correlate phage freq vs freq of pilus category
 # redo coverage
 
 #Maybe:
@@ -78,7 +76,7 @@ myTryCatch <- function(expr) {
 }
 
 #Global settings
-make_slowplots <- FALSE
+make_slowplots <- TRUE
 
 ##Coverage analysis ----
 covdat <- read.table("all_depths.txt", sep = "\t", comment.char = "",
@@ -1488,8 +1486,7 @@ if(!any(gnamefreq_sum$PvsNP_non0mean > gochangecutoff)) {
 } else {
   goPvsNP <-
     cbind(Treat = "P", Context = "All",
-          filter(
-            as.data.frame(
+          as.data.frame(
               enricher(
                 gene = filter(gnamefreq_sum, PvsNP_non0mean > gochangecutoff)$Locus.Tag,
                 TERM2GENE = term2gene,
@@ -1497,16 +1494,14 @@ if(!any(gnamefreq_sum$PvsNP_non0mean > gochangecutoff)) {
                 pAdjustMethod = "BH",
                 pvalueCutoff = 0.5,
                 qvalueCutoff = 0.5,
-                minGSSize = 2)),
-            pvalue <= 0.05))
+                minGSSize = 2)))
 }
 if(!any(gnamefreq_sum$CvsNC_inNP_non0mean > gochangecutoff)) {
   goCvsNC_inNP <- NULL
 } else {
   goCvsNC_inNP <-
     cbind(Treat = "C", Context = "NP",
-          filter(
-            as.data.frame(
+          as.data.frame(
               enricher(
                 gene = filter(gnamefreq_sum, CvsNC_inNP_non0mean > gochangecutoff)$Locus.Tag,
                 TERM2GENE = term2gene,
@@ -1514,16 +1509,14 @@ if(!any(gnamefreq_sum$CvsNC_inNP_non0mean > gochangecutoff)) {
                 pAdjustMethod = "BH",
                 pvalueCutoff = 0.5,
                 qvalueCutoff = 0.5,
-                minGSSize = 2)),
-            pvalue <= 0.05))
+                minGSSize = 2)))
 }
 if(!any(gnamefreq_sum$CvsNC_inP_non0mean > gochangecutoff)) {
   goCvsNC_inP <- NULL
 } else {
   goCvsNC_inP <-
     cbind(Treat = "C", Context = "P",
-          filter(
-            as.data.frame(
+          as.data.frame(
               enricher(
                 gene = filter(gnamefreq_sum, CvsNC_inP_non0mean > gochangecutoff)$Locus.Tag,
                 TERM2GENE = term2gene,
@@ -1531,16 +1524,14 @@ if(!any(gnamefreq_sum$CvsNC_inP_non0mean > gochangecutoff)) {
                 pAdjustMethod = "BH",
                 pvalueCutoff = 0.5,
                 qvalueCutoff = 0.5,
-                minGSSize = 2)),
-            pvalue <= 0.05))
+                minGSSize = 2)))
 }
 if(!any(gnamefreq_sum$PvsNP_non0mean < -gochangecutoff)) {
   goNPvsP <- NULL
 } else {
   goNPvsP <-
     cbind(Treat = "NP", Context = "All",
-          filter(
-            as.data.frame(
+          as.data.frame(
               enricher(
                 gene = filter(gnamefreq_sum, PvsNP_non0mean < -gochangecutoff)$Locus.Tag,
                 TERM2GENE = term2gene,
@@ -1548,16 +1539,14 @@ if(!any(gnamefreq_sum$PvsNP_non0mean < -gochangecutoff)) {
                 pAdjustMethod = "BH",
                 pvalueCutoff = 0.5,
                 qvalueCutoff = 0.5,
-                minGSSize = 2)),
-            pvalue <= 0.05))
+                minGSSize = 2)))
 }
 if(!any(gnamefreq_sum$CvsNC_inNP_non0mean < -gochangecutoff)) {
   goNCvsC_inNP <- NULL
 } else {
   goNCvsC_inNP <-
     cbind(Treat = "NC", Context = "NP",
-          filter(
-            as.data.frame(
+          as.data.frame(
               enricher(
                 gene = filter(gnamefreq_sum, CvsNC_inNP_non0mean < -gochangecutoff)$Locus.Tag,
                 TERM2GENE = term2gene,
@@ -1565,16 +1554,14 @@ if(!any(gnamefreq_sum$CvsNC_inNP_non0mean < -gochangecutoff)) {
                 pAdjustMethod = "BH",
                 pvalueCutoff = 0.5,
                 qvalueCutoff = 0.5,
-                minGSSize = 2)),
-            pvalue <= 0.05))
+                minGSSize = 2)))
 }
 if(!any(gnamefreq_sum$CvsNC_inP_non0mean < -gochangecutoff)) {
   goNCvsC_inP <- NULL
 } else {
   goNCvsC_inP <-
     cbind(Treat = "NC", Context = "P",
-          filter(
-            as.data.frame(
+          as.data.frame(
               enricher(
                 gene = filter(gnamefreq_sum, CvsNC_inP_non0mean < -gochangecutoff)$Locus.Tag,
                 TERM2GENE = term2gene,
@@ -1582,13 +1569,13 @@ if(!any(gnamefreq_sum$CvsNC_inP_non0mean < -gochangecutoff)) {
                 pAdjustMethod = "BH",
                 pvalueCutoff = 0.5,
                 qvalueCutoff = 0.5,
-                minGSSize = 2)),
-            pvalue <= 0.05))
+                minGSSize = 2)))
 }
 gores <- do.call(rbind,
                  list(goCvsNC_inNP, goCvsNC_inP, 
                       goNCvsC_inNP, goNCvsC_inP,
                       goPvsNP, goNPvsP))
+gores <- filter(gores, pvalue <= 0.05)
 gores <- mutate(gores,
                 FoldPlot = ifelse(Treat %in% c("NC", "NP"),
                                   -FoldEnrichment,
@@ -1640,12 +1627,8 @@ f7b <- ggplot(
   
 png("./plots/GOhits.png", width = 12, height = 12,
     units = "in", res = 150)
-cowplot::plot_grid(
-  cowplot::plot_grid(f7a, f7b, nrow = 2, align = "v", axis = "lr",
-                     labels = c("A", "B")),
-  cowplot::plot_grid(f7c, f7d, nrow = 1, align = "h", axis = "tb",
-                     labels = c("C", "D")),
-  nrow = 2, rel_heights = c(1, 0.8))
+cowplot::plot_grid(f7a, f7b, nrow = 2, align = "v", axis = "lr",
+                     labels = c("A", "B"))
 dev.off()
 
 ### Mutation frequencies vs population densities ----
@@ -1927,7 +1910,7 @@ if(make_slowplots) {
     scale_x_discrete(limits = c("suscep", "part", "resis"),
                      labels = c("Susceptible", "Partial", "Resistant")) +
     scale_fill_manual(
-      name = "Mutation effect",
+      name = "Pilus Gene(s)\nMutation Effect",
       limits = c("none", "silent", "nonsyn change", "loss of function"),
       values = brewer_pal(palette = "Blues")(5)[-1]) +
     labs(x = "Isolates' Resistance to Phage",
