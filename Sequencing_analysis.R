@@ -50,6 +50,7 @@ library(BiocManager)
 #BiocManager::install("clusterProfiler")
 #BiocManager::install("GO.db")
 library(clusterProfiler)
+library(ggrepel)
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -1055,7 +1056,7 @@ if(make_slowplots) {
     geom_histogram() +
     facet_nested(Treat * Timepoint ~ Pop, scales = "free_y",
                  labeller = labeller(Timepoint = function(x) {paste0("T", x)},
-                                     Pop = function(x) {paste0("Pop", x)})) +
+                                     Pop = function(x) {paste0("Rep", x)})) +
     scale_x_continuous(breaks = c(0, 0.25, 0.5, 0.75)) +
     scale_fill_manual(name = "Treatments",
                        breaks = c("Anc", "NN", "CNP", "NCP", "CP"),
@@ -1073,8 +1074,7 @@ if(make_slowplots) {
   png("./plots/mut_trajectories_above010.png", 
       width = 12, height = 7, units = "in",
       res = 150)
-  print(
-    ggplot(
+  f5a <- ggplot(
       data = mutate(filter(mutpop, everabove_010 == TRUE),
                     Pop = as.numeric(Pop)),
       aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
@@ -1082,12 +1082,13 @@ if(make_slowplots) {
       geom_line(lwd = 1.2, alpha = 0.6) +
       facet_nested(Treat_P * Treat_C ~ Pop,
                  labeller = labeller(
-                   Pop = function(x) {paste0("Pop ", LETTERS[as.numeric(x)-2])},
+                   Pop = function(x) {paste("Rep", LETTERS[as.numeric(x)-2])},
                    Treat_C = c("NC" = "Pseudo.-only",
                              "C" = "All bacteria"),
                    Treat_P = c("NP" = "No-phage",
                                "P" = "Phage-added"))) +
       scale_x_continuous(breaks = c(0, 1, 2, 4, 8)) +
+    scale_y_continuous(breaks = c(0, 0.2, 0.4, 0.6, 0.8)) +
       scale_color_manual(breaks = c("pilus", "other"),
                          values = my_cols[c(6, 8)],
                          name = "Gene function") +
@@ -1100,7 +1101,7 @@ if(make_slowplots) {
             legend.title = element_text(size = 17),
             legend.text = element_text(size = 15)) +
       NULL
-  )
+  print(f5a)
   dev.off()
   
   png("./plots/mut_trajectories.png", 
@@ -1114,7 +1115,7 @@ if(make_slowplots) {
       geom_line(lwd = 1.2, alpha = 0.5) +
       facet_nested(Treat_P * Treat_C ~ Pop,
                    labeller = labeller(
-                     Pop = function(x) {paste0("Pop ", LETTERS[as.numeric(x)-2])},
+                     Pop = function(x) {paste("Rep", LETTERS[as.numeric(x)-2])},
                      Treat_C = c("NC" = "Pseudo.-only",
                                  "C" = "All bacteria"),
                      Treat_P = c("NP" = "No-phage",
@@ -1138,7 +1139,7 @@ if(make_slowplots) {
   pildat <- mutate(
     group_by(filter(mutpop,
                     everabove_010 == TRUE, gene_category == "pilus"),
-             gene_name),
+             gene_name, gene_short),
     Pop = as.numeric(Pop))
   pildat <- mutate(
     ungroup(pildat),
@@ -1147,12 +1148,18 @@ if(make_slowplots) {
              levels = 
                arrange(
                  summarize(group_by(pildat, gene_name), freqsum = sum(freq0)), 
-                 desc(freqsum))$gene_name)
+                 desc(freqsum))$gene_name),
+    gene_short = 
+      factor(gene_short,
+             levels = 
+               arrange(
+                 summarize(group_by(pildat, gene_short), freqsum = sum(freq0)), 
+                 desc(freqsum))$gene_short)
   )
   pildat <- mutate(
-    group_by(pildat, gene_name),
+    group_by(pildat, gene_short),
     gene_num = cur_group_id(),
-    gene_name_num = paste0(cur_group_id(), ": ", gene_name))
+    gene_name_num = paste0(cur_group_id(), ": ", gene_short))
   pildat <- mutate(
     ungroup(pildat),
     gene_name_num = factor(
@@ -1166,33 +1173,50 @@ if(make_slowplots) {
     max_timepoint = Timepoint[which.max(freq0)])
   png("./plots/mut_trajectories_pilus.png", width = 16, height = 6, units = "in",
       res = 150)
-  print(
+  f5b <- 
     ggplot(
       data = pildat,
       aes(x = as.numeric(Timepoint), y = freq0, group = mut_id, 
           color = gene_name_num, lty = mutation_category3)) +
-      geom_line(lwd = 1.05, alpha = 0.6) +
-      geom_text(data = pildat_sum,
-                aes(x = max_timepoint, y = max_freq+0.05, label = gene_num),
-                size = 4, show.legend = FALSE) +
-      facet_nested(Treat_P * Treat_C ~ Pop,
-                   labeller = labeller(
-                     Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
-                     Treat_C = c("NC" = "Pseudomonas-only",
-                                 "C" = "All bacteria"),
-                     Treat_P = c("NP" = "No-phage",
-                                 "P" = "Phage-added"))) +
-      scale_x_continuous(breaks = c(0, 1, 2, 4, 8), limits = c(0, 9)) +
-      #scale_color_manual(name = "Gene name", values = my_cols2) +
-      scale_linetype_manual(
-        name = "Putative mutation effect",
-        breaks = c("loss of function", "nonsyn change", "intergenic", "silent"),
-        labels = c("loss of function", "nonsyn. change", "intergenic", "silent"),
-        values = c(1, 6, 2, 3)) +
-      labs(x = "Timepoint (days)", y = "Frequency") +
-      theme_bw() +
-      NULL
-  )
+    geom_line(lwd = 1.05, alpha = 0.6) +
+    geom_text_repel(data = pildat_sum,
+                    aes(x = max_timepoint, y = max_freq, label = gene_num),
+                    nudge_y = 0.05, size = 4, show.legend = FALSE) +
+    # geom_text(data = pildat_sum,
+    #           aes(x = max_timepoint, y = max_freq+0.05, label = gene_num),
+    #           size = 4, show.legend = FALSE) +
+    facet_nested(Treat_P * Treat_C ~ Pop,
+                 labeller = labeller(
+                   Pop = function(x) {paste("Rep", LETTERS[as.numeric(x)-2])},
+                   Treat_C = c("NC" = "Pseudo.-only",
+                               "C" = "All bacteria"),
+                   Treat_P = c("NP" = "No-phage",
+                               "P" = "Phage-added"))) +
+    scale_x_continuous(breaks = c(0, 1, 2, 4, 8), limits = c(0, 9)) +
+    scale_y_continuous(breaks = c(0, 0.2, 0.4, 0.6, 0.8)) +
+    scale_color_discrete(name = "Pilus gene") +
+    scale_linetype_manual(
+      name = "Putative mutation effect",
+      breaks = c("loss of function", "nonsyn change", "intergenic", "silent"),
+      labels = c("loss of function", "nonsyn. change", "intergenic", "silent"),
+      values = c(1, 6, 2, 3)) +
+    labs(x = "Timepoint (days)", y = "Frequency") +
+    theme_bw() +
+    theme(axis.text = element_text(size = 13),
+          axis.title = element_text(size = 18),
+          strip.text.x = element_text(size = 15),
+          strip.text.y = element_text(size = 16),
+          legend.title = element_text(size = 17),
+          legend.text = element_text(size = 15)) +
+    NULL
+  print(f5b)
+  dev.off()
+  
+  png("./plots/fig5_mut_trajectories_combo.png", width = 14, height = 11, units = "in",
+      res = 150)
+  cowplot::plot_grid(f5a, f5b, rel_heights = c(1, 0.6), 
+                     ncol = 1, labels = "AUTO",
+                     align = "hv", axis = "lr")
   dev.off()
   
   png("./plots/mut_freqs_pilus.png", width = 10, height = 10, units = "in",
@@ -1293,7 +1317,7 @@ dev.off()
 
 png("./plots/gene_freq_pop_diff_indep_CNC.png", width = 6, height = 5,
     units = "in", res = 150)
-f6c <- 
+pindepfreq_bytreat <- 
   ggplot(data = filter(gcat_freq, 
                        gene_catpilnot == "pilus", Timepoint != 0),
          aes(x = Treat_C, y = indep_freq, color = as.factor(Timepoint))) +
@@ -1315,7 +1339,7 @@ f6c <-
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14)) +
   NULL
-f6c
+pindepfreq_bytreat
 dev.off()
 
 png("./plots/gene_freq_pop_diff_total_PNP.png", width = 6, height = 5,
@@ -1343,7 +1367,7 @@ dev.off()
 
 png("./plots/gene_freq_pop_diff_total_CNC.png", width = 6, height = 5,
     units = "in", res = 150)
-f6d <- 
+f6b <- 
   ggplot(data = filter(gcat_freq, 
                      gene_catpilnot == "pilus", Timepoint != 0),
        aes(x = Treat_C, y = total_freq, color = as.factor(Timepoint))) +
@@ -1366,7 +1390,7 @@ f6d <-
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14)) +
   NULL
-f6d
+f6b
 dev.off()
 
 
@@ -1656,7 +1680,7 @@ dens_freq <- mutate(dens_freq,
                                       400,
                                       H6_pfuml))
 
-f6a <- 
+pindepfreq_H6dens <- 
   ggplot(data = filter(dens_freq, Timepoint != 0,
                      Treat %in% c("CP", "NCP")),
        aes(x = indep_freq_pilus, y = log10(H6_pfuml), 
@@ -1685,7 +1709,7 @@ f6a <-
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
 
-f6b <- 
+f6a <- 
   ggplot(data = filter(dens_freq, Timepoint != 0,
                      Treat %in% c("CP", "NCP")),
        aes(x = total_freq_pilus, y = log10(H6_pfuml), 
@@ -1714,18 +1738,29 @@ f6b <-
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
 
-png("./plots/fig6_density_vs_muts.png", width = 12, height = 10,
+png("./plots/fig6_density_vs_muts.png", width = 12, height = 5,
     units = "in", res = 150)
 cowplot::plot_grid(
-  cowplot::plot_grid(f6a + guides(color = "none", fill = "none", shape = "none"), 
-                   f6b + guides(color = "none", fill = "none", shape = "none"), 
-                   cowplot::get_legend(f6a),
-                   rel_widths = c(1, 1, 0.5),
-                   nrow = 1, labels = c("A", "B", ""),
-                   align = "hv", axis = "tblr"),
-  cowplot::plot_grid(f6c + guides(color = "none"), 
-                     f6d + guides(color = "none"),
-                     cowplot::get_legend(f6c),
+  f6a + labs(x = "Total pilus mut. freq", y = "Phage population density (pfu/mL)"),
+  f6b + labs(y = "Total pilus mut. freq"),
+  nrow = 1, rel_widths = c(1, 0.8),
+  align = "hv", axis = "tb", labels = "AUTO"
+)
+dev.off()
+
+png("./plots/figS_density_vs_muts_all.png", width = 12, height = 10,
+    units = "in", res = 150)
+cowplot::plot_grid(
+  cowplot::plot_grid(
+    f6a + guides(color = "none", fill = "none", shape = "none"),
+    pindepfreq_H6dens + guides(color = "none", fill = "none", shape = "none"), 
+    cowplot::get_legend(f6a),
+    rel_widths = c(1, 1, 0.5),
+    nrow = 1, labels = c("A", "B", ""),
+    align = "hv", axis = "tblr"),
+  cowplot::plot_grid(f6b + guides(color = "none"),
+                     pindepfreq_bytreat + guides(color = "none"),
+                     cowplot::get_legend(f6b),
                      rel_widths = c(1, 1, 0.5),
                      nrow = 1, align = "h", axis = "tb",
                      labels = c("C", "D")),
@@ -2121,7 +2156,7 @@ ggplot(tmp,
   geom_point(alpha = 0.5, aes(size = isolfreq)) +
   facet_nested(Treat_P * Treat_C ~ Pop,
                labeller = labeller(
-                 Pop = function(x) {paste0("Pop", LETTERS[as.numeric(x)-2])},
+                 Pop = function(x) {paste("Rep", LETTERS[as.numeric(x)-2])},
                  Treat_C = c("NC" = "Pseudomonas-only",
                              "C" = "All bacteria"),
                  Treat_P = c("NP" = "No-phage",
