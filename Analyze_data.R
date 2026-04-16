@@ -1951,9 +1951,8 @@ gcdat_sum <- read.csv("growth_curve_metrics.csv",
                                      "Bact_timepoint" = "character",
                                      "Bact_isol" = "character"))
 
-
 #Plot ----
-png("../plots/max_dens_norm.png", width = 10, height = 4, units = "in",
+png("./plots/max_dens_norm.png", width = 10, height = 4, units = "in",
     res = 150)
 ggplot(data = gcdat_sum,
        aes(x = Bact_timepoint, y = max_dens_norm,
@@ -1983,9 +1982,9 @@ ggplot(data = gcdat_sum,
   labs(subtitle = "Replicate Population")
 dev.off()
 
-png("../plots/max_dens_norm_nopops.png", width = 7, height = 4, units = "in",
+png("./plots/max_dens_norm_nopops.png", width = 7, height = 4, units = "in",
     res = 150)
-f5c <- 
+f3d <- 
   ggplot(data = gcdat_sum,
          aes(x = Bact_timepoint, y = max_dens_norm,
              color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
@@ -2008,10 +2007,10 @@ f5c <-
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
-f5c
+f3d
 dev.off()
 
-png("../plots/max_percap_norm.png", width = 10, height = 4, units = "in",
+png("./plots/max_percap_norm.png", width = 10, height = 4, units = "in",
     res = 150)
 ggplot(data = gcdat_sum,
        aes(x = Bact_timepoint, y = max_percap_norm,
@@ -2041,9 +2040,9 @@ ggplot(data = gcdat_sum,
   labs(subtitle = "Replicate Population")
 dev.off()
 
-png("../plots/max_percap_norm_nopops.png", width = 7, height = 4, units = "in",
+png("./plots/max_percap_norm_nopops.png", width = 7, height = 4, units = "in",
     res = 150)
-f5b <- 
+fsmaxpercap <- 
   ggplot(data = gcdat_sum,
          aes(x = Bact_timepoint, y = max_percap_norm,
              color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
@@ -2066,10 +2065,10 @@ f5b <-
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
-f5b
+fsmaxpercap
 dev.off()
 
-png("../plots/auc_norm.png", width = 10, height = 4, units = "in",
+png("./plots/auc_norm.png", width = 10, height = 4, units = "in",
     res = 150)
 ggplot(data = gcdat_sum,
        aes(x = Bact_timepoint, y = auc_norm,
@@ -2099,9 +2098,9 @@ ggplot(data = gcdat_sum,
   labs(subtitle = "Replicate Population")
 dev.off()
 
-png("../plots/auc_norm_nopops.png", width = 7, height = 4, units = "in",
+png("./plots/auc_norm_nopops.png", width = 7, height = 4, units = "in",
     res = 150)
-f5d <- 
+fsauc <- 
   ggplot(data = gcdat_sum,
          aes(x = Bact_timepoint, y = auc_norm,
              color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
@@ -2124,10 +2123,10 @@ f5d <-
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
-f5d
+fsauc
 dev.off()
 
-png("../plots/lag_time.png", width = 10, height = 4, units = "in",
+png("./plots/lag_time.png", width = 10, height = 4, units = "in",
     res = 150)
 ggplot(data = gcdat_sum,
        aes(x = Bact_timepoint, y = lag,
@@ -2154,7 +2153,7 @@ ggplot(data = gcdat_sum,
         legend.text = element_text(size = 14))
 dev.off()
 
-png("../plots/lag_norm.png", width = 10, height = 4, units = "in",
+png("./plots/lag_norm.png", width = 10, height = 4, units = "in",
     res = 150)
 ggplot(data = gcdat_sum,
        aes(x = Bact_timepoint, y = lag_norm,
@@ -2184,9 +2183,9 @@ ggplot(data = gcdat_sum,
   labs(subtitle = "Replicate Population")
 dev.off()
 
-png("../plots/lag_norm_nopops.png", width = 7, height = 4, units = "in",
+png("./plots/lag_norm_nopops.png", width = 7, height = 4, units = "in",
     res = 150)
-f5a <- 
+f3c <- 
   ggplot(data = gcdat_sum,
          aes(x = Bact_timepoint, y = lag_norm,
              color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
@@ -2209,17 +2208,20 @@ f5a <-
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
-f5a
+f3c
 dev.off()
 
-png("../plots/fig5.png", width = 13, height = 9, units = "in",
+
+
+
+png("./plots/figS_gcmetrics.png", width = 13, height = 9, units = "in",
     res = 150)
 cowplot::plot_grid(
   cowplot::plot_grid(
-    f5a + guides(color = "none", fill = "none", shape = "none"), 
-    f5b + guides(color = "none", fill = "none", shape = "none"),
-    f5c + guides(color = "none", fill = "none", shape = "none"),
-    f5d + guides(color = "none", fill = "none", shape = "none"),
+    f3c + guides(color = "none", fill = "none", shape = "none"), 
+    fsmaxpercap + guides(color = "none", fill = "none", shape = "none"),
+    f3d + guides(color = "none", fill = "none", shape = "none"),
+    fsauc + guides(color = "none", fill = "none", shape = "none"),
     nrow = 2, labels = "AUTO",
     align = "hv", axis = "tblr"),
   cowplot::get_legend(f5a),
@@ -2248,10 +2250,7 @@ isol_data <-
                     "Bact_treat_C", "Bact_treat_P", "Bact_isol"),
         names_from = "Wavelength", values_from = Meas_norm_norm,
         names_prefix = "wavelength_"),
-      read.csv("growth_curve_metrics.csv", 
-               colClasses = c("Bact_pop" = "character", 
-                              "Bact_timepoint" = "character",
-                              "Bact_isol" = "character")),
+      gcdat_sum,
       select(mutate(filter(ungroup(biofilm), Bact_treat != "pilA"),
                     biofilm_block_name = block_name),
              !block_name & !Well)
@@ -2322,15 +2321,20 @@ pmotil_resis <-
 print(pmotil_resis)
 dev.off()
 
-png("./plots/fig3_motility_costs_combo.png", width = 11, height = 5, units = "in",
+png("./plots/fig3_motility_costs_combo.png", width = 11, height = 10, units = "in",
     res = 150)
 cowplot::plot_grid(
-  ptwitching_norm2 + 
-    guides(shape = "none", fill = "none", color = "none") +
-    theme(axis.title.y = element_text(size = 16)),
-  pmotil_resis,
-  align = "h", axis = "tb", nrow = 1, rel_widths = c(0.4, 0.6),
-  labels = "AUTO")
+  cowplot::plot_grid(
+    ptwitching_norm2 + guides(color = "none", fill = "none", shape = "none") +
+      theme(axis.title.y = element_text(size = 16)),
+    pmotil_resis + guides(color = "none", fill = "none", shape = "none"),
+    f3c + guides(color = "none", fill = "none", shape = "none") +
+      theme(axis.title.y = element_text(size = 16)), 
+    f3d + guides(color = "none", fill = "none", shape = "none") +
+      theme(axis.title.y = element_text(size = 16)),
+    align = "h", axis = "tb", nrow = 2, labels = "AUTO"),
+  cowplot::get_legend(ptwitching_norm2),
+  rel_widths = c(1, 0.3))
 dev.off()
 
 
