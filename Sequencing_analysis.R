@@ -1620,6 +1620,9 @@ gores <- mutate(gores,
                                   FoldEnrichment),
                 TreatPlot = ifelse(grepl("P", Treat), "P", "C"))
 
+write.csv(filter(gores, !grepl("GO:", Description), Count > 1),
+          "GOresults.csv", row.names = FALSE)
+
 
 f7a <- ggplot(
   mutate(
