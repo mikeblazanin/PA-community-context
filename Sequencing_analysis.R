@@ -1216,9 +1216,11 @@ if(make_slowplots) {
   
   png("./plots/fig5_mut_trajectories_combo.png", width = 14, height = 11, units = "in",
       res = 150)
-  cowplot::plot_grid(f5a, f5b, rel_heights = c(1, 0.6), 
+  print(
+    cowplot::plot_grid(f5a, f5b, rel_heights = c(1, 0.6), 
                      ncol = 1, labels = "AUTO",
                      align = "hv", axis = "lr")
+  )
   dev.off()
   
   png("./plots/mut_freqs_pilus.png", width = 10, height = 10, units = "in",
@@ -1296,7 +1298,8 @@ ggplot(filter(gcatfreq_sum, gene_catpilnot == "pilus"),
 
 png("./plots/gene_freq_pop_diff_indep_PNP.png", width = 6, height = 5,
     units = "in", res = 150)
-ggplot(data = filter(gcat_freq, 
+fs17b <-
+  ggplot(data = filter(gcat_freq, 
                      gene_catpilnot == "pilus", Timepoint == 8),
        aes(x = Treat_P, y = indep_freq)) +
   geom_point() +
@@ -1312,9 +1315,10 @@ ggplot(data = filter(gcat_freq,
   theme_bw() +
   theme(axis.title = element_text(size = 16),
         axis.text.x = element_text(size = 14, angle = 45, hjust = 1),
-        axis.text.y = element_blank(),
+        axis.text.y = element_text(size = 12),
         strip.text = element_text(size = 13)) +
   NULL
+fs17b
 dev.off()
 
 png("./plots/gene_freq_pop_diff_indep_CNC.png", width = 6, height = 5,
@@ -1346,7 +1350,8 @@ dev.off()
 
 png("./plots/gene_freq_pop_diff_total_PNP.png", width = 6, height = 5,
     units = "in", res = 150)
-ggplot(data = filter(gcat_freq, 
+fs17a <-
+  ggplot(data = filter(gcat_freq, 
                      gene_catpilnot == "pilus", Timepoint == 8),
        aes(x = Treat_P, y = total_freq)) +
   geom_point() +
@@ -1365,6 +1370,7 @@ ggplot(data = filter(gcat_freq,
         axis.text.y = element_text(size = 12),
         strip.text = element_text(size = 13)) +
   NULL
+fs17a
 dev.off()
 
 png("./plots/gene_freq_pop_diff_total_CNC.png", width = 6, height = 5,
@@ -1393,6 +1399,12 @@ f6b <-
         legend.text = element_text(size = 14)) +
   NULL
 f6b
+dev.off()
+
+png("./plots/figS17_gene_freq_pop_diff_PNP.png", width = 12, height = 5,
+    units = "in", res = 150)
+cowplot::plot_grid(fs17a, fs17b,
+                   nrow = 1, align = "hv", axis = "tblr", labels = "AUTO")
 dev.off()
 
 
