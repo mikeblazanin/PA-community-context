@@ -80,7 +80,7 @@ myTryCatch <- function(expr) {
 make_slowplots <- TRUE
 
 ##Coverage analysis ----
-covdat <- read.table("all_depths.txt", sep = "\t", comment.char = "",
+covdat <- read.table("all_depths_MRM3.txt", sep = "\t", comment.char = "",
                      stringsAsFactors = FALSE, header = TRUE)
 colnames(covdat)[1:2] <- c("title", "seq_id")
 covdat <- separate_wider_delim(covdat, 
@@ -160,7 +160,8 @@ covbysp <- mutate(covbysp,
 if(make_slowplots) {
   png("./plots/coverage_by_contig.png", width = 12, height = 4, units = "in",
       res = 150)
-  ggplot(data = filter(covdat, Isol == "Pop", seqtype == "PA"),
+  print(
+    ggplot(data = filter(covdat, Isol == "Pop", seqtype == "PA"),
          aes(x = seq_id, y = log10(meandepth))) +
     geom_point(alpha = 0.2) +
     scale_y_continuous(labels = math_format(10^.x)) +
@@ -172,11 +173,13 @@ if(make_slowplots) {
          subtitle = "Metagenomic sequencing") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.4))
+  )
   dev.off()
   
   png("./plots/coverage_by_contig_phageseq.png", width = 12, height = 4, units = "in",
       res = 150)
-  ggplot(data = filter(covdat, Isol == "Pop", seqtype == "H6"),
+  print(
+    ggplot(data = filter(covdat, Isol == "Pop", seqtype == "H6"),
          aes(x = seq_id, y = log10(meandepth))) +
     geom_point(alpha = 0.2) +
     scale_y_continuous(labels = math_format(10^.x)) +
@@ -188,10 +191,10 @@ if(make_slowplots) {
          subtitle = "Viral filtrate sequencing") +
     theme_bw() +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.4))
+  )
   dev.off()
   
-  png("./plots/coverage_PAby_TimepointTreat.png", width = 6, height = 3, 
-      units = "in", res = 150)
+  #Coverage PA by timepoint and treat
   ggplot(data = filter(covdat, seqtype == "PA", seq_id == "PA14_1", Isol == "Pop"),
          aes(x = Timepoint, y = meandepth, color = Treat)) +
     geom_point(alpha = 0.5, position = position_dodge(width = 0.5),
@@ -207,10 +210,8 @@ if(make_slowplots) {
     labs(x = "Timepoint (days)", y = "Mean coverage depth aligned to\nPseudomonas genome",
          subtitle = "Metagenomic sequencing") +
     theme_bw()
-  dev.off()
-  
-  png("./plots/coverage_bycontig_bytreat.png", width = 15, height = 12, units = "in",
-      res = 150)
+
+  #Coverage by contig by treatment
   ggplot(data = mutate(filter(covdat, Isol == "Pop", seqtype == "PA"),
                        seq_id = factor(seq_id,
                                        levels = c("PA14_1", "H6_1",
@@ -225,14 +226,13 @@ if(make_slowplots) {
     labs(y = "Mean coverage depth", x = "Treatment",
          subtitle = "Metagenomic sequencing") +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.4))
-  dev.off()
-    
+
   png("./plots/density_fromseq.png", width = 10, height = 7, units = "in",
       res = 150)
   print(
     ggplot(
       data = filter(covbysp, Treat != "Anc"),
-      aes(x = Timepoint, y = log10(rel_freq_noAX), color = Strain)) +
+      aes(x = Timepoint, y = log10(rel_freq), color = Strain)) +
       geom_point(position = position_jitter(width = 0.05, height = 0),
                  alpha = 0.3) + 
       geom_line(aes(group = paste(Pop, Strain)), alpha = 0.5) +
@@ -352,7 +352,8 @@ if(make_slowplots) {
     guides(color = "none", fill = "none", shape = "none")
   png("./plots/density_fromseq.png", width = 10.5, height = 7, units = "in",
       res = 150)
-  cowplot::plot_grid(NULL, 
+  print(
+    cowplot::plot_grid(NULL, 
                      p1 + guides(color = "none", fill = "none", shape = "none"), 
                      cowplot::get_legend(p1),
                      p3, 
@@ -362,6 +363,7 @@ if(make_slowplots) {
                      rel_heights = c(1, 0.2),
                      rel_widths = c(0.2, 1, 0.25),
                      align = "hv", axis = "tblr")
+  )
   dev.off()
 }
 
