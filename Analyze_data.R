@@ -2212,8 +2212,6 @@ f3c
 dev.off()
 
 
-
-
 png("./plots/figS_gcmetrics.png", width = 13, height = 9, units = "in",
     res = 150)
 cowplot::plot_grid(
