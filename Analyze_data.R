@@ -1017,8 +1017,13 @@ cs_isols <- pivot_longer(cs_isols, cols = starts_with("Bact_timepoint"),
 ### Merged resistance data ----
 
 #Merge different resistance data
-resis_isols <- full_join(EOP2, 
-                         full_join(cs_isols, full_join(spots_isols, EOP_isols)))
+resis_isols <- 
+  Reduce(
+    full_join,
+    list(mutate(EOP2, run_EOP2 = TRUE), 
+         mutate(cs_isols, run_cs = TRUE),
+         mutate(spots_isols, run_spot = TRUE),
+         mutate(EOP_isols, run_EOP = TRUE)))
 resis_isols <- mutate(ungroup(resis_isols),
                       Bact_treat = factor(Bact_treat),
                       Bact_treat_C = relevel(factor(Bact_treat_C), "NC"),
@@ -1123,6 +1128,15 @@ resis_sum_pops_sum <- summarize(group_by(resis_sum_pops,
                                 clearing_avg = mean(clearing_avg))
 
 
+#Run stats
+resfreqlm <- lm(data = filter(resis_sum_pops, Bact_timepoint != 0, Bact_treat_P == "P"),
+   clearing_avg ~ Bact_treat_C + Bact_timepoint:Bact_treat_C)
+summary(resfreqlm)
+anova(resfreqlm)
+
+ggplot(resis_sum_pops,
+       aes(x = Bact_timepoint, y = clearing_avg, color = Bact_treat)) +
+  geom_point()
 
 ggplot(data = mutate(resis_isols,
                      Plaq_morph = ifelse(Bact_timepoint == 0, "Anc", Plaque_morphology)), 
@@ -1144,6 +1158,40 @@ summarize(
   max_eop = max(EOP_avg, na.rm = TRUE), 
   min_eop = min(EOP_avg, na.rm = TRUE), 
   avg_eop = mean(EOP_avg, na.rm = TRUE))
+
+agplots <- list()
+for(runcol in grep("run", colnames(resis_isols), value = TRUE)) {
+  agplots[[length(agplots)+1]] <-
+    ggplot(data = resis_isols,
+           aes(x = Bact_isol, 
+               y = as.factor(paste(Phage_timepoint, Phage_isol)))) +
+    geom_tile(aes(fill = as.factor(.data[[runcol]]))) +
+    scale_y_discrete(labels = c(0, "", 1, "", 2, "", 4, "", 8, "")) +
+    # scale_x_discrete(labels = rep(c(0, "", 1, "", 2, "", 4, "", 8, ""),
+    #                               times = c(1, 5, 1, 5, 1, 5, 1, 5, 1, 5))) +
+    theme_bw() +
+    theme(strip.text = element_text(size = 8),
+          axis.text.y = element_text(vjust = -0.1),
+          #axis.text.x = element_text(hjust = 0.2),
+          axis.text.x = element_blank(),
+          legend.position = "bottom",
+          panel.spacing.x = unit(.05, "lines")) +
+    scale_fill_discrete(breaks = c(TRUE, NA)) +
+    ggh4x::facet_nested(Bact_treat_P * Bact_treat_C ~ Bact_timepoint * Phage_pop,
+                        labeller = labeller(
+                          Bact_treat_P = c(NP = "No Phage", P = "Phage Added"),
+                          Bact_treat_C = c(NC = "Only\nPseudomonas", C = "All Bacteria"))) +
+    labs(x = "Bacterial Isolate", y = "Phage timepoint",
+         subtitle = "Population\nBacterial timepoint") +
+    NULL
+}
+
+png("plots/resis_assay_grid.png", width = 8, height = 20, units = "in", res = 150)
+cowplot::plot_grid(
+  plotlist = agplots,
+  nrow = 4)
+dev.off()
+
 
 png("plots/resis_grid.png", width = 8, height = 5, units = "in", res = 150)
 ggplot(data = resis_isols,
@@ -1814,12 +1862,18 @@ twitching_isols <- summarize(group_by(twitching,
                        cm_day = mean(cm_day),
                        cm_day_norm = mean(cm_day_norm))
 
-#Do lazy stats for Abe's summer writeup
-twitching_lm <- lm(data = filter(twitching_isols, 
-                                 Bact_timepoint %in% c(1,2,4,8)),
-                   cm_day_norm ~ Bact_timepoint * Bact_treat)
+
+#Stats
+twitching_lm <- 
+  lm(data = mutate(filter(ungroup(twitching_isols), 
+                          Bact_timepoint %in% c(0,1,2,4,8)),
+                   Bact_timepoint = relevel(factor(Bact_timepoint), ref = "0"),
+                   Bact_treat = relevel(factor(Bact_treat), ref = "Anc")),
+                   cm_day_norm ~ 0 + Bact_timepoint:Bact_treat)
 anova(twitching_lm)
 summary(twitching_lm)
+
+
 
 ggplot(data = twitching_isols,
        aes(x = Bact_timepoint, y = cm_day, 
