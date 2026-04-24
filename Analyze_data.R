@@ -1138,6 +1138,7 @@ ggplot(resis_sum_pops,
        aes(x = Bact_timepoint, y = clearing_avg, color = Bact_treat)) +
   geom_point()
 
+#Plots of EOP by plaque morphology
 ggplot(data = mutate(resis_isols,
                      Plaq_morph = ifelse(Bact_timepoint == 0, "Anc", Plaque_morphology)), 
        aes(x = Plaq_morph, y = EOP2_plot)) + 
@@ -1148,7 +1149,8 @@ ggplot(data = mutate(resis_isols_bactsum_undup,
                      Plaq_morph = ifelse(Bact_timepoint == 0, "Anc", Plaque_morphology)), 
        aes(x = Plaq_morph, y = EOP_avg)) + 
   geom_point(position = position_jitter(width = 0.2), alpha = 0.5) + 
-  scale_y_log10()
+  scale_y_log10() +
+  geom_hline(yintercept = 0.2, lty = 2)
 
 summarize(
   group_by(
@@ -1159,6 +1161,7 @@ summarize(
   min_eop = min(EOP_avg, na.rm = TRUE), 
   avg_eop = mean(EOP_avg, na.rm = TRUE))
 
+#Check which combos were done in which runs (spots, cross-streaks, EOP, EOP2)
 agplots <- list()
 for(runcol in grep("run", colnames(resis_isols), value = TRUE)) {
   agplots[[length(agplots)+1]] <-
@@ -1469,6 +1472,34 @@ ggplot(data = filter(resis_isols_bactsum, Bact_treat_P == "P"),
   labs(y = "log10(Susceptibility)") +
   scale_y_log10() +
   theme_bw()
+
+resis_isols_phagesum <-
+  summarize(group_by(resis_isols, 
+                     Phage_treat, Phage_timepoint, Phage_pop, Phage_isol),
+            maxpfu = ifelse(any(!is.na(c(pfu_ml, pfu_ml2))),
+                            max(pfu_ml, pfu_ml2, na.rm = TRUE),
+                            NA))
+min(resis_isols_phagesum$maxpfu, na.rm = TRUE)
+
+#Plot phage titers to see how good each phage stock was
+ggplot(mutate(group_by(resis_isols,
+                       Phage_treat, Phage_timepoint, Phage_pop, Phage_isol,
+                       Bact_treat, Bact_timepoint, Bact_pop, Bact_isol),
+              pfuplot = 
+                ifelse(any(!is.na(c(pfu_ml[bd != TRUE], pfu_ml2[bd2 != TRUE]))),
+                       max(pfu_ml[bd != TRUE], pfu_ml2[bd2 != TRUE], na.rm = TRUE),
+                       NA)),
+       aes(x = Phage_pop, y = pfuplot, 
+           color = as.factor(Phage_isol), shape = as.factor(Plaque_morphology))) +
+  geom_point() +
+  ggh4x::facet_nested(. ~ Phage_treat * Phage_timepoint) +
+  scale_y_log10()
+
+ggplot(resis_isols_phagesum,
+       aes(x = Phage_timepoint, y = maxpfu)) +
+  geom_point() +
+  ggh4x::facet_nested(. ~ Phage_treat) +
+  scale_y_log10()
 
 # Pigments ----
 
