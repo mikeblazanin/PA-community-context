@@ -1,3 +1,7 @@
+#TODO:
+#add num_passages argument to run_odes
+#calculate q0 dynamically from a lag argument
+
 ## Import libraries ----
 library(deSolve)
 library(ggplot2)
@@ -58,7 +62,13 @@ baranyi_phage <- function(t, state, parameters) {
     dP <- 
       (beta1 * (I1 / tau1)
        + beta2 * (I2 / tau2)
-       - inf1 - inf2)
+       - inf1 - inf2
+       - P * y)
+    
+    #Note: y ~ 0.01/hr
+    #  10.1371/journal.pbio.0040193 
+    #  10.1093/evolut/qpag022
+    #  10.1371/journal.ppat.1000253
     
     list(c(dS1, dI1, dS2, dI2, dP))
   })
@@ -89,7 +99,10 @@ if(F) {
     
     # nutrient conversion (nutrients used per cell)
     c1 = 1,
-    c2 = 1.1
+    c2 = 1.1,
+    
+    #phage decay rate
+    y = 0.01
   )
   
   state <- c(
@@ -215,32 +228,35 @@ run_sims_ode <- function(par_list,
   )
 }
 
+#Note that lag = 1/qr * ln(1 + 1/q0)
+#          q0 = 1/(e^(qr*lag)-1)
+calc_q0 <- function(qr, lag) {return(1/(exp(qr*lag)-1))}
 
 run1 <- run_sims_ode(
   par_list = list(
     r1 = 0.8,
     r2 = 0.8,
-    #Note that lag = 1/qr * ln(1 + 1/q0)
-    #          q0 = 1/(e^(qr*lag)-1)
-    q01 = 2.3,
-    q02 = seq(1.8, 2.65, length.out = 5),
-    qr1 = 0.4,
-    qr2 = 0.4,
-    a1 = 1.4e-10,
-    a2 = 0,
+    qr1 = 0.8,
+    qr2 = 0.8,
+    q01 = calc_q0(0.8, 0.9),
+    q02 = round(calc_q0(0.8, seq(0.9, 1.2, length.out = 3)), 2),
+    #Estimated adsorption rate is 8.4e-7/hr
+    a1 = 10**seq(-8, -12, length.out = 5),
+    a2 = 0, #1e-17,
     tau1 = 1,
     tau2 = 1,
     beta1 = 11,
     beta2 = 11,
     c1 = 1,
-    c2 = seq(1, 1.2, 0.05),
-    k = 1e10),
+    c2 = seq(1, 1.2, length.out = 3),
+    k = 1e10,
+    y = 0.01),
   init_state <- c(
     S1 = 1e6,
     I1 = 0,
     S2 = 1e6,
     I2 = 0,
-    P  = 10**6),
+    P  = 1e6),
   times = seq(0, 24, by = 0.1)
 )
 
@@ -256,8 +272,16 @@ ggplot(data = r1_out,
   theme_bw() +
   scale_color_manual(breaks = c("S1", "S2", "I1", "I2", "P"),
                      values = my_cols[c(1, 4, 5, 2, 7)]) +
-  facet_grid(q02 ~ c2)
+  facet_grid(q02*c2 ~ a1)
 
+ggplot(data = r1_out,
+       aes(x = time, y = Density, color = Pop)) +
+  geom_line(lwd = 1.5, alpha = 0.8) +
+  coord_cartesian(ylim = c(0, NA)) +
+  theme_bw() +
+  scale_color_manual(breaks = c("S1", "S2", "I1", "I2", "P"),
+                     values = my_cols[c(1, 4, 5, 2, 7)]) +
+  facet_grid(c2 ~ q02)
 
 
 
