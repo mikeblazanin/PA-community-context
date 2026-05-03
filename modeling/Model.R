@@ -1,5 +1,4 @@
 #TODO:
-#rewrite to use lag and k as params, rather than q0 and c
 
 ## Import libraries ----
 library(deSolve)
@@ -16,29 +15,33 @@ scales::show_col(my_cols)
 
 baranyi_phage <- function(t, state, parameters) {
   state[state < 10**-3] <- 0
-  
+
   with(as.list(c(state, parameters)), {
     
     #Note that lag = 1/qr * ln(1 + 1/q0)
     #          q0 = 1/(e^(qr*lag)-1)
-    
-    #Note: in absence of phage, this gives equilibria:
-    #  S1 = (k - c2 S2)/c1
-    #  S2 = (k - c1 S1)/c2
+    #calc_q0 <- function(qr, lag) {return(1/(exp(qr*lag)-1))}
     
     # -------------------------
     # Implicit resource (with recycling)
     # -------------------------
-    N <- k - S1*c1 - I1*c1 - S2*c2 - I2*c2
+    M = 1 - (S1+I1)/k1 - (S2+I2)/k2
+    #N <- k - S1*c1 - I1*c1 - S2*c2 - I2*c2
     
     # -------------------------
     # Strain 1
     # -------------------------
-    q1 <- q01 * exp(qr1 * t)
-    adj1 <- q1 / (1 + q1)
+    if(lag1 == 0) {
+      adj1 <- 1
+    } else {
+      q01 <- 1/(exp(qr1*lag1)-1)
+      q1 <- q01 * exp(qr1 * t)
+      adj1 <- q1 / (1 + q1)
+    }
     
     inf1 <- a1 * S1 * P
-    S1grow <- r1 * adj1 * S1 * (N / (k * c1))
+    #S1grow <- r1 * adj1 * S1 * (N / (k * c1))
+    S1grow <- r1 * adj1 * S1 * M
     
     dS1 <- S1grow - inf1
     dI1 <- inf1 - I1 / tau1
@@ -46,11 +49,17 @@ baranyi_phage <- function(t, state, parameters) {
     # -------------------------
     # Strain 2
     # -------------------------
-    q2 <- q02 * exp(qr2 * t)
-    adj2 <- q2 / (1 + q2)
+    if(lag2 == 0) {
+      adj2 <- 1
+    } else {
+      q02 <- 1/(exp(qr2*lag2)-1)
+      q2 <- q02 * exp(qr2 * t)
+      adj2 <- q2 / (1 + q2)
+    }
     
     inf2 <- a2 * S2 * P
-    S2grow <- r2 * adj2 * S2 * (N / (k * c2))
+    #S2grow <- r2 * adj2 * S2 * (N / (k * c2))
+    S2grow <- r1 * adj1 * S2 * M
     
     dS2 <- S2grow - inf2
     dI2 <- inf2 - I2 / tau2
@@ -78,10 +87,10 @@ if(F) {
   parameters <- c(
     # growth
     r1 = 0.75, r2 = 0.75,
-    k = 10**10,
-    #Note: q0 = 1/(e^(qr*lag)-1)
-    #1/(exp(0.75*0.9)-1)
-    q01 = .1, q02 = .1,
+    k1 = 1e11, k2 = 1e9,
+    
+    #lag
+    lag1 = 0.9, lag2 = 0.9,
     qr1 = 0.75, qr2 = 0.75,
     
     # infection
@@ -96,20 +105,16 @@ if(F) {
     beta1 = 11,
     beta2 = 11,
     
-    # nutrient conversion (nutrients used per cell)
-    c1 = 1,
-    c2 = 1.1,
-    
     #phage decay rate
     y = 0.01
   )
   
   state <- c(
-    S1 = 1e6,
+    S1 = 0,
     I1 = 0,
     S2 = 1e6,
     I2 = 0,
-    P  = 10**4
+    P  = 0
   )
   
   times = seq(0, 48, by = 0.01)
@@ -262,37 +267,34 @@ run_sims_ode <- function(par_list,
 }
 
 
-#Note that lag = 1/qr * ln(1 + 1/q0)
-#          q0 = 1/(e^(qr*lag)-1)
-calc_q0 <- function(qr, lag) {return(1/(exp(qr*lag)-1))}
-
 run1 <- run_sims_ode(
   par_list = list(
     r1 = 0.8,
     r2 = 0.8,
     qr1 = 0.8,
     qr2 = 0.8,
-    q01 = calc_q0(0.8, 0.9),
-    q02 = signif(calc_q0(0.8, seq(0.9, 1.5, length.out = 2)), 2),
+    lag1 = 0.9,
+    lag2 = 1.5,
+    #lag2 = seq(0.9, 1.5, length.out = 2),
     #Estimated adsorption rate is 8.4e-7/hr
-    a1 = signif(10**seq(-10, -12, length.out = 5), 3),
+    a1 = signif(10**seq(-10, -12, by = -0.1), 3),
     a2 = 0, #1e-17,
     tau1 = 1,
     tau2 = 1,
     beta1 = 11,
     beta2 = 11,
-    c1 = 1,
-    c2 = seq(1, 1.4, length.out = 2),
-    k = 1e10,
-    y = 0.01),
+    k1 = 1e10,
+    k2 = 1.4e10,
+    #k2 = seq(1, 1.4, length.out = 2)*1e10,
+    y = 0),
   init_state <- c(
     S1 = 1e6,
     I1 = 0,
     S2 = 1,
     I2 = 0,
     P  = 1e6),
-  times = seq(0, 24, by = 0.2),
-  n_passages = 20, dilution_rate = 0.01
+  times = seq(0, 24, by = 2),
+  n_passages = 50, dilution_rate = 0.01
 )
 
 r1_out <- tidyr::pivot_longer(run1[[1]], 
@@ -303,9 +305,7 @@ r1_sum <- summarize(group_by(r1_out, across(-c(time, Density, passage))),
                     final_dens = Density[time == max(time)])
                     
 
-ggplot(data = filter(r1_out, Pop %in% c("S1", "S2", "P"),
-                     (q02 == 0.43 & c2 == 1.4) | (q02 == 0.95 & c2 == 1),
-                     time %% 24 == 0),
+ggplot(data = r1_out,
        aes(x = time, y = log10(Density), color = Pop)) +
   geom_line(lwd = 1.5, alpha = 0.8) +
   coord_cartesian(ylim = c(-1, NA)) +
@@ -313,20 +313,20 @@ ggplot(data = filter(r1_out, Pop %in% c("S1", "S2", "P"),
   theme_bw() +
   scale_color_manual(breaks = c("S1", "S2", "I1", "I2", "P"),
                      values = my_cols[c(1, 4, 5, 2, 7)]) +
-  facet_grid(q02*c2 ~ a1)
+  facet_wrap(. ~ a1)
 
-ggplot(data = r1_out,
-       aes(x = time, y = Density, color = Pop)) +
-  geom_line(lwd = 1.5, alpha = 0.8) +
-  coord_cartesian(ylim = c(0, NA)) +
-  theme_bw() +
-  scale_color_manual(breaks = c("S1", "S2", "I1", "I2", "P"),
-                     values = my_cols[c(1, 4, 5, 2, 7)]) +
-  facet_grid(c2 ~ q02)
+# ggplot(data = r1_out,
+#        aes(x = time, y = Density, color = Pop)) +
+#   geom_line(lwd = 1.5, alpha = 0.8) +
+#   coord_cartesian(ylim = c(0, NA)) +
+#   theme_bw() +
+#   scale_color_manual(breaks = c("S1", "S2", "I1", "I2", "P"),
+#                      values = my_cols[c(1, 4, 5, 2, 7)]) +
+#   facet_grid(k2 ~ lag2)
 
 ggplot(data = mutate(filter(r1_sum, Pop %in% c("S1", "S2", "P")),
                      final_dens = ifelse(final_dens < 0.01, 0, final_dens)),
-       aes(x = log10(a1), y = final_dens, color = paste(q02, c2))) +
+       aes(x = log10(a1), y = final_dens, color = paste(lag2, k2))) +
   geom_line() +
   facet_grid(~ Pop) +
   scale_y_log10(limits = c(0.01, NA))
@@ -338,18 +338,17 @@ run2 <- run_sims_ode(
     r2 = 0.8,
     qr1 = 0.8,
     qr2 = 0.8,
-    q01 = calc_q0(0.8, 0.9),
-    q02 = signif(calc_q0(0.8, seq(0.9, 1.5, length.out = 7)), 2),
+    lag1 = 0.9,
+    lag2 = seq(0.9, 1.5, length.out = 8),
     #Estimated adsorption rate is 8.4e-7/hr
-    a1 = signif(10**seq(-10, -12, length.out = 9), 3),
+    a1 = signif(10**seq(-10, -12, by = -0.2), 3),
     a2 = 0, #1e-17,
     tau1 = 1,
     tau2 = 1,
     beta1 = 11,
     beta2 = 11,
-    c1 = 1,
-    c2 = seq(1, 1.4, length.out = 7),
-    k = 1e10,
+    k1 = 1e10,
+    k2 = seq(1, 1.4, length.out = 8)*1e10,
     y = 0.01),
   init_state <- c(
     S1 = 1e6,
@@ -357,27 +356,58 @@ run2 <- run_sims_ode(
     S2 = 1,
     I2 = 0,
     P  = 1e6),
-  times = seq(0, 24, by = 0.2),
-  n_passages = 10, dilution_rate = 0.01
+  times = seq(0, 24, by = 3),
+  n_passages = 50, dilution_rate = 0.01
 )
 
 r2_out <- tidyr::pivot_longer(run2[[1]], 
                               cols = c(S1, I1, S2, I2, P), 
                               names_to = "Pop", values_to = "Density")
+r2_out <- mutate(ungroup(r2_out),
+                 Dens1 = ifelse(Density < 1, 0, Density))
 
-r2_sum <- summarize(group_by(r2_out, across(-c(time, Density, passage))),
-                    final_dens = Density[time == max(time)],
-                    avgdens_lastpassage = mean(Density[passage == 10]))
+r2_sum <- summarize(group_by(r2_out, across(-c(time, Density, Dens1, passage))),
+                    final_dens = Dens1[time == max(time)],
+                    avgdens_lastpassage = mean(Dens1[passage == 50]))
 
 r2_sum_sum <- 
   summarize(group_by(r2_sum, across(-c(Pop, final_dens, avgdens_lastpassage))),
             S1_S2_ratio = 
               avgdens_lastpassage[Pop == "S1"]/avgdens_lastpassage[Pop == "S2"])
 
-ggplot(data = mutate(filter(r2_sum, Pop == "P"),
-                     ifelse(avgdens_lastpassage < 1, 1, avgdens_lastpassage)),
-       aes(x = c2, y = q02)) +
-  geom_tile(aes(fill = log10(avgdens_lastpassage))) +
+ggplot(data = filter(r2_out, lag2 == 0.9, k2 == 1e10),
+       aes(x = time, y = log10(Density), color = Pop)) +
+  geom_line(lwd = 1.5, alpha = 0.8) +
+  coord_cartesian(ylim = c(-1, NA)) +
+  #scale_y_log10(limits = c(0.1, NA)) +
+  theme_bw() +
+  scale_color_manual(breaks = c("S1", "S2", "I1", "I2", "P"),
+                     values = my_cols[c(1, 4, 5, 2, 7)]) +
+  facet_wrap(. ~ a1)
+
+ggplot(data = filter(r2_out, 
+                     Pop == "P", 
+                     k2 %in% c(min(r2_out$k2), max(r2_out$k2)), 
+                     lag2 %in% c(min(r2_out$lag2), max(r2_out$lag2))),
+       aes(x = time, y = log10(Density), color = as.factor(log10(a1)))) +
+  geom_line() +
+  coord_cartesian(ylim = c(0, NA)) +
+  facet_wrap(~lag2*k2)
+
+ggplot(data = filter(r2_out, 
+                     Pop == "S1", 
+                     k2 %in% c(min(r2_out$k2), max(r2_out$k2)), 
+                     lag2 %in% c(min(r2_out$lag2), max(r2_out$lag2))),
+       aes(x = time, y = log10(Density), color = as.factor(log10(a1)))) +
+  geom_line() +
+  coord_cartesian(ylim = c(0, NA)) +
+  facet_wrap(~lag2*k2)
+
+ggplot(data = mutate(ungroup(filter(r2_sum, Pop == "P")),
+                     avgdens_lastpassage = 
+                       ifelse(avgdens_lastpassage < 1, 1, avgdens_lastpassage)),
+       aes(x = k2, y = lag2)) +
+  geom_tile(aes(fill = log10(final_dens))) +
   facet_wrap(~log10(a1)) +
   scale_fill_viridis_c(limits = c(0, NA))
 
