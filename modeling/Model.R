@@ -17,7 +17,7 @@ baranyi_phage <- function(t, state, parameters) {
   state[state < 10**-3] <- 0
 
   with(as.list(c(state, parameters)), {
-    
+
     #Note that lag = 1/qr * ln(1 + 1/q0)
     #          q0 = 1/(e^(qr*lag)-1)
     #calc_q0 <- function(qr, lag) {return(1/(exp(qr*lag)-1))}
@@ -59,7 +59,7 @@ baranyi_phage <- function(t, state, parameters) {
     
     inf2 <- a2 * S2 * P
     #S2grow <- r2 * adj2 * S2 * (N / (k * c2))
-    S2grow <- r1 * adj1 * S2 * M
+    S2grow <- r2 * adj2 * S2 * M
     
     dS2 <- S2grow - inf2
     dI2 <- inf2 - I2 / tau2
