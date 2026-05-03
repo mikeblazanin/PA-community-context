@@ -90,7 +90,7 @@ if(F) {
     k1 = 1e11, k2 = 1e9,
     
     #lag
-    lag1 = 0.9, lag2 = 0.9,
+    lag1 = 0.9, lag2 = 1.5,
     qr1 = 0.75, qr2 = 0.75,
     
     # infection
@@ -110,9 +110,9 @@ if(F) {
   )
   
   state <- c(
-    S1 = 0,
+    S1 = 1e6,
     I1 = 0,
-    S2 = 1e6,
+    S2 = 1,
     I2 = 0,
     P  = 0
   )
@@ -142,9 +142,7 @@ run_sims_ode <- function(par_list,
                          dilution_rate = 1,
                          print_info = TRUE) {
   
-  # -----------------------------
   # helper: safe ODE wrapper
-  # -----------------------------
   myTryCatch <- function(expr) {
     warn <- err <- NULL
     value <- withCallingHandlers(
@@ -160,9 +158,7 @@ run_sims_ode <- function(par_list,
     list(value = value, warning = warn, error = err)
   }
   
-  # -----------------------------
   # build parameter grid
-  # -----------------------------
   if (combinatorial) {
     param_grid <- expand.grid(par_list, stringsAsFactors = FALSE)
   } else {
@@ -177,15 +173,11 @@ run_sims_ode <- function(par_list,
     message(n_sims, " simulations will be run")
   }
   
-  # -----------------------------
   # storage
-  # -----------------------------
   results <- vector("list", n_sims)
   failures <- vector("list", 0)
   
-  # -----------------------------
   # main loop over parameter sets
-  # -----------------------------
   for (i in seq_len(n_sims)) {
     
     pars <- as.list(param_grid[i, ])
@@ -211,10 +203,10 @@ run_sims_ode <- function(par_list,
       
       df <- as.data.frame(sim$value)
       
-      # ---- adjust time so passages are continuous ----
+      #adjust time so passages are continuous
       df$time <- df$time + time_offset
       
-      # ---- track metadata ----
+      #track metadata
       df$run <- i
       df$passage <- p
       
@@ -222,10 +214,10 @@ run_sims_ode <- function(par_list,
         df[[nm]] <- pars[[nm]]
       }
       
-      # ---- store ----
+      #store
       sim_list[[p]] <- df
       
-      # ---- prepare next passage ----
+      #prepare next passage
       final_state <- as.numeric(df[nrow(df), names(current_state)])
       names(final_state) <- names(current_state)
       
@@ -235,7 +227,7 @@ run_sims_ode <- function(par_list,
       # update time offset
       time_offset <- max(df$time)
       
-      # ---- avoid duplicate timepoints ----
+      #avoid duplicate timepoints
       # if (p > 1) {
       #   sim_list[[p]] <- sim_list[[p]][-1, ]
       # }
@@ -249,9 +241,7 @@ run_sims_ode <- function(par_list,
     }
   }
   
-  # -----------------------------
   # combine all simulations
-  # -----------------------------
   ybig <- do.call(rbind, results)
   
   yfail <- if (length(failures) > 0) {
@@ -283,8 +273,8 @@ run1 <- run_sims_ode(
     tau2 = 1,
     beta1 = 11,
     beta2 = 11,
-    k1 = 1e10,
-    k2 = 1.4e10,
+    k1 = 1.4e10,
+    k2 = 1e10,
     #k2 = seq(1, 1.4, length.out = 2)*1e10,
     y = 0),
   init_state <- c(
@@ -305,9 +295,9 @@ r1_sum <- summarize(group_by(r1_out, across(-c(time, Density, passage))),
                     final_dens = Density[time == max(time)])
                     
 
-ggplot(data = r1_out,
+ggplot(data = filter(r1_out, Pop %in% c("S1", "S2", "P")),
        aes(x = time, y = log10(Density), color = Pop)) +
-  geom_line(lwd = 1.5, alpha = 0.8) +
+  geom_line(lwd = 0.9, alpha = 0.8) +
   coord_cartesian(ylim = c(-1, NA)) +
   #scale_y_log10(limits = c(0.1, NA)) +
   theme_bw() +
@@ -332,6 +322,55 @@ ggplot(data = mutate(filter(r1_sum, Pop %in% c("S1", "S2", "P")),
   scale_y_log10(limits = c(0.01, NA))
 
 
+run1 <- run_sims_ode(
+  par_list = list(
+    r1 = 0.8,
+    r2 = 0.8,
+    qr1 = 0.8,
+    qr2 = 0.8,
+    lag1 = 0.9,
+    lag2 = 1.5,
+    #lag2 = seq(0.9, 1.5, length.out = 2),
+    #Estimated adsorption rate is 8.4e-7/hr
+    a1 = 0, #signif(10**seq(-10, -12, by = -0.1), 3),
+    a2 = 0, #1e-17,
+    tau1 = 1,
+    tau2 = 1,
+    beta1 = 11,
+    beta2 = 11,
+    k1 = 1.4e10, 
+    k2 = 1e9,
+    #k2 = seq(1, 1.4, length.out = 2)*1e10,
+    y = 0),
+  init_state <- c(
+    S1 = 1,
+    I1 = 0,
+    S2 = 1e6,
+    I2 = 0,
+    P  = 0),
+  times = seq(0, 24, by = 2),
+  n_passages = 50, dilution_rate = 0.01
+)
+
+r1_out <- tidyr::pivot_longer(run1[[1]], 
+                              cols = c(S1, I1, S2, I2, P), 
+                              names_to = "Pop", values_to = "Density")
+
+r1_sum <- summarize(group_by(r1_out, across(-c(time, Density, passage))),
+                    final_dens = Density[time == max(time)])
+
+
+ggplot(data = r1_out,
+       aes(x = time, y = log10(Density), color = Pop)) +
+  geom_line(lwd = 1.5, alpha = 0.8) +
+  coord_cartesian(ylim = c(-1, NA)) +
+  #scale_y_log10(limits = c(0.1, NA)) +
+  theme_bw() +
+  scale_color_manual(breaks = c("S1", "S2", "I1", "I2", "P"),
+                     values = my_cols[c(1, 4, 5, 2, 7)]) +
+  facet_wrap(. ~ a1)
+
+
 run2 <- run_sims_ode(
   par_list = list(
     r1 = 0.8,
@@ -341,13 +380,13 @@ run2 <- run_sims_ode(
     lag1 = 0.9,
     lag2 = seq(0.9, 1.5, length.out = 8),
     #Estimated adsorption rate is 8.4e-7/hr
-    a1 = signif(10**seq(-10, -12, by = -0.2), 3),
+    a1 = signif(10**seq(-10.9, -12, by = -0.1), 3),
     a2 = 0, #1e-17,
     tau1 = 1,
     tau2 = 1,
     beta1 = 11,
     beta2 = 11,
-    k1 = 1e10,
+    k1 = 1.4e10,
     k2 = seq(1, 1.4, length.out = 8)*1e10,
     y = 0.01),
   init_state <- c(
