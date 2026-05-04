@@ -401,19 +401,20 @@ r2_out <- mutate(ungroup(r2_out),
 
 r2_sum <- summarize(group_by(r2_out, across(-c(time, Density, Dens1, passage))),
                     final_dens = Dens1[time == max(time)],
-                    avgdens_lastpassage = mean(Dens1[passage == 50]))
+                    avgdens_lastpassage = mean(Dens1[passage == 50]),
+                    avgdens_last10 = mean(Dens1[passage %in% 41:50]))
 
 r2_sum_sum <- 
   pivot_wider(r2_sum,
               names_from = Pop,
-              values_from = c(final_dens, avgdens_lastpassage))
+              values_from = c(final_dens, avgdens_lastpassage, avgdens_last10))
 r2_sum_sum <- mutate(ungroup(r2_sum_sum),
                      S1_S2_ratio =
-                       avgdens_lastpassage_S1/avgdens_lastpassage_S2,
-                     S1_freq = avgdens_lastpassage_S1/
-                       (avgdens_lastpassage_S1 + avgdens_lastpassage_S2),
-                     S2_freq = avgdens_lastpassage_S2/
-                       (avgdens_lastpassage_S1 + avgdens_lastpassage_S2))
+                       avgdens_last10_S1/avgdens_last10_S2,
+                     S1_freq = avgdens_last10_S1/
+                       (avgdens_last10_S1 + avgdens_last10_S2),
+                     S2_freq = avgdens_last10_S2/
+                       (avgdens_last10_S1 + avgdens_last10_S2))
                      
 ggplot(data = filter(r2_out, lag2 == 1.5, k2 == 1e10),
        aes(x = time, y = log10(Density), color = Pop)) +
@@ -445,7 +446,7 @@ ggplot(data = filter(r2_out,
 
 ggplot(data = filter(r2_sum, Pop == "S1"),
        aes(x = 100*(k2/k1-1), y = 100*(lag2/lag1-1))) +
-  geom_tile(aes(fill = log10(final_dens))) +
+  geom_tile(aes(fill = log10(avgdens_last10))) +
   facet_wrap(~round(log10(a1), 2)) +
   scale_x_continuous(transform = "reverse") +
   scale_fill_continuous(name = "log10(Susceptible)") +
@@ -456,7 +457,7 @@ ggplot(data = filter(r2_sum, Pop == "S1"),
 
 ggplot(data = filter(r2_sum, Pop == "S2"),
        aes(x = 100*(k2/k1-1), y = 100*(lag2/lag1-1))) +
-  geom_tile(aes(fill = log10(final_dens))) +
+  geom_tile(aes(fill = log10(avgdens_last10))) +
   facet_wrap(~round(log10(a1), 3)) +
   scale_x_continuous(transform = "reverse") +
   scale_fill_continuous(name = "log10(Resistant)") +
@@ -467,7 +468,7 @@ ggplot(data = filter(r2_sum, Pop == "S2"),
 
 ggplot(data = filter(r2_sum, Pop == "P"),
        aes(x = 100*(k2/k1-1), y = 100*(lag2/lag1-1))) +
-  geom_tile(aes(fill = log10(final_dens))) +
+  geom_tile(aes(fill = log10(avgdens_last10))) +
   facet_wrap(~round(log10(a1), 3)) +
   scale_x_continuous(transform = "reverse") +
   scale_fill_continuous(name = "log10(Phage)") +
@@ -545,14 +546,22 @@ ggplot(data = filter(r2_sum_sum, avgdens_lastpassage_P > 1e2,
        y = "Lag time cost of resistance (%)") +
   NULL
 
-ggplot(data = filter(r2_out, 
-                     round(log10(a1), 3) == -11.475),
-       aes(x = time, y = log10(Density), color = Pop)) +
-  geom_line(lwd = 0.75, alpha = 0.8) +
-  coord_cartesian(ylim = c(-1, NA)) +
-  #scale_y_log10(limits = c(0.1, NA)) +
-  theme_bw() +
-  scale_color_manual(breaks = c("S1", "S2", "I1", "I2", "P"),
-                     values = my_cols[c(1, 4, 5, 2, 7)]) +
-  facet_grid(lag2 ~ k2)
+dir.create("./curveplots/")
+for(mya1 in unique(r2_out$a1)) {
+  png(paste0("./curveplots/a1=", round(log10(mya1), 3), ".png"),
+      width = 10, height = 10, units = "in",
+      res = 150)
+  print(
+    ggplot(data = filter(r2_out, a1 == mya1, Pop %in% c("S1", "S2", "P")),
+         aes(x = time, y = log10(Density), color = Pop)) +
+    geom_line(lwd = 0.75, alpha = 0.8) +
+    coord_cartesian(ylim = c(-1, NA)) +
+    #scale_y_log10(limits = c(0.1, NA)) +
+    theme_bw() +
+    scale_color_manual(breaks = c("S1", "S2", "I1", "I2", "P"),
+                       values = my_cols[c(1, 4, 5, 2, 7)]) +
+    facet_grid(lag2 ~ k2)
+  )
+  dev.off()
+}
 
