@@ -5,6 +5,8 @@ library(deSolve)
 library(ggplot2)
 library(dplyr)
 library(gcplyr)
+library(tidyr)
+library(scales)
 
 #Okabe and Ito 2008 colorblind-safe qualitative color scale
 my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
@@ -12,7 +14,6 @@ my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
 scales::show_col(my_cols)
 
 ## Define model ----
-
 baranyi_phage <- function(t, state, parameters) {
   state[state < 10**-3] <- 0
 
@@ -22,15 +23,11 @@ baranyi_phage <- function(t, state, parameters) {
     #          q0 = 1/(e^(qr*lag)-1)
     #calc_q0 <- function(qr, lag) {return(1/(exp(qr*lag)-1))}
     
-    # -------------------------
     # Implicit resource (with recycling)
-    # -------------------------
     M = 1 - (S1+I1)/k1 - (S2+I2)/k2
     #N <- k - S1*c1 - I1*c1 - S2*c2 - I2*c2
     
-    # -------------------------
     # Strain 1
-    # -------------------------
     if(lag1 == 0) {
       adj1 <- 1
     } else {
@@ -46,9 +43,7 @@ baranyi_phage <- function(t, state, parameters) {
     dS1 <- S1grow - inf1
     dI1 <- inf1 - I1 / tau1
     
-    # -------------------------
     # Strain 2
-    # -------------------------
     if(lag2 == 0) {
       adj2 <- 1
     } else {
@@ -64,9 +59,7 @@ baranyi_phage <- function(t, state, parameters) {
     dS2 <- S2grow - inf2
     dI2 <- inf2 - I2 / tau2
     
-    # -------------------------
     # Phage dynamics
-    # -------------------------
     dP <- 
       (beta1 * (I1 / tau1)
        + beta2 * (I2 / tau2)
@@ -82,7 +75,7 @@ baranyi_phage <- function(t, state, parameters) {
   })
 }
 
-#Simple example
+#Simple example ----
 if(F) {
   parameters <- c(
     # growth
@@ -133,6 +126,7 @@ if(F) {
     scale_color_manual(values = my_cols)
 }
 
+#Define simulations function ----
 run_sims_ode <- function(par_list,
                          init_state,
                          times,
@@ -256,7 +250,7 @@ run_sims_ode <- function(par_list,
   )
 }
 
-
+# Run 1 ----
 run1 <- run_sims_ode(
   par_list = list(
     r1 = 0.8,
@@ -370,7 +364,7 @@ ggplot(data = r1_out,
                      values = my_cols[c(1, 4, 5, 2, 7)]) +
   facet_wrap(. ~ a1)
 
-
+#Run 2 ----
 run2 <- run_sims_ode(
   par_list = list(
     r1 = 0.8,
@@ -378,16 +372,16 @@ run2 <- run_sims_ode(
     qr1 = 0.8,
     qr2 = 0.8,
     lag1 = 0.9,
-    lag2 = seq(0.9, 1.5, length.out = 8),
+    lag2 = 0.9*seq(1, 1.8, by = 0.1),
     #Estimated adsorption rate is 8.4e-7/hr
-    a1 = signif(10**seq(-10.9, -12, by = -0.1), 3),
+    a1 = signif(10**seq(-10.9, -11.7, by = -0.025), 5),
     a2 = 0, #1e-17,
     tau1 = 1,
     tau2 = 1,
     beta1 = 11,
     beta2 = 11,
     k1 = 1.4e10,
-    k2 = seq(1, 1.4, length.out = 8)*1e10,
+    k2 = 1.4*seq(0.5, 1, by = 0.1)*1e10,
     y = 0.01),
   init_state <- c(
     S1 = 1e6,
@@ -403,18 +397,25 @@ r2_out <- tidyr::pivot_longer(run2[[1]],
                               cols = c(S1, I1, S2, I2, P), 
                               names_to = "Pop", values_to = "Density")
 r2_out <- mutate(ungroup(r2_out),
-                 Dens1 = ifelse(Density < 1, 0, Density))
+                 Dens1 = ifelse(Density < 1, 1, Density))
 
 r2_sum <- summarize(group_by(r2_out, across(-c(time, Density, Dens1, passage))),
                     final_dens = Dens1[time == max(time)],
                     avgdens_lastpassage = mean(Dens1[passage == 50]))
 
 r2_sum_sum <- 
-  summarize(group_by(r2_sum, across(-c(Pop, final_dens, avgdens_lastpassage))),
-            S1_S2_ratio = 
-              avgdens_lastpassage[Pop == "S1"]/avgdens_lastpassage[Pop == "S2"])
-
-ggplot(data = filter(r2_out, lag2 == 0.9, k2 == 1e10),
+  pivot_wider(r2_sum,
+              names_from = Pop,
+              values_from = c(final_dens, avgdens_lastpassage))
+r2_sum_sum <- mutate(ungroup(r2_sum_sum),
+                     S1_S2_ratio =
+                       avgdens_lastpassage_S1/avgdens_lastpassage_S2,
+                     S1_freq = avgdens_lastpassage_S1/
+                       (avgdens_lastpassage_S1 + avgdens_lastpassage_S2),
+                     S2_freq = avgdens_lastpassage_S2/
+                       (avgdens_lastpassage_S1 + avgdens_lastpassage_S2))
+                     
+ggplot(data = filter(r2_out, lag2 == 1.5, k2 == 1e10),
        aes(x = time, y = log10(Density), color = Pop)) +
   geom_line(lwd = 1.5, alpha = 0.8) +
   coord_cartesian(ylim = c(-1, NA)) +
@@ -442,17 +443,116 @@ ggplot(data = filter(r2_out,
   coord_cartesian(ylim = c(0, NA)) +
   facet_wrap(~lag2*k2)
 
-ggplot(data = mutate(ungroup(filter(r2_sum, Pop == "P")),
-                     avgdens_lastpassage = 
-                       ifelse(avgdens_lastpassage < 1, 1, avgdens_lastpassage)),
-       aes(x = k2, y = lag2)) +
+ggplot(data = filter(r2_sum, Pop == "S1"),
+       aes(x = 100*(k2/k1-1), y = 100*(lag2/lag1-1))) +
   geom_tile(aes(fill = log10(final_dens))) +
-  facet_wrap(~log10(a1)) +
-  scale_fill_viridis_c(limits = c(0, NA))
+  facet_wrap(~round(log10(a1), 2)) +
+  scale_x_continuous(transform = "reverse") +
+  scale_fill_continuous(name = "log10(Susceptible)") +
+  labs(x = "Maximum density cost of resistance (%)",
+       y = "Lag time cost of resistance (%)") +
+  #scale_fill_viridis_c(limits = c(0, NA)) +
+  NULL
+
+ggplot(data = filter(r2_sum, Pop == "S2"),
+       aes(x = 100*(k2/k1-1), y = 100*(lag2/lag1-1))) +
+  geom_tile(aes(fill = log10(final_dens))) +
+  facet_wrap(~round(log10(a1), 3)) +
+  scale_x_continuous(transform = "reverse") +
+  scale_fill_continuous(name = "log10(Resistant)") +
+  labs(x = "Maximum density cost of resistance (%)",
+       y = "Lag time cost of resistance (%)") +
+  #scale_fill_viridis_c(limits = c(0, NA)) +
+  NULL
+
+ggplot(data = filter(r2_sum, Pop == "P"),
+       aes(x = 100*(k2/k1-1), y = 100*(lag2/lag1-1))) +
+  geom_tile(aes(fill = log10(final_dens))) +
+  facet_wrap(~round(log10(a1), 3)) +
+  scale_x_continuous(transform = "reverse") +
+  scale_fill_continuous(name = "log10(Phage)") +
+  labs(x = "Maximum density cost of resistance (%)",
+       y = "Lag time cost of resistance (%)") +
+  #scale_fill_viridis_c(limits = c(0, NA)) +
+  NULL
 
 ggplot(data = r2_sum_sum,
-       aes(x = c2, y = q02)) +
+       aes(x = 100*(k2/k1-1), y = 100*(lag2/lag1-1))) +
   geom_tile(aes(fill = log10(S1_S2_ratio))) +
-  facet_wrap(~log10(a1)) +
-  scale_fill_viridis_c()
+  facet_wrap(~round(log10(a1), 3)) +
+  scale_x_continuous(transform = "reverse") +
+  scale_fill_viridis_c(name = "log10(S/R)") +
+  labs(x = "Maximum density cost of resistance (%)",
+       y = "Lag time cost of resistance (%)") +
+  NULL
+
+f5c <- 
+  ggplot(data = filter(r2_sum, Pop == "P", log10(a1) > -11.68),
+         aes(x = 100*(k2/k1-1), y = 100*(lag2/lag1-1))) +
+  geom_tile(aes(fill = log10(final_dens))) +
+  facet_wrap(~ round(log10(a1), 3), nrow = 4) +
+  scale_x_continuous(transform = "reverse") +
+  scale_fill_continuous(name = "log10(Phage)") +
+  labs(x = "Maximum density cost of resistance (%)",
+       y = "Lag time\ncost of resistance (%)") +
+  #scale_fill_viridis_c(limits = c(0, NA)) +
+  NULL
+
+f5d <- 
+  ggplot(data = filter(r2_sum_sum, log10(a1) > -11.68),
+         aes(x = 100*(k2/k1-1), y = 100*(lag2/lag1-1))) +
+  geom_tile(aes(fill = log10(S1_freq))) +
+  facet_wrap(~ round(log10(a1), 3), nrow = 4) +
+  scale_x_continuous(transform = "reverse") +
+  scale_fill_viridis_c(name = "log10(Sus. freq.)") +
+  labs(x = "Maximum density cost of resistance (%)",
+       y = "Lag time\ncost of resistance (%)") +
+  NULL
+
+png("./plots/figS_fullmodel.png", width = 20, height = 6, units = "in",
+    res = 150)
+cowplot::plot_grid(f5c, f5d, labels = c("C", "D"), ncol = 2,
+                   align = "v", axis = "lr")
+dev.off()
+
+ggplot(data = filter(r2_sum_sum, avgdens_lastpassage_P > 1),
+       aes(x = S2_freq, y = log10(avgdens_lastpassage_P))) +
+  geom_point(aes(color = round(log10(a1), 3))) +
+  geom_smooth() +
+  scale_y_continuous(labels = math_format(10^.x),
+                     breaks = c(2, 4, 6, 8, 10)) +
+  scale_color_continuous(labels = math_format(10^.x),
+                         name = "Phage\nadsorption\nrate") +
+  labs(subtitle = "Simulation results",
+       x = "Resistance frequency",
+       y = "Phage population density (pfu/mL)") +
+  theme_bw() +
+  theme(axis.title = element_text(size = 16),
+        axis.text = element_text(size = 14),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        plot.subtitle = element_text(size = 16)) +
+  NULL
+
+ggplot(data = filter(r2_sum_sum, avgdens_lastpassage_P > 1e2,
+                     log10(a1) > -11.52),
+       aes(x = 100*(k2/k1-1), y = 100*(lag2/lag1-1))) +
+  geom_tile(aes(fill = log10(S1_S2_ratio))) +
+  facet_wrap(~round(log10(a1), 2)) +
+  scale_x_continuous(transform = "reverse") +
+  scale_fill_viridis_c(name = "log10(S/R)") +
+  labs(x = "Maximum density cost of resistance (%)",
+       y = "Lag time cost of resistance (%)") +
+  NULL
+
+ggplot(data = filter(r2_out, 
+                     round(log10(a1), 3) == -11.475),
+       aes(x = time, y = log10(Density), color = Pop)) +
+  geom_line(lwd = 0.75, alpha = 0.8) +
+  coord_cartesian(ylim = c(-1, NA)) +
+  #scale_y_log10(limits = c(0.1, NA)) +
+  theme_bw() +
+  scale_color_manual(breaks = c("S1", "S2", "I1", "I2", "P"),
+                     values = my_cols[c(1, 4, 5, 2, 7)]) +
+  facet_grid(lag2 ~ k2)
 
