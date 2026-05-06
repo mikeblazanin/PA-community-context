@@ -1938,7 +1938,7 @@ ptwitching_norm <-
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 5, alpha = 0.7) +
   facet_grid(~as.numeric(Bact_pop)) +
-  labs(x = "Timepoint", y = "Normalized Twitching Motility (cm/day)",
+  labs(x = "Timepoint", y = "Batch-corrected Twitching Motility (cm/day)",
        subtitle = "Population") +
   scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
                      breaks = c("Anc", "NP", "P", "pilA"),
@@ -1971,7 +1971,7 @@ ptwitching_norm2 <-
              color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 3, alpha = 0.5,
              position = position_dodge(width = 0.6)) +
-  labs(x = "Timepoint", y = "Normalized Twitching Motility\n(cm/day)") +
+  labs(x = "Timepoint (days)", y = "Batch-corrected\nTwitching Motility (cm/day)") +
   scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
                      breaks = c("Anc", "NP", "P", "pilA"),
                      labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
@@ -1999,7 +1999,7 @@ ggplot(data = filter(twitching_isols, Bact_treat_C != "C"),
            color = Bact_treat_P, fill = Bact_treat_P)) +
   geom_point(size = 4, alpha = 0.5,
              position = position_dodge(width = 0.3)) +
-  labs(x = "Timepoint", y = "Normalized Twitching Motility\n(cm/day)") +
+  labs(x = "Timepoint", y = "Batch-corrected Twitching Motility\n(cm/day)") +
   scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
                      breaks = c("Anc", "NP", "P", "pilA"),
                      labels = c("Ancestor", "No", "Yes", "No pilus control")) +
@@ -2036,7 +2036,6 @@ gcdat_sum <- read.csv("growth_curve_metrics.csv",
                                      "Bact_timepoint" = "character",
                                      "Bact_isol" = "character"))
 
-#Plot ----
 png("./plots/max_dens_norm.png", width = 10, height = 4, units = "in",
     res = 150)
 ggplot(data = gcdat_sum,
@@ -2056,7 +2055,7 @@ ggplot(data = gcdat_sum,
                      breaks = c("Anc", "NC", "C"),
                      labels = c("Ancestor", "No", "Yes")) +
   guides(shape = guide_legend(override.aes = list(fill = "black"))) +
-  labs(x = "Timepoint (days)", y = "Maximum Density (OD600)") +
+  labs(x = "Timepoint (days)", y = "Batch-corrected\nMaximum Density (OD600)") +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
         axis.text = element_text(size = 12),
@@ -2085,7 +2084,7 @@ f3d <-
                      breaks = c("Anc", "NC", "C"),
                      labels = c("Ancestor", "No", "Yes")) +
   guides(shape = guide_legend(override.aes = list(fill = "black"))) +
-  labs(x = "Timepoint (days)", y = "Maximum Density (OD600)") +
+  labs(x = "Timepoint (days)", y = "Batch-corrected\nMaximum Density (OD600)") +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
         axis.text = element_text(size = 12),
@@ -2114,7 +2113,7 @@ ggplot(data = gcdat_sum,
                      breaks = c("Anc", "NC", "C"),
                      labels = c("Ancestor", "No", "Yes")) +
   guides(shape = guide_legend(override.aes = list(fill = "black"))) +
-  labs(x = "Timepoint (days)", y = "Maximum Growth Rate (/hr)") +
+  labs(x = "Timepoint (days)", y = "Batch-corrected\nMaximum Growth Rate (/hr)") +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
         axis.text = element_text(size = 12),
@@ -2143,7 +2142,7 @@ fsmaxpercap <-
                      breaks = c("Anc", "NC", "C"),
                      labels = c("Ancestor", "No", "Yes")) +
   guides(shape = guide_legend(override.aes = list(fill = "black"))) +
-  labs(x = "Timepoint (days)", y = "Maximum Growth Rate (/hr)") +
+  labs(x = "Timepoint (days)", y = "Batch-corrected\nMaximum Growth Rate (/hr)") +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
         axis.text = element_text(size = 12),
@@ -2172,7 +2171,7 @@ ggplot(data = gcdat_sum,
                      breaks = c("Anc", "NC", "C"),
                      labels = c("Ancestor", "No", "Yes")) +
   guides(shape = guide_legend(override.aes = list(fill = "black"))) +
-  labs(x = "Timepoint (days)", y = "Area Under the Curve\n(OD600 hr)") +
+  labs(x = "Timepoint (days)", y = "Batch-corrected\nArea Under the Curve\n(OD600 hr)") +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
         axis.text = element_text(size = 12),
@@ -2201,7 +2200,7 @@ fsauc <-
                      breaks = c("Anc", "NC", "C"),
                      labels = c("Ancestor", "No", "Yes")) +
   guides(shape = guide_legend(override.aes = list(fill = "black"))) +
-  labs(x = "Timepoint (days)", y = "Area Under the Curve\n(OD600 hr)") +
+  labs(x = "Timepoint (days)", y = "Batch-corrected\nArea Under the Curve\n(OD600 hr)") +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
         axis.text = element_text(size = 12),
@@ -2257,7 +2256,7 @@ ggplot(data = gcdat_sum,
                      breaks = c("Anc", "NC", "C"),
                      labels = c("Ancestor", "No", "Yes")) +
   guides(shape = guide_legend(override.aes = list(fill = "black"))) +
-  labs(x = "Timepoint (days)", y = "Lag time (hr)") +
+  labs(x = "Timepoint (days)", y = "Batch-corrected\nLag time (hr)") +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
         axis.text = element_text(size = 12),
@@ -2286,7 +2285,7 @@ f3c <-
                      breaks = c("Anc", "NC", "C"),
                      labels = c("Ancestor", "No", "Yes")) +
   guides(shape = guide_legend(override.aes = list(fill = "black"))) +
-  labs(x = "Timepoint (days)", y = "Lag time (hr)") +
+  labs(x = "Timepoint (days)", y = "Batch-corrected\nLag time (hr)") +
   theme_bw() +
   theme(axis.title = element_text(size = 20),
         axis.text = element_text(size = 12),
@@ -2307,7 +2306,7 @@ cowplot::plot_grid(
     fsauc + guides(color = "none", fill = "none", shape = "none"),
     nrow = 2, labels = "AUTO",
     align = "hv", axis = "tblr"),
-  cowplot::get_legend(f5a),
+  cowplot::get_legend(f3c),
   ncol = 2, rel_widths = c(1, 0.3))
 dev.off()
 
@@ -2380,7 +2379,7 @@ pmotil_resis <-
     aes(x = resis_cat, y = cm_day_norm,
         color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
   geom_point(size = 4, alpha = 0.4, position = position_dodge(width = .75)) +
-  labs(x = "", y = "Normalized Twitching Motility\n(cm/day)") +
+  labs(x = "", y = "Batch-corrected\nTwitching Motility (cm/day)") +
   scale_x_discrete(limits = c("Susceptible", "Partially Susceptible",
                               "Resistant")) +
   scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
