@@ -812,6 +812,13 @@ summary(phagedens_lm)
 
 # Resistance data ----
 
+#Resistance data consists of 4 datasets:
+#  A first set of combinations where we used EOP for everything
+#  A second set of combinations where we used spot tests for everything
+#  A third set of combinations where we used cross-streaks for everything
+#  A fourth set where we used EOP again (EOP2) to re-test anything putatively
+#   sensitive in the spots/cross-streaks
+
 ### EOP data ----
 EOP <- read.csv("2023-05-20 EOP Timeshift data.csv", stringsAsFactors = F)
 
@@ -1151,7 +1158,7 @@ ggplot(data = mutate(resis_isols_bactsum_undup,
        aes(x = Plaq_morph, y = EOP_avg)) + 
   geom_point(position = position_jitter(width = 0.2), alpha = 0.5) + 
   scale_y_log10() +
-  geom_hline(yintercept = 0.2, lty = 2)
+  geom_hline(yintercept = 0.5, lty = 2)
 
 summarize(
   group_by(
