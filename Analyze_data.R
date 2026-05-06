@@ -1023,7 +1023,8 @@ resis_isols <-
     list(mutate(EOP2, run_EOP2 = TRUE), 
          mutate(cs_isols, run_cs = TRUE),
          mutate(spots_isols, run_spot = TRUE),
-         mutate(EOP_isols, run_EOP = TRUE)))
+         mutate(EOP_isols, run_EOP = TRUE)),
+    right = TRUE)
 resis_isols <- mutate(ungroup(resis_isols),
                       Bact_treat = factor(Bact_treat),
                       Bact_treat_C = relevel(factor(Bact_treat_C), "NC"),
