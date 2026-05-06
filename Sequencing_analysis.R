@@ -1214,7 +1214,7 @@ if(make_slowplots) {
   print(f5b)
   dev.off()
   
-  png("./plots/fig5_mut_trajectories_combo.png", width = 14, height = 11, units = "in",
+  png("./plots/fig4_mut_trajectories_combo.png", width = 14, height = 11, units = "in",
       res = 150)
   print(
     cowplot::plot_grid(f5a, f5b, rel_heights = c(1, 0.6), 
@@ -1755,7 +1755,7 @@ f6a <-
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
 
-png("./plots/fig6_density_vs_muts.png", width = 12, height = 5,
+png("./plots/fig5_density_vs_muts.png", width = 12, height = 5,
     units = "in", res = 150)
 cowplot::plot_grid(
   f6a + labs(x = "Total pilus mut. freq", y = "Phage population density (pfu/mL)"),
