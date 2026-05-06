@@ -1902,18 +1902,6 @@ twitching_isols <- summarize(group_by(twitching,
                        cm_day_norm = mean(cm_day_norm))
 
 
-#Stats
-twitching_lm <- 
-  lm(data = mutate(filter(ungroup(twitching_isols), 
-                          Bact_timepoint %in% c(0,1,2,4,8)),
-                   Bact_timepoint = relevel(factor(Bact_timepoint), ref = "0"),
-                   Bact_treat = relevel(factor(Bact_treat), ref = "Anc")),
-                   cm_day_norm ~ 0 + Bact_timepoint:Bact_treat)
-anova(twitching_lm)
-summary(twitching_lm)
-
-
-
 ggplot(data = twitching_isols,
        aes(x = Bact_timepoint, y = cm_day, 
            color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
@@ -2319,13 +2307,14 @@ cowplot::plot_grid(
 dev.off()
 
 # Multivariate analyses ----
+### Merge ----
 isol_data <- 
   Reduce(
     full_join,
     list(
-      dplyr::select(mutate(ungroup(twitching_isols), 
+      dplyr::rename(mutate(ungroup(twitching_isols), 
                            Bact_pop = as.character(Bact_pop)), 
-                    !Date),
+                    twitch_date = Date),
       mutate(ungroup(resis_isols_bactsum_undup),
              Bact_timepoint = as.character(Bact_timepoint),
              Bact_pop = as.character(Bact_pop),
@@ -2340,7 +2329,7 @@ isol_data <-
                     "Bact_treat_C", "Bact_treat_P", "Bact_isol"),
         names_from = "Wavelength", values_from = Meas_norm_norm,
         names_prefix = "wavelength_"),
-      gcdat_sum,
+      dplyr::rename(gcdat_sum, gc_date = date),
       select(mutate(filter(ungroup(biofilm), Bact_treat != "pilA"),
                     biofilm_block_name = block_name),
              !block_name & !Well)
@@ -2364,6 +2353,7 @@ isol_data <- mutate(
 
 write.csv(isol_data, "aggregate_isolate_data.csv", row.names = FALSE)
 
+### Plots ----
 ggpairs(data = isol_data,
         columns = which(colnames(isol_data) %in% 
                           c("resis", #"cm_day_norm",  
@@ -2427,8 +2417,40 @@ cowplot::plot_grid(
   rel_widths = c(1, 0.3))
 dev.off()
 
+###Motility stats ----
+tmp <- mutate(isol_data,
+              Bact_treat = relevel(as.factor(Bact_treat), ref = "NN"),
+              Bact_treat_P = relevel(as.factor(Bact_treat_P), ref = "NP"),
+              resis_cat = relevel(as.factor(resis_cat), ref = "suscep"))
 
-##Run PCA
+twitch_lmer <- 
+  lmer(data = filter(tmp, Bact_timepoint != "pilA" & Bact_timepoint != 0),
+     cm_day_norm ~ Bact_treat + Bact_treat:as.numeric(Bact_timepoint) + (1|Bact_pop),
+     REML = FALSE)
+twitch_lmer_red <- 
+  lmer(data = filter(tmp, Bact_timepoint != "pilA" & Bact_timepoint != 0),
+       cm_day_norm ~ as.numeric(Bact_timepoint) + (1|Bact_pop),
+       REML = FALSE)
+anova(twitch_lmer_red, twitch_lmer)
+twitch_lmer
+summary(twitch_lmer)
+
+twitch_lmer_byres <- 
+  lmer(data = filter(tmp, Bact_timepoint != "pilA" & Bact_timepoint != 0),
+       cm_day_norm ~ Bact_treat_P*resis_cat + Bact_treat_C + (1|Bact_pop))
+twitch_lmer_byres_redresis <- 
+  lmer(data = filter(tmp, Bact_timepoint != "pilA" & Bact_timepoint != 0),
+       cm_day_norm ~ Bact_treat_P + Bact_treat_C + (1|Bact_pop))
+twitch_lmer_byres_redtreatC <- 
+  lmer(data = filter(tmp, Bact_timepoint != "pilA" & Bact_timepoint != 0),
+       cm_day_norm ~ Bact_treat_P*resis_cat + (1|Bact_pop))
+anova(twitch_lmer_byres_redresis, twitch_lmer_byres)
+anova(twitch_lmer_byres_redtreatC, twitch_lmer_byres)
+twitch_lmer_byres
+summary(twitch_lmer_byres)
+
+
+###Run PCA ----
 pca_dat <- isol_data
 
 pca_cols <- which(colnames(pca_dat) %in%
