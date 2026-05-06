@@ -1335,7 +1335,7 @@ ggplot(data = filter(resis_isols, Bact_treat_P == "P"),
   NULL
 dev.off()
 
-png("plots/EOP_grid_phagetreats_reordered.png", width = 10, height = 3.5, 
+png("plots/fig2_EOP_grid_phagetreats_reordered.png", width = 10, height = 3.5, 
     units = "in", res = 300)
 ggplot(data = mutate(filter(resis_isols, Bact_treat_P == "P"),
                      Phage_pop = LETTERS[as.numeric(Phage_pop)-2]),
