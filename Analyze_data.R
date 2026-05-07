@@ -193,12 +193,6 @@ density <- mutate(density,
                   treat_C = factor(treat_C, levels = c("NC", "C")),
                   treat_P = factor(treat_P, levels = c("NP", "P")))
 
-#Write to file for other scripts to use
-saveRDS(select(density,
-               Timepoint, Pop, Strain, treat_P, treat_C,
-               cfu_ml, bd, log_cfuml),
-        file = "density.rds")
-
 density_sum <- summarize(group_by(density,
                               Timepoint, treat_P, treat_C, Strain),
                      cfu_ml = 10**mean(log10(cfu_ml), na.rm = TRUE),
