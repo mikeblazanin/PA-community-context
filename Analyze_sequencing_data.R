@@ -337,9 +337,10 @@ term2gene <- read.csv("./clean_data/term2gene.csv", stringsAsFactors = FALSE)
 term2name <- read.csv("./clean_data/term2name.csv", stringsAsFactors = FALSE,
                        row.names = 1)
 
-mutations <- read.csv("./clean_data/mutations.csv", stringsAsFactors = FALSE,
-                       colClasses = "character")
-mutationsd <- read.csv("./clean_data/mutationsd.csv", stringsAsFactors = FALSE)
+mutations <- read.csv("./clean_data/mutations_PAseq_PA14seqid.csv", 
+                      stringsAsFactors = FALSE, colClasses = "character")
+mutationsd <- read.csv("./clean_data/mutationsd_PAseq_PA14seqid.csv", 
+                       stringsAsFactors = FALSE)
 
 mutations <- filter(mutations, seqtype == "PA", seq_id == "PA14_1")
 mutationsd <- filter(mutationsd, seqtype == "PA", seq_id == "PA14_1")
