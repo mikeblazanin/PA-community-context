@@ -46,6 +46,12 @@ mynormalize <- function(x, a_input, b_input, a_output, b_output) {
   return((b_output-a_output)*(x-a_input)/(b_input - a_input) + a_output)
 }
 
+## Run cleaning
+if(FALSE) {
+  source("Clean_files.R")
+  source("Clean_growthcurves.R")
+}
+
 ## Prelim experiment: population data from run without competitors ----
 prelimdens_NC_sum <- read.csv("./clean_data/prelimdens_NC_sum.csv",
                                stringsAsFactors = FALSE)
@@ -1385,12 +1391,7 @@ if(F) {
 }
 
 #Growth curve plots ----
-if(!"growth_curve_metrics.csv" %in% list.files()) {
-  source("Growthcurve_analysis.R")
-  setwd("..") #return wd to parent dir where this script needs it
-}
-
-gcdat_sum <- read.csv("growth_curve_metrics.csv", 
+gcdat_sum <- read.csv("./clean_data/growth_curve_metrics.csv", 
                       colClasses = c("Bact_pop" = "character", 
                                      "Bact_timepoint" = "character",
                                      "Bact_isol" = "character"))

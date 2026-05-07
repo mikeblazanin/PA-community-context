@@ -5,16 +5,12 @@ library(stringr)
 library(cowplot)
 library(lme4)
 
-#Okabe and Ito 2008 colorblind-safe qualitative color scale
-my_cols <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2",
-             "#D55E00", "#CC79A7", "#000000")
-scales::show_col(my_cols)
-
-if("growth_curves" %in% list.files()) {setwd("./growth_curves")}
-
 #Tidy ----
-dat <- read_wides(files = list.files(pattern = "Data.csv"),
-                  startrow = 41, startcol = "B")
+dat <- read_wides(files = list.files(path = "./raw_data/growth_curves",
+                                     pattern = "Data.csv",
+                                     full.names = TRUE),
+                  startrow = 41, startcol = "B",
+                  run_names_path = FALSE)
 dat <- lapply(dat, FUN = function(x) {select(x, !3)})
 dat <- trans_wide_to_tidy(dat, id_cols = c("file", "Time"))
 dat <- merge_dfs(dat, collapse = TRUE)
@@ -25,8 +21,11 @@ dat <- mutate(dat,
 
 #Designs ----
 designs <- import_blockdesigns(
-  files = list.files(pattern = "Design.csv"),
-  join_designs = FALSE)
+  files = list.files(path = "./raw_data/growth_curves",
+                     pattern = "Design.csv",
+                     full.names = TRUE),
+  join_as_cols = FALSE,
+  block_names_path = FALSE)
 designs <- separate_tidy(
   designs, "Designs", sep = ", ",
   into = c("Bact_pop", "Bact_timepoint", "Bact_treat", "Bact_isol"))
@@ -103,9 +102,9 @@ dat <- mutate(group_by(dat, date, Well),
                 percapita = TRUE, trans_y = 'log', blank = 0))
 
 #Assess noise
-dir.create("./plots/", showWarnings = FALSE)
+dir.create("./plots/gc_plots", showWarnings = FALSE)
 for (mydate in unique(dat$date)) {
-  png(paste0("./plots/sm_deriv_derivpercap_", mydate, ".png"),
+  png(paste0("./plots/gc_plots/sm_deriv_derivpercap_", mydate, ".png"),
       width = 4, height = 9, units = "in", res = 150)
   print(
     cowplot::plot_grid(ncol = 1,
@@ -154,12 +153,9 @@ for(col in c("max_percap", "max_dens", "auc", "lag")) {
             random.only = TRUE)
 }
 
-write.csv(dat_sum, "../growth_curve_metrics.csv", row.names = FALSE)
-setwd("..")
-
 #Lag time check plots
 for(pop in unique(dat$Bact_pop)) {
-  png(paste0("./plots/lagcheck_pop", pop, ".png"), 
+  png(paste0("./plots/gc_plots/lagcheck_pop", pop, ".png"), 
       width = 7, height = 12, units = "in", res = 300)
   print(
     ggplot(data = filter(dat, Bact_pop == pop),
@@ -182,3 +178,7 @@ for(pop in unique(dat$Bact_pop)) {
   )
   dev.off()
 }
+
+#Write files
+write.csv(dat, "./clean_data/gcdat.csv", row.names = FALSE)
+write.csv(dat_sum, "./clean_data/growth_curve_metrics.csv", row.names = FALSE)
