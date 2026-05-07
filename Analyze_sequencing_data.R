@@ -1,6 +1,8 @@
 ##TODO ----
 #Top priority:
 # don't use density.rds, just copy lines 189 - 200 of Analyze_data
+# move file cleaning into separate file
+# move file inputs/outputs into raw_data/clean_data as appropriate
 
 #Maybe:
 # create gene_category2 which ID's type IV pilus genes more-specifically
