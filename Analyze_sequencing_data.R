@@ -97,20 +97,26 @@ covbysp <-
                   included_in_treat),
          rel_freq = totbases/sum(totbases))
 
-cfudensity <- readRDS("density.rds")
+
+#Incorporate cfu/pfu data
+cfudensity <- read.csv("clean_data/density.csv", stringsAsFactors = FALSE)
+
+#Change factor orders
 cfudensity <- mutate(cfudensity,
-                     Treat_C = treat_C, Treat_P = treat_P,
+                     Treat_C = factor(treat_C, levels = c("NC", "C")),
+                     Treat_P = factor(treat_P, levels = c("NP", "P")),
                      Treat = paste0(Treat_C, Treat_P),
                      Treat = ifelse(Treat == "NCNP", "NN", Treat),
                      Pop = as.character(Pop))
+cfudensity <- select(cfudensity,
+                     Timepoint, Pop, Strain,
+                     Treat, Treat_C, Treat_P,
+                     cfu_ml)
 #We're missing T2 CP3 CP4 CP5 AX
 cfudensity <- mutate(group_by(cfudensity,
                               Timepoint, Pop, Treat, Treat_C, Treat_P),
                      rel_freq_cfu = cfu_ml/sum(cfu_ml, na.rm = TRUE))
-covbysp <- left_join(covbysp,
-                    select(cfudensity,
-                           Timepoint, Pop, Treat, Treat_C, Treat_P,
-                           Strain, cfu_ml, rel_freq_cfu))
+covbysp <- left_join(covbysp, cfudensity)
 covbysp <- mutate(covbysp,
                   rel_freq_cfu = ifelse(is.na(rel_freq_cfu), 0, rel_freq_cfu))
 
@@ -307,7 +313,7 @@ if(make_slowplots) {
     labs(y = "", x = "") +
     theme_bw() +
     guides(color = "none", fill = "none", shape = "none")
-  png("./plots/density_fromseq.png", width = 10.5, height = 7, units = "in",
+  png("./plots/density_comparison.png", width = 10.5, height = 7, units = "in",
       res = 150)
   print(
     cowplot::plot_grid(NULL, 
