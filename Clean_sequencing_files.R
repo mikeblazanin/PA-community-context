@@ -2,6 +2,8 @@
 library(tidyr)
 library(dplyr)
 library(stringr)
+library(clusterProfiler)
+library(stringdist)
 
 source("Define_colgroups_sequencing.R")
 
@@ -114,22 +116,31 @@ mutations <- mutate(mutations,
 
 ##Incorporate annotations ----
 
-#Deal with interpro
-interpro <- read.table("./raw_data/PA14_interpro_out.tsv", sep = "\t",
-                       stringsAsFactors = FALSE, header = FALSE,
-                       quote = "", #don't allow quotes
-                       comment.char = "") #don't allow comments
-colnames(interpro) <- 
-  c("Locus.Tag", "seqMD5", "seq_len", "analysis", "signat_accession",
-    "signat_description", "start", "stop", "e-value_score",
-    "match_status", "query_date", "InterPro_accession",
-    "InterPro_annotations", "InterPro_GOs", "Pathways")
+#Deal with interpro (whose raw results are too large for github)
+if("PA14_interpro_out.tsv" %in% list.files(path = "./raw_data/")) {
+  interpro <- read.table("./raw_data/PA14_interpro_out.tsv", sep = "\t",
+                         stringsAsFactors = FALSE, header = FALSE,
+                         quote = "", #don't allow quotes
+                         comment.char = "") #don't allow comments
+  colnames(interpro) <- 
+    c("Locus.Tag", "seqMD5", "seq_len", "analysis", "signat_accession",
+      "signat_description", "start", "stop", "e-value_score",
+      "match_status", "query_date", "InterPro_accession",
+      "InterPro_annotations", "InterPro_GOs", "Pathways")
+  interpro_sum <- 
+    summarize(group_by(filter(interpro, InterPro_GOs != "-"), 
+                       Locus.Tag),
+              across(everything(),
+                     ~ paste(., collapse = ";")))
+  write.table(interpro_sum, file = "./clean_data/PA14_interpro_out_sum.tsv",
+              sep = "\t", quote = TRUE, qmethod = "double")
+}
 
-interpro_sum <- 
-  summarize(group_by(filter(interpro, InterPro_GOs != "-"), 
-                     Locus.Tag),
-            across(everything(),
-                   ~ paste(., collapse = ";")))
+interpro_sum <- read.table("./clean_data/PA14_interpro_out_sum.tsv", sep = "\t",
+                           stringsAsFactors = FALSE, header = TRUE,
+                           comment = "", #don't allow comments
+                           check.names = FALSE,
+                           allowEscapes = TRUE)
 
 #Do bakta and eggnog
 bakta <- read.csv("./raw_data/PA14_bakta_annotated.csv")
@@ -172,23 +183,27 @@ term2gene <-
 #Get indirect annotations
 term2gene <- buildGOmap(term2gene)
 
-#Add indirect annotations
-anno <- full_join(anno,
-                  (summarize(group_by(term2gene, Locus.Tag),
-                             GOsmerge_ind = paste(GOsmerge, collapse = "|"))))
+write.csv(term2gene, "./clean_data/term2gene.csv", row.names = FALSE)
 
 #Pull GO term names for interpretation
 term2name <- data.frame(
   GOsmerge_ind = AnnotationDbi::keys(GO.db::GO.db), 
   name = AnnotationDbi::Term(AnnotationDbi::keys(GO.db::GO.db)))
 
+write.csv(term2name, "./clean_data/term2name.csv")
+
+#Add indirect annotations
+anno <- full_join(anno,
+                  (summarize(group_by(term2gene, Locus.Tag),
+                             GOsmerge_ind = paste(GOsmerge, collapse = "|"))))
 
 #Manually determine Locus.Tag values because locus_tag from breseq
 # is not a match
 mutations$Locus.Tag <- "unmatched"
 mutations$mutation_category_manual <- NA
 mutations$Locus.Tag[mutations$size == 6541479] <- NA #no coverage sample
-for (i in which(!is.na(mutations$Locus.Tag))) {
+mutations$Locus.Tag[mutations$seq_id != "PA14_1"] <- "non-PA"
+for (i in which(mutations$Locus.Tag == "unmatched")) {
   matches <- anno[(anno$Start <= mutations$position_start[i] & 
                      anno$Stop >= mutations$position_start[i]) |
                     (anno$Start <= mutations$position_end[i] &
@@ -255,7 +270,7 @@ for (i in which(!is.na(mutations$Locus.Tag))) {
 # tmp <- tmp[order(tmp$nsep, tmp$ncomma, decreasing = TRUE), ]
 # write.csv(tmp, "tmp.csv", row.names = FALSE)
 
-### Split multihit rows ----
+## Split multihit rows ----
 ###Notes:
 
 #Across all mutation types:
@@ -267,11 +282,9 @@ mutationsd <- list(
   filter(mutations, mutation_category_manual == "multigene"),
   filter(mutations, mutation_category_manual == "intergenic"),
   filter(mutations, 
-         #grepl("\\|", Locus.Tag) & 
-         !mutation_category_manual %in% c("multigene", "intergenic"))
-  # filter(mutations, 
-  #        !grepl("\\|", Locus.Tag) & 
-  #          !mutation_category_manual %in% c("multigene", "intergenic"))
+         seq_id == "PA14_1" &
+         !mutation_category_manual %in% c("multigene", "intergenic")),
+  filter(mutations, seq_id != "PA14_1")
 )
 if(sum(sapply(FUN = nrow, X = mutationsd)) != nrow(mutations)) {
   stop("missing some cases in mutations splitting")}
@@ -319,6 +332,10 @@ mutationsd[[2]] <- separate_longer_delim(
 mutationsd[[3]] <- separate_longer_delim(
   mutationsd[[3]], cols = all_of(c("Locus.Tag")), delim = "|")
 
+##Non-PA cases we don't want to do anything with
+
+#do nothing here
+
 ##Merge
 mutationsd <- do.call(rbind, mutationsd)
 
@@ -326,8 +343,9 @@ mutationsd <- do.call(rbind, mutationsd)
 mutationsd <- 
   left_join(
     mutate(mutationsd,
-           Locus.Tag = ifelse(Locus.Tag == "NA" | Locus.Tag == "unmatched",
-                              NA, Locus.Tag)), 
+           Locus.Tag = ifelse(
+             Locus.Tag == "NA" | Locus.Tag == "unmatched" | Locus.Tag == "non-PA",
+             NA, Locus.Tag)), 
     anno,
     na_matches = "never")
 
@@ -362,6 +380,7 @@ catmutate <- function(df) {
     mutate(
       ungroup(df),
       mutation_category2 = case_when(
+        seq_id != "PA14_1" ~ "non-PA",
         mutation_category == "small_indel" & grepl("intergenic", gene_position) ~
           "small_indel_intergenic",
         mutation_category == "small_indel" & grepl("coding", gene_position) &
@@ -371,6 +390,7 @@ catmutate <- function(df) {
         grepl("intergenic", gene_position) ~ paste0(mutation_category, "_intergenic"),
         TRUE ~ mutation_category),
       mutation_category3 = case_when(
+        seq_id != "PA14_1" ~ "non-PA",
         mutation_category2 %in% 
           c("large_deletion", "small_indel_frameshift", "snp_nonsense") ~ "loss of function",
         grepl("intergenic", mutation_category2) ~ "intergenic",
@@ -379,6 +399,7 @@ catmutate <- function(df) {
         grepl("\\|", mutation_category2) ~ "multigene",
         TRUE ~ "other"),
       gene_category = case_when(
+        seq_id != "PA14_1" ~ "non-PA",
         grepl("CupB3", Product) ~ "pilus",
         grepl("Wsp", Product) ~ "biofilm",
         grepl("MorA", Product) ~ "biofilm",
@@ -445,10 +466,12 @@ catmutate <- function(df) {
           TRUE ~ "tbd"),
         NA),
       gene_short = case_when(
+        seq_id != "PA14_1" ~ "non-PA",
         !Gene %in% c("", "|NA", "NA|", NA) ~ Gene,
         !is.na(Product) ~ Product,
         TRUE ~ ""),
       concise_mut = case_when(
+        seq_id != "PA14_1" ~ "non-PA",
         mut_id %in% c("1071", "1167", "2787", "5034") ~ "", #(ancestral mutations)
         grepl("snp", mutation_category) ~
           ifelse(mutation_category_manual == "intergenic",
@@ -493,11 +516,11 @@ tmp <-
 #View(filter(tmp, grepl("pil", name)))
 
 #Incorporate repetitive regions ----
-rptdat <- rbind(read.csv("PA14_PA14_BLAST.csv"),
+rptdat <- rbind(read.csv("./raw_data/PA14_PA14_BLAST.csv"),
                 #there were no hits for PA14 vs H6
-                read.csv("PA14_AX1_BLAST.csv"),
-                read.csv("PA14_EF_BLAST.csv"),
-                read.csv("PA14_SA_BLAST.csv"))
+                read.csv("./raw_data/PA14_AX1_BLAST.csv"),
+                read.csv("./raw_data/PA14_EF_BLAST.csv"),
+                read.csv("./raw_data/PA14_SA_BLAST.csv"))
 
 #drop trivial full self-hit
 rptdat <- filter(rptdat, !(alignment.length == 6541479 & pct.identity == 100))
@@ -519,7 +542,7 @@ if(FALSE) {
     rptcov[rptdat$query.start[i]:rptdat$query.end[i]] <-
       rptcov[rptdat$query.start[i]:rptdat$query.end[i]] + 1
   }
-  ggplot(data = rptdat,
+  ggplot2::ggplot(data = rptdat,
          aes(xmin = query.start, xmax = query.end, 
              ymin = 0, ymax = 1,
              fill = subject)) +
@@ -561,103 +584,17 @@ mutationsd <-
                           rpt_match_seq = subject),
                    seq_id, rpt_hit_id, rpt_bit_score, rpt_match_seq))
 
-#Split samples by type ----
-mutpop <- filter(mutations, Isol == "Pop")
-mutisol <- filter(mutations, Isol != "Pop")
-mutpopd <- filter(mutationsd, Isol == "Pop")
-mutisold <- filter(mutationsd, Isol != "Pop")
+#Write to files ----
+write.csv(filter(mutations, seqtype == "PA", seq_id == "PA14_1"),
+          "./clean_data/mutations_PAseq_PA14seqid.csv", row.names = FALSE)
+write.csv(filter(mutationsd, seqtype == "PA", seq_id == "PA14_1"),
+          "./clean_data/mutationsd_PAseq_PA14seqid.csv", row.names = FALSE)
+write.csv(filter(mutations, seqtype != "PA"),
+          "./clean_data/mutations_H6seq.csv", row.names = FALSE)
+write.csv(filter(mutations, seqtype == "PA" & seq_id != "PA14_1"),
+          "./clean_data/mutations_PAseq_otherseqid.csv", row.names = FALSE)
+write.csv(filter(mutationsd, seqtype != "PA"),
+          "./clean_data/mutationsd_H6seq.csv", row.names = FALSE)
+write.csv(filter(mutationsd, seqtype == "PA" & seq_id != "PA14_1"),
+          "./clean_data/mutationsd_PAseq_otherseqid.csv", row.names = FALSE)
 
-##Population sample analyses ----
-
-### Setup ----
-#For population samples, fill in all the missing mutation-sample combinations
-# with NA
-mutpop <- complete(
-  ungroup(mutpop),
-  nesting(!!!syms(intersect(mutcols, colnames(mutpop)))),
-  nesting(!!!syms(intersect(sampcols, colnames(mutpop))))
-  #Columns left out (and therefore filled in by NA by default):
-  # mut_and_samp_cols
-)
-mutpopd <- complete(
-  ungroup(mutpopd),
-  nesting(!!!syms(intersect(mutcols, colnames(mutpopd)))),
-  nesting(!!!syms(intersect(sampcols, colnames(mutpopd))))
-  #Columns left out (and therefore filled in by NA by default):
-  # mut_and_samp_cols
-)
-
-#Duplicating ancestral PA rows into every treatment
-mutpop <-
-  bind_rows(
-    filter(mutpop, !Treat == "Anc"),
-    crossing(
-      Treat = as.character(unique(filter(mutpop, Treat != "Anc")$Treat)),
-      select(filter(mutpop, Treat == "Anc"),
-             -Treat)))
-#Drop ancestral from mutpopd
-mutpopd <- filter(mutpopd, Treat != "Anc")
-
-#Fix treatment columns post-duplication
-mutpop <- mutate(mutpop,
-                 freq = as.numeric(freq),
-                 freq0 = ifelse(is.na(freq), 0, freq),
-                 freq01 = ifelse(freq0 == 0, 0.01, freq0),
-                 Treat_C = factor(
-                   ifelse(Treat %in% c("NCP", "NN"), "NC",
-                          ifelse(Treat %in% c("CNP", "CP"), "C",
-                                 Treat)),
-                   levels = c("Anc", "NC", "C")),
-                 Treat_P = factor(
-                   ifelse(Treat %in% c("NN", "CNP"), "NP",
-                          ifelse(Treat %in% c("NCP", "CP"), "P",
-                                 Treat)),
-                   levels = c("Anc", "NP", "P")),
-                 Treat = factor(Treat,
-                                levels = c("Anc", "NN", "CNP", "NCP", "CP")))
-mutpopd <- mutate(mutpopd,
-                  freq = as.numeric(freq),
-                  freq0 = ifelse(is.na(freq), 0, freq),
-                  freq01 = ifelse(freq0 == 0, 0.01, freq0),
-                  Treat_C = factor(
-                    ifelse(Treat %in% c("NCP", "NN"), "NC",
-                           ifelse(Treat %in% c("CNP", "CP"), "C",
-                                  Treat)),
-                    levels = c("Anc", "NC", "C")),
-                  Treat_P = factor(
-                    ifelse(Treat %in% c("NN", "CNP"), "NP",
-                           ifelse(Treat %in% c("NCP", "CP"), "P",
-                                  Treat)),
-                    levels = c("Anc", "NP", "P")),
-                  Treat = factor(Treat,
-                                 levels = c("Anc", "NN", "CNP", "NCP", "CP")))
-
-mutpop <- mutate(group_by(mutpop, 
-                          across(any_of(c(mutcols, "seqtype", "Treat", "Pop")))),
-                 everabove_010 = any(freq0 > 0.1, na.rm = TRUE),
-                 fixed = all(freq0 == 1))
-mutpopd <- mutate(group_by(mutpopd, 
-                           across(any_of(c(mutcols, "seqtype", "Treat", "Pop")))),
-                  everabove_010 = any(freq0 > 0.1, na.rm = TRUE),
-                  fixed = all(freq0 == 1))
-
-### Filter out fixed-nonvariate mutations ----
-mutpop <- mutate(group_by(mutpop,
-                          across(any_of(mutcols)),
-                          Pop),
-                 freq_popavg = mean(freq0),
-                 freq_popsd = sd(freq0))
-mutpopd <- mutate(group_by(mutpopd,
-                           across(any_of(mutcols)),
-                           Pop),
-                  freq_popavg = mean(freq0),
-                  freq_popsd = sd(freq0))
-
-#mut_id 2958, 3198, and 7885 are fixed across all pops & treatments & timepoints
-#mut_id 11212 is fixed in pop 9 across all treatments & timepoints
-ids_out <- unique(filter(mutpop, freq_popavg == 1, freq_popsd == 0)$mut_id)
-ids_outd <- unique(filter(mutpopd, freq_popavg == 1, freq_popsd == 0)$mut_id)
-ids_out
-ids_outd
-mutpop <- filter(mutpop, !mut_id %in% ids_out)
-mutpopd <- filter(mutpopd, !mut_id %in% ids_outd)

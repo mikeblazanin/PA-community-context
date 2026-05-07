@@ -5,3 +5,4 @@
 *.tiff
 *.png
 ignored_files/*
+raw_data/PA14_interpro_out.tsv
