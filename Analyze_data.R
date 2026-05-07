@@ -180,67 +180,7 @@ ggplot(data = prelimdens_C[prelimdens_C$Strain == "PA", ],
 dev.off()
 
 ## Population data ----
-
-#TODO - reconfirm that all points labeled as 0's are truly 0's
-#       and not mis-platings
-
-#Read file
-density <- read.csv("2022-09-19_community_experiment_2.csv",
-                    stringsAsFactors = FALSE, na.strings = "")
-density <- filter(density, !is.na(Timepoint))
-
-#Adjust for consistent style across data
-density <- mutate(density,
-                  treat_P = ifelse(Phage_treat == "+", "P", "NP"),
-                  treat_C = ifelse(Comm_treat == "+", "C", "NC"))
-
-#Cross ancestral rows into each other treatment
-density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("P", "NP"),
-                    mut_col = "treat_P")
-density <- dup_rows(mydf = density, from_vals = NA, to_vals = c("C", "NC"),
-                    mut_col = "treat_C")
-
-
-#Calculate total density, large freq
-# for total density, note counts are for 2.5 uL
-density <- mutate(group_by(density, Timepoint, treat_P, treat_C, Pop, Strain),
-              cfu_ml = ifelse(!is.na(Count),
-                              400*Count/10**Dilution,
-                              400*sum(Small_count/10**Small_dilution, 
-                                      Large_count/10**Large_dilution, 
-                                      na.rm = TRUE)),
-              #Initial densities were estimated for the inoculation
-              # source, which was diluted 10:10000 for phage or
-              # 100:10000 for bacteria into the actual flask
-              cfu_ml = case_when(
-                Timepoint != 0 ~ cfu_ml,
-                Timepoint == 0 & Strain == "H6" & treat_P == "NP" ~ 0,
-                Timepoint == 0 & Strain == "H6" & treat_P == "P" ~
-                  10/10000 * Count/10**Dilution,
-                Timepoint == 0 & (Strain == "PA" | treat_C == "C") ~ 
-                  100/10000 * Count/10**Dilution,
-                Timepoint == 0 & Strain != "PA" & treat_C != "C" ~ 0),
-              S_cfu_ml = ifelse(!is.na(Small_count),
-                                400*Small_count/10**Small_dilution,
-                                0),
-              L_cfu_ml = ifelse(!is.na(Large_count),
-                                400*Large_count/10**Large_dilution,
-                                ifelse(is.na(Small_count), cfu_ml, 0)),
-              L_freq = L_cfu_ml/cfu_ml
-)
-#Fix rows where no data was collected because of mis-plating
-density <- mutate(density,
-              cfu_ml = ifelse(all(is.na(Count), is.na(Small_count),
-                                  is.na(Large_count)),
-                              NA, cfu_ml))
-#Handle below-detection points
-density <- mutate(density,
-              bd = ifelse(cfu_ml == 0, TRUE, FALSE),
-              cfu_ml = ifelse(cfu_ml == 0,
-                              400 * 1/10**Dilution,
-                              cfu_ml),
-              log_cfuml = log10(cfu_ml))
-density <- as.data.frame(density)
+density <- read.csv("clean_data/density.csv", stringsAsFactors = FALSE)
 
 #Change factor orders
 density <- mutate(density,
