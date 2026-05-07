@@ -1,5 +1,6 @@
 ##TODO ----
 #Top priority:
+# don't use density.rds, just copy lines 189 - 200 of Analyze_data
 
 #Maybe:
 # create gene_category2 which ID's type IV pilus genes more-specifically
