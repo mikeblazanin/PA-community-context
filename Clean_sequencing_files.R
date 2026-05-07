@@ -113,49 +113,41 @@ mutations <- mutate(mutations,
                                    levels = c("Anc", "NN", "CNP", "NCP", "CP")))
 
 ##Incorporate annotations ----
-bakta <- read.csv("PA14_annotated.csv")
+
+#Deal with interpro
+interpro <- read.table("./raw_data/PA14_interpro_out.tsv", sep = "\t",
+                       stringsAsFactors = FALSE, header = FALSE,
+                       quote = "", #don't allow quotes
+                       comment.char = "") #don't allow comments
+colnames(interpro) <- 
+  c("Locus.Tag", "seqMD5", "seq_len", "analysis", "signat_accession",
+    "signat_description", "start", "stop", "e-value_score",
+    "match_status", "query_date", "InterPro_accession",
+    "InterPro_annotations", "InterPro_GOs", "Pathways")
+
+interpro_sum <- 
+  summarize(group_by(filter(interpro, InterPro_GOs != "-"), 
+                     Locus.Tag),
+            across(everything(),
+                   ~ paste(., collapse = ";")))
+
+#Do bakta and eggnog
+bakta <- read.csv("./raw_data/PA14_bakta_annotated.csv")
 bakta$Locus.Tag[bakta$Locus.Tag == ""] <-
   paste0("PEANK_MB", 
          formatC(1:sum(bakta$Locus.Tag == ""),
                  width = floor(log10(sum(bakta$Locus.Tag == "")))+1,
                  flag = "0"))
 
-eggnog <- read.delim("PA14_eggnog_out3.emapper.annotations",
+eggnog <- read.delim("./raw_data/PA14_eggnog_out3.emapper.annotations",
                      comment = "#",
                      header = FALSE)
 colnames(eggnog) <-
   gsub("#", "", 
-       read.delim("PA14_eggnog_out2.emapper.annotations",
+       read.delim("./raw_data/PA14_eggnog_out3.emapper.annotations",
                   comment = "", header = FALSE,
                   skip = 4, nrows = 1))
 colnames(eggnog)[colnames(eggnog) == "query"] <- "Locus.Tag"
-
-if("PA14_interpro_out.tsv" %in% list.files()) {
-  interpro <- read.table("PA14_interpro_out.tsv", sep = "\t",
-                         stringsAsFactors = FALSE, header = FALSE,
-                         quote = "", #don't allow quotes
-                         comment.char = "") #don't allow comments
-  colnames(interpro) <- 
-    c("Locus.Tag", "seqMD5", "seq_len", "analysis", "signat_accession",
-      "signat_description", "start", "stop", "e-value_score",
-      "match_status", "query_date", "InterPro_accession",
-      "InterPro_annotations", "InterPro_GOs", "Pathways")
-  
-  interpro_sum <- 
-    summarize(group_by(filter(interpro, InterPro_GOs != "-"), 
-                       Locus.Tag),
-              across(everything(),
-                     ~ paste(., collapse = ";")))
-  
-  write.table(interpro_sum, file = "PA14_interpro_out_sum.tsv",
-              sep = "\t", quote = TRUE, qmethod = "double")
-}
-
-interpro_sum <- read.table("PA14_interpro_out_sum.tsv", sep = "\t",
-                           stringsAsFactors = FALSE, header = TRUE,
-                           comment = "", #don't allow comments
-                           check.names = FALSE,
-                           allowEscapes = TRUE) 
 
 anno = full_join(bakta, eggnog)
 anno = full_join(anno, interpro_sum)
