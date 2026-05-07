@@ -650,3 +650,38 @@ biofilm <- dplyr::filter(ungroup(biofilm),
                          block_name != "biofilm_data/2024-07-12 Abe Biofilm P9")
 
 write.csv(biofilm, "./clean_data/biofilm.csv", row.names = FALSE)
+
+# Twitching ----
+twitching <- read.csv("./raw_data/Twitching Motility Data.csv")
+
+#Exclude bad isolates
+twitching <-
+  filter(twitching,
+         !(Date == "2024-02-16" & Bact_pop == 9 &
+             Bact_treat == "Anc" & Bact_timepoint == 0 & Bact_isol == 2),
+         !(Date == "2024-02-16" & Bact_pop == 8 &
+             Bact_treat == "NN" & Bact_timepoint == 1 & Bact_isol == 2),
+         !(Date == "2024-02-16" & Bact_pop == 8 &
+             Bact_treat == "CP" & Bact_timepoint == 8 & Bact_isol == 2),
+         !(Date == "2024-02-03" & Bact_pop == 7 &
+             Bact_treat == "NCP" & Bact_timepoint == 1 & Bact_isol == 2))
+
+#Exclude contaminated populations
+twitching <- 
+  filter(twitching,
+         !((Bact_pop == 9 & Bact_treat == "NN" & Bact_timepoint >= 2) |
+             (Bact_pop == 9 & Bact_treat == "CNP" & Bact_timepoint >= 2)))
+
+twitching <- mutate(
+  twitching,
+  cm_day = (width/2 + height/2)/2,
+  Bact_treat_C = factor(ifelse(Bact_treat %in% c("NCP", "NN"), "NC",
+                               ifelse(Bact_treat %in% c("CNP", "CP"), "C",
+                                      Bact_treat)),
+                        levels = c("Anc", "NC", "C", "pilA")),
+  Bact_treat_P = factor(ifelse(Bact_treat %in% c("NN", "CNP"), "NP",
+                               ifelse(Bact_treat %in% c("NCP", "CP"), "P",
+                                      Bact_treat)),
+                        c("Anc", "NP", "P", "pilA")))
+
+write.csv(twitching, "./clean_data/twitching.csv", row.names = FALSE)
