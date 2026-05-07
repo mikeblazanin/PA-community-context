@@ -528,50 +528,6 @@ ggplot(data = filter(density, Pop %in% 3:10, Strain == "PA",
   NULL
 dev.off()
 
-if(FALSE) {
-  #Merge with population data
-  density_mod <- 
-    filter(mutate(density, 
-                  Bact_timepoint = Timepoint,
-                  Bact_pop = Pop,
-                  Bact_treat_P = treat_P,
-                  Bact_treat_C = treat_C),
-           Strain == "H6",
-           Bact_pop %in% 3:10)
-  change_before <- function(x) {
-    if(length(x) < 2) {return(NA)
-    } else {return(c(NA, x[2:length(x)]/x[1:(length(x)-1)]))}
-  }
-  change_after <- function(x) {
-    if(length(x) < 2) {return(NA)
-    } else {return(c(x[2:length(x)]/x[1:(length(x)-1)], NA))}
-  }
-  density_mod <- mutate(
-    group_by(density_mod, Bact_pop, Bact_treat_P, Bact_treat_C),
-    change_before = change_before(cfu_ml[order(as.numeric(Timepoint))]),
-    change_after = change_after(cfu_ml[order(as.numeric(Timepoint))]))
-  
-  ggplot(data = density_mod, aes(x = Timepoint, y = change_after, group = Bact_pop)) + 
-    geom_line() + 
-    scale_y_log10() +
-    facet_grid(Bact_treat_C ~ Bact_treat_P)
-  
-  ggplot(data = density_mod, 
-         aes(x = Timepoint, y = cfu_ml, group = Bact_pop)) + 
-    geom_line(aes(color = change_after < 0.1)) + 
-    scale_y_log10() +
-    facet_grid(Bact_treat_C ~ Bact_treat_P)
-  
-  ggplot(data = density_mod, aes(x = change_after)) + 
-    geom_histogram() + 
-    scale_x_log10() +
-    facet_grid(Bact_treat_C ~ Bact_treat_P) +
-    geom_vline(xintercept = 1, color = "red")
-  
-  summary(lm(data = filter(density_mod, Bact_timepoint > 1, Bact_treat_P == "P"),
-             cfu_ml ~ Bact_treat_C + Bact_timepoint:Bact_treat_C))
-}
-
 # Stats
 ggplot(data = filter(density, Timepoint > 1, Strain == "H6",
                      Pop %in% 3:10, !is.na(cfu_ml)),
