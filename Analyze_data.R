@@ -1123,63 +1123,17 @@ ggplot(data = filter(pig_sum, Bact_pop != "Blank", Wavelength %in% c(405, 695)),
   facet_grid(Wavelength ~ ., scales = "free")
 
 # Biofilm ----
+biofilm <- read.csv("./clean_data/biofilm.csv", stringsAsFactors = FALSE)
 
-#Data
-biofilm <- import_blockmeasures(
-  list.files(path = "./biofilm_data/", full.names = T, pattern = ".*Data.csv$"),
-  startrow = 26, endrow = 34, endcol = "M")
-biofilm <- trans_wide_to_tidy(biofilm, id_cols = "block_name",
-                              values_to = "biofilm_abs")
-biofilm$block_name <- gsub(" Data$", "", biofilm$block_name)
-
-#Designs
-biofilm_designs <- import_blockdesigns(
-  list.files(path = "./biofilm_data/", full.names = T, pattern = ".*Design.csv$"),
-  join_as_cols = FALSE)
-biofilm_designs$block_name <- gsub(" Design$", "", biofilm_designs$block_name)
-#Change blanks to NA
-biofilm_designs <- mutate(biofilm_designs,
-                          Designs = ifelse(Designs == "W", NA, Designs))
-biofilm_designs <- separate_tidy(biofilm_designs,
-                                 "Designs",
-                                 sep = ", ",
-                                 into = c("Bact_pop", "Bact_timepoint", "Bact_treat", "Bact_isol"))
-
-#Merge
-biofilm <- merge_dfs(biofilm, biofilm_designs, drop = TRUE)
-
-biofilm <- mutate(group_by(biofilm, block_name),
-                  biofilm_norm = biofilm_abs - min(biofilm_abs), #almost always the Blank
-                  biofilm_norm = ifelse(biofilm_norm == 0, 0.001, biofilm_norm)) 
-biofilm <- filter(biofilm, Bact_pop != "Blank")
-
-#Adjust columns for cross-compatibility
-biofilm <- mutate(biofilm,
-              Bact_isol = gsub("#", "", Bact_isol),
-              Bact_pop = gsub("P", "", Bact_pop),
-              Bact_timepoint = gsub("T", "", Bact_timepoint),
-              Bact_treat_C = factor(
-                ifelse(Bact_treat %in% c("NCP", "NN"), "NC",
-                       ifelse(Bact_treat %in% c("CNP", "CP"), "C",
-                              Bact_treat)),
-                levels = c("Anc", "pilA", "NC", "C")),
-              Bact_treat_P = factor(
-                ifelse(Bact_treat %in% c("NN", "CNP"), "NP",
-                       ifelse(Bact_treat %in% c("NCP", "CP"), "P",
-                              Bact_treat)),
-                levels = c("Anc", "pilA", "NP", "P")),
-              Bact_treat = factor(Bact_treat,
-                                  levels = c("Anc", "pilA", "NN", "CNP", "NCP", "CP")))
-
-#Based on contamination, exclude NCNP Pop 9 T4 and later, CNP Pop 9 T2 and later
-biofilm <- filter(biofilm,
-              !((Bact_pop == 9 & Bact_treat == "NN" & Bact_timepoint >= 2) |
-                  (Bact_pop == 9 & Bact_treat == "CNP" & Bact_timepoint >= 2)))
-#Based on weird blank values (and we already don't have much data anyway)
-# exclude the whole 24-07-12 batch
-biofilm <- dplyr::filter(ungroup(biofilm), 
-                  block_name != "biofilm_data/2024-07-12 Abe Biofilm P9")
-
+biofilm <- 
+  as_tibble(
+    mutate(
+      biofilm,
+      Bact_treat = 
+        factor(Bact_treat, levels = c("Anc", "pilA", "NN", "CNP", "NCP", "CP")),
+      Bact_treat_C = factor(Bact_treat_C, levels = c("Anc", "pilA", "NC", "C")),
+      Bact_treat_P = factor(Bact_treat_P, levels = c("Anc", "pilA", "NP", "P"))))
+                   
 #Do stats/batch correction
 biofilm_factorized <- mutate(
   biofilm,
