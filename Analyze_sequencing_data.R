@@ -65,19 +65,6 @@ my_cols2 <- c("#888888", "#117733", "#332288", "#661100","#882255",
             "#AA4499", "#44AA99","#999933",  "#6699CC",
              "#E69F00")
 
-myTryCatch <- function(expr) {
-  warn <- err <- NULL
-  value <- withCallingHandlers(
-    tryCatch(expr, error=function(e) {
-      err <<- e
-      NULL
-    }), warning=function(w) {
-      warn <<- w
-      invokeRestart("muffleWarning")
-    })
-  list(value=value, warning=warn, error=err)
-}
-
 #Global settings
 make_slowplots <- TRUE
 
