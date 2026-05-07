@@ -1,8 +1,6 @@
 ##TODO ----
 #Top priority:
 # don't use density.rds, just copy lines 189 - 200 of Analyze_data
-# move file cleaning into separate file
-# move file inputs/outputs into raw_data/clean_data as appropriate
 
 #Maybe:
 # create gene_category2 which ID's type IV pilus genes more-specifically
@@ -69,10 +67,10 @@ my_cols2 <- c("#888888", "#117733", "#332288", "#661100","#882255",
 make_slowplots <- TRUE
 
 ##Coverage analysis ----
-covdat2 <- read.csv("./clean_data/covdat.csv", stringsAsFactors = FALSE)
-covdat2 <- 
+covdat <- read.csv("./clean_data/covdat.csv", stringsAsFactors = FALSE)
+covdat <- 
   as_tibble(
-    mutate(covdat2,
+    mutate(covdat,
            seqrun = as.character(seqrun),
            SeqCoastid = as.character(SeqCoastid),
            Pop = as.character(Pop),
