@@ -1,6 +1,6 @@
 ##TODO ----
 #Top priority:
-# don't use density.rds, just copy lines 189 - 200 of Analyze_data
+# nothing left!
 
 #Maybe:
 # create gene_category2 which ID's type IV pilus genes more-specifically
@@ -1101,12 +1101,9 @@ cowplot::plot_grid(f7a, f7b, nrow = 2, align = "v", axis = "lr",
 dev.off()
 
 ### Mutation frequencies vs population densities ----
-density <- readRDS("density.rds")
-density <- select(filter(density, Strain == "H6", !Pop %in% c(1, 2)),
-                  Timepoint, Pop, treat_P, treat_C, cfu_ml)
-density <- dplyr::rename(density,
-                         Treat_P = treat_P, Treat_C = treat_C,
-                         H6_pfuml = cfu_ml)
+densH6 <- filter(cfudensity, Strain == "H6", !Pop %in% c(1, 2))
+densH6 <- dplyr::rename(densH6,
+                        H6_pfuml = cfu_ml)
 
 gcat_freqw <- pivot_wider(select(ungroup(gcat_freq),
                                  gene_catpilnot, Timepoint, Pop,
@@ -1119,7 +1116,7 @@ gcat_freqw_sum <- summarize(group_by(filter(gcat_freqw, Timepoint != 0),
                             across(contains("freq"), mean))
                             
 dens_freq <- left_join(gcat_freqw, 
-                       mutate(density, Pop = as.character(Pop)))
+                       mutate(densH6, Pop = as.character(Pop)))
 dens_freq <- mutate(dens_freq,
                     H6_pfuml = ifelse(is.na(H6_pfuml) & Treat_P == "NP",
                                       400,
