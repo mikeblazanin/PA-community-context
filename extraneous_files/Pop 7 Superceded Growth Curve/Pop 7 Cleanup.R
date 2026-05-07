@@ -2,7 +2,7 @@ library(gcplyr)
 library(dplyr)
 library(lubridate)
 
-dat <- read_wides(list.files(path = "./Pop 7 Raw/", full.names = TRUE),
+dat <- read_wides(list.files(path = "./extraneous_files/Pop 7 Superceded Growth Curve/", full.names = TRUE),
                   startrow = 41, startcol = "B",
                   metadata = list(starttime = c(7, "B")),
                   run_names_path = FALSE)
