@@ -473,33 +473,34 @@ mutpopd <- filter(mutpopd, !mut_id %in% ids_outd)
 if(make_slowplots) {
   png("./plots/mut_freq_distr.png", width = 10, height = 8,
       units = "in", res = 150)
-  ggplot(data = 
-           mutate(
-             rbind(
-               filter(mutpop, 
-                      freq0 > 0, Timepoint != 0),
-               mutate(filter(mutpop, 
-                             freq0 > 0, Timepoint == 0, Treat == "NN"),
-                      Treat = "Anc")),
-             Pop = as.numeric(Pop),
-             Treat = factor(Treat, levels = c("Anc", "NN", "CNP", "NCP", "CP"))),
-         aes(x = freq0, fill = Treat)) +
-    geom_histogram() +
-    facet_nested(Treat * Timepoint ~ Pop, scales = "free_y",
-                 labeller = labeller(Timepoint = function(x) {paste0("T", x)},
-                                     Pop = function(x) {paste0("Rep", x)})) +
-    scale_x_continuous(breaks = c(0, 0.25, 0.5, 0.75)) +
-    scale_fill_manual(name = "Treatments",
-                       breaks = c("Anc", "NN", "CNP", "NCP", "CP"),
-                       labels = c("Ancestor", "No-phage, Pseudomonas-only",
-                                  "No-phage, all bacteria",
-                                  "Phage-added, Pseudomonas-only",
-                                  "Phage-added, all bacteria"),
-                       values = my_cols[c(8, 7, 5, 1, 3)]) +
-    labs(x = "Frequency", y = "Mutation count") +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-    NULL
+  print(
+    ggplot(data = 
+             mutate(
+               rbind(
+                 filter(mutpop, 
+                        freq0 > 0, Timepoint != 0),
+                 mutate(filter(mutpop, 
+                               freq0 > 0, Timepoint == 0, Treat == "NN"),
+                        Treat = "Anc")),
+               Pop = as.numeric(Pop),
+               Treat = factor(Treat, levels = c("Anc", "NN", "CNP", "NCP", "CP"))),
+           aes(x = freq0, fill = Treat)) +
+      geom_histogram() +
+      facet_nested(Treat * Timepoint ~ Pop, scales = "free_y",
+                   labeller = labeller(Timepoint = function(x) {paste0("T", x)},
+                                       Pop = function(x) {paste0("Rep", x)})) +
+      scale_x_continuous(breaks = c(0, 0.25, 0.5, 0.75)) +
+      scale_fill_manual(name = "Treatments",
+                        breaks = c("Anc", "NN", "CNP", "NCP", "CP"),
+                        labels = c("Ancestor", "No-phage, Pseudomonas-only",
+                                   "No-phage, all bacteria",
+                                   "Phage-added, Pseudomonas-only",
+                                   "Phage-added, all bacteria"),
+                        values = my_cols[c(8, 7, 5, 1, 3)]) +
+      labs(x = "Frequency", y = "Mutation count") +
+      theme_bw() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+      NULL)
   dev.off()
   
   png("./plots/mut_trajectories_above010.png", 
@@ -1335,75 +1336,77 @@ pil_order <-
 if(make_slowplots) {
   png("./plots/isolmut_pilus_freq.png",
       width = 9, height = 5, units = "in", res = 150)
-  ggplot(
-    mutate(
-      filter(isol_freq_sum, gene_category == "pilus"),
-      mut_genes = factor(mut_genes, levels = pil_order)),
-    aes(x = resis_cat)) +
-    geom_bar(aes(fill = mut_genes),position = "fill") +
-    facet_nested(. ~ Treat_P * Treat_C,
-                 labeller = labeller(
-                   Treat_C = c("NC" = "Pseudomonas-only",
-                               "C" = "All bacteria"),
-                   Treat_P = c("NP" = "No-phage",
-                               "P" = "Phage-added"))) +
-    scale_x_discrete(limits = c("suscep", "part", "resis"),
-                     labels = c("Susceptible", "Partial", "Resistant")) +
-    scale_fill_manual(
-      name = "Pilus Genes\nMutated",
-      limits = pil_order,
-      values = c("gray70", "black", #"gray30",
-                 viridis_pal()(length(pil_order)-2))) +
-    labs(x = "Isolates' Resistance to Phage",
-         y = "Frequency") +
-    theme_bw() +
-    theme(axis.text.x = element_text(size = 14),
-          axis.text.y = element_blank(),
-          axis.title = element_text(size = 18),
-          legend.text = element_text(size = 13),
-          legend.title = element_text(size = 18),
-          strip.text = element_text(size = 18)) +
-    geom_text(data = summarize(group_by(isol_freq_sum, resis_cat, Treat_C, Treat_P),
-                               n = length(unique(title))),
-              aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
-    NULL
+  print(
+    ggplot(
+      mutate(
+        filter(isol_freq_sum, gene_category == "pilus"),
+        mut_genes = factor(mut_genes, levels = pil_order)),
+      aes(x = resis_cat)) +
+      geom_bar(aes(fill = mut_genes),position = "fill") +
+      facet_nested(. ~ Treat_P * Treat_C,
+                   labeller = labeller(
+                     Treat_C = c("NC" = "Pseudomonas-only",
+                                 "C" = "All bacteria"),
+                     Treat_P = c("NP" = "No-phage",
+                                 "P" = "Phage-added"))) +
+      scale_x_discrete(limits = c("suscep", "part", "resis"),
+                       labels = c("Susceptible", "Partial", "Resistant")) +
+      scale_fill_manual(
+        name = "Pilus Genes\nMutated",
+        limits = pil_order,
+        values = c("gray70", "black", #"gray30",
+                   viridis_pal()(length(pil_order)-2))) +
+      labs(x = "Isolates' Resistance to Phage",
+           y = "Frequency") +
+      theme_bw() +
+      theme(axis.text.x = element_text(size = 14),
+            axis.text.y = element_blank(),
+            axis.title = element_text(size = 18),
+            legend.text = element_text(size = 13),
+            legend.title = element_text(size = 18),
+            strip.text = element_text(size = 18)) +
+      geom_text(data = summarize(group_by(isol_freq_sum, resis_cat, Treat_C, Treat_P),
+                                 n = length(unique(title))),
+                aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
+      NULL)
   dev.off()
   
   png("./plots/isolmut_pilus_muttypes.png",
       width = 9, height = 5, units = "in", res = 150)
-  ggplot(
-    mutate(
-      filter(isol_freq_sum, gene_category == "pilus"),
-      mutation_category3 = factor(
-        mutation_category3,
-        levels = c("none", "silent", "nonsyn change", "loss of function"))),
-    aes(x = resis_cat)) +
-    geom_bar(aes(fill = mutation_category3),position = "fill") +
-    facet_nested(. ~ Treat_P * Treat_C,
-                 labeller = labeller(
-                   Treat_C = c("NC" = "Pseudomonas-only",
-                               "C" = "All bacteria"),
-                   Treat_P = c("NP" = "No-phage",
-                               "P" = "Phage-added"))) +
-    scale_x_discrete(limits = c("suscep", "part", "resis"),
-                     labels = c("Susceptible", "Partial", "Resistant")) +
-    scale_fill_manual(
-      name = "Pilus Gene(s)\nMutation Effect",
-      limits = c("none", "silent", "nonsyn change", "loss of function"),
-      values = brewer_pal(palette = "Blues")(5)[-1]) +
-    labs(x = "Isolates' Resistance to Phage",
-         y = "Frequency") +
-    theme_bw() +
-    theme(axis.text.x = element_text(size = 14),
-          axis.text.y = element_blank(),
-          axis.title = element_text(size = 18),
-          legend.text = element_text(size = 13),
-          legend.title = element_text(size = 18),
-          strip.text = element_text(size = 18)) +
-    geom_text(data = summarize(group_by(isol_freq_sum, resis_cat, Treat_C, Treat_P),
-                               n = length(unique(title))),
-              aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
-    NULL
+  print(
+    ggplot(
+      mutate(
+        filter(isol_freq_sum, gene_category == "pilus"),
+        mutation_category3 = factor(
+          mutation_category3,
+          levels = c("none", "silent", "nonsyn change", "loss of function"))),
+      aes(x = resis_cat)) +
+      geom_bar(aes(fill = mutation_category3),position = "fill") +
+      facet_nested(. ~ Treat_P * Treat_C,
+                   labeller = labeller(
+                     Treat_C = c("NC" = "Pseudomonas-only",
+                                 "C" = "All bacteria"),
+                     Treat_P = c("NP" = "No-phage",
+                                 "P" = "Phage-added"))) +
+      scale_x_discrete(limits = c("suscep", "part", "resis"),
+                       labels = c("Susceptible", "Partial", "Resistant")) +
+      scale_fill_manual(
+        name = "Pilus Gene(s)\nMutation Effect",
+        limits = c("none", "silent", "nonsyn change", "loss of function"),
+        values = brewer_pal(palette = "Blues")(5)[-1]) +
+      labs(x = "Isolates' Resistance to Phage",
+           y = "Frequency") +
+      theme_bw() +
+      theme(axis.text.x = element_text(size = 14),
+            axis.text.y = element_blank(),
+            axis.title = element_text(size = 18),
+            legend.text = element_text(size = 13),
+            legend.title = element_text(size = 18),
+            strip.text = element_text(size = 18)) +
+      geom_text(data = summarize(group_by(isol_freq_sum, resis_cat, Treat_C, Treat_P),
+                                 n = length(unique(title))),
+                aes(y = 0.1, label = paste0("n = ", n)), size = 5) +
+      NULL)
   dev.off()
 }
 
