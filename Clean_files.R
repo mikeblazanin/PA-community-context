@@ -510,3 +510,83 @@ resis_isols <- mutate(
 
 #Write copy to file
 write.csv(resis_isols, "./clean_data/resis_isols.csv", row.names = FALSE)
+
+# Pigments ----
+
+pig1 <- import_blockmeasures(
+  list.files(path = "./raw_data/pigment_data/", full.names = T, pattern = ".*Production.csv$"),
+  startrow = 42, endrow = 50, endcol = "M",
+  metadata = list("Wavelength" = c(41, "A")))
+pig2 <- import_blockmeasures(
+  list.files(path = "./raw_data/pigment_data/", full.names = T, pattern = ".*Production.csv$"),
+  startrow = 57, endrow = 65, endcol = "M",
+  metadata = list("Wavelength" = c(56, "A")))
+
+colnames(pig1)[1] <- "file"
+colnames(pig2)[1] <- "file"
+pig12 <- trans_wide_to_tidy(list(pig1, pig2), id_cols = c("file", "Wavelength"),
+                            values_to_numeric = FALSE)
+pig12 <- lapply(
+  pig12, 
+  FUN = function(x) {x$Wavelength <- gsub(".*:", "", x$Wavelength); return(x)})
+
+pigspectrum <- read_wides(
+  list.files(path = "./raw_data/pigment_data/", full.names = T, pattern = ".*Production.csv$"),
+  startrow = 69, endrow = 90)
+pigspectrum <- trans_wide_to_tidy(pigspectrum, id_cols = c("file", "Wavelength"),
+                                  values_to_numeric = FALSE)
+
+pig <- merge_dfs(pig12, pigspectrum, collapse = TRUE)
+pig$file <- regmatches(pig$file, regexpr("\\d{4}-\\d{2}-\\d{2}", pig$file))
+
+#Read designs
+designs <-
+  read_blocks(
+    list.files(path = "./raw_data/pigment_data/", full.names = T, pattern = ".*Design.csv$"))
+designs <- trans_block_to_wide(designs)
+designs <- trans_wide_to_tidy(designs, id_cols = "block_name",
+                              values_to_numeric = FALSE)
+designs <- mutate(designs, 
+                  Measurements = ifelse(Measurements == "", NA, Measurements))
+designs <- separate_tidy(
+  designs, "Measurements", sep = ", ",
+  into = c("Bact_pop", "Bact_timepoint", "Bact_treat", "Bact_isol"),
+  coerce_NA = FALSE)
+colnames(designs)[1] <- "file"
+designs$file <- regmatches(designs$file, regexpr("\\d{4}-\\d{2}-\\d{2}", designs$file))
+
+#Merge designs
+pig <- merge_dfs(pig, designs, drop = TRUE)
+
+#Adjust columns for cross-compatibility
+pig <- mutate(pig,
+              Bact_isol = gsub("#", "", Bact_isol),
+              Bact_pop = gsub("P", "", Bact_pop),
+              Bact_timepoint = gsub("T", "", Bact_timepoint),
+              Bact_treat_C = factor(
+                ifelse(Bact_treat %in% c("NCP", "NN"), "NC",
+                       ifelse(Bact_treat %in% c("CNP", "CP"), "C",
+                              Bact_treat)),
+                levels = c("Anc", "NC", "C")),
+              Bact_treat_P = factor(
+                ifelse(Bact_treat %in% c("NN", "CNP"), "NP",
+                       ifelse(Bact_treat %in% c("NCP", "CP"), "P",
+                              Bact_treat)),
+                levels = c("Anc", "NP", "P")),
+              Bact_treat = factor(Bact_treat,
+                                  levels = c("Anc", "NN", "CNP", "NCP", "CP")))
+
+#Based on contamination, exclude NCNP Pop 9 T4 and later, CNP Pop 9 T2 and later
+pig <- filter(pig,
+              !((Bact_pop == 9 & Bact_treat == "NN" & Bact_timepoint >= 2) |
+                  (Bact_pop == 9 & Bact_treat == "CNP" & Bact_timepoint >= 2)))
+
+#Subtract blank
+pig$Measurements[pig$Measurements == "OVRFLW"] <- NA
+pig$Measurements <- as.numeric(pig$Measurements)
+pig <- mutate(group_by(pig, file, Wavelength),
+              Meas_norm = Measurements - Measurements[Bact_pop == "Blank"])
+pig <- filter(pig, Bact_isol != "Blank")
+
+#Write copy to file
+write.csv(pig, "./clean_data/pig.csv", row.names = FALSE)
