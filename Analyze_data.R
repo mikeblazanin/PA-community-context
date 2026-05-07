@@ -112,84 +112,8 @@ ggplot(data = prelimdens_NC_sum[prelimdens_NC_sum$Strain == "PA", ],
   NULL
 dev.off()
 
-
-
-
 ## Prelim experiment: population data from run with competitors ----
-prelimdens_C <- read.csv("2021-12-17_community_experiment.csv",
-                      stringsAsFactors = FALSE)
-
-#Split PA data to calculate freq_L and total count
-# (note that for now we've summed in when we counted frequency from
-# a lower dilution because it only throws off the density by 1 or 2 cfu
-# but not accurate)
-prelimdens_C$freq_L <- NA
-for (i in which(prelimdens_C$Strain == "PA")) {
-  #Check if there are small/large freq's
-  if(grepl("[,LS]", prelimdens_C$Count[i])) {
-    temp_d <- strsplit(prelimdens_C$Count[i], split = ",")[[1]]
-    temp_e <- as.numeric(gsub("[SL]", "", temp_d))
-    names(temp_e) <- substr(temp_d, nchar(temp_d), nchar(temp_d))
-    
-    prelimdens_C$Count[i] <- sum(temp_e)
-    if (length(temp_e) > 1) {
-      prelimdens_C$freq_L[i] <- temp_e["L"]/sum(temp_e)
-    } else {
-      if(names(temp_e) == "L") {
-        prelimdens_C$freq_L[i] <- 1
-      } else if (names(temp_e) == "S") {
-        prelimdens_C$freq_L[i] <- 0
-      }
-    }
-  } else {
-    prelimdens_C$freq_L[i] <- 1
-  }
-}
-
-#Because I think the small colony morphs that appeared in the
-# +phage +competitors on Day 6 were probably mis-counts, set
-# those frequencies to 1
-prelimdens_C$freq_L[prelimdens_C$Phage_treat == "+" & 
-                   prelimdens_C$Timepoint == 6 &
-                   prelimdens_C$Strain == "PA"] <- 1
-
-#Calculate density
-prelimdens_C$dens_ml <- (1000/2.5) * 
-  as.numeric(prelimdens_C$Count)/(10**as.numeric(prelimdens_C$Dilution))
-
-#Fix T0 data by pseudo-replicating for plotting
-prelimdens_C <- 
-  rbind(
-    do.call("rbind", replicate(12, prelimdens_C[prelimdens_C$Timepoint == 0, ],
-                               simplify = FALSE)),
-    prelimdens_C[prelimdens_C$Timepoint != 0, ])
-prelimdens_C$Phage_treat[1:(12*5)] <- rep(c("+", "-"), each = 6*5)
-prelimdens_C$Pop[1:(12*5)] <- rep(rep(1:6, each = 5), 2)
-prelimdens_C$Count[prelimdens_C$Timepoint == 0 & prelimdens_C$Strain == "H6" &
-                  prelimdens_C$Phage_treat == "-"] <- NA
-prelimdens_C$dens_ml[prelimdens_C$Timepoint == 0 & prelimdens_C$Strain == "H6" &
-                    prelimdens_C$Phage_treat == "-"] <- NA
-prelimdens_C <- prelimdens_C[!is.na(prelimdens_C$dens_ml), ]
-
-prelimdens_C <- rename(prelimdens_C,
-                       Population = Pop)
-prelimdens_C <- prelimdens_C[, !names(prelimdens_C) %in% 
-                               c("Count", "Dilution")]
-
-prelimdens_C <- cbind(data.frame(Comm_treat = "+"),
-                      prelimdens_C)
-
-#Set counts below detection to limit of detection
-prelimdens_C$bd <- ifelse(prelimdens_C$dens_ml == 0, TRUE, FALSE)
-for (i in 1:nrow(prelimdens_C)) {
-  if (prelimdens_C$dens_ml[i] == 0) {
-    if(prelimdens_C$Comm_treat[i] == "+") {
-      prelimdens_C$dens_ml[i] <- 1000/2.5
-    } else if (prelimdens_C$Comm_treat[i] == "-") {
-      prelimdens_C$dens_ml[i] <- 1000/5
-    }
-  }
-}
+prelimdens_C <- read.csv("./clean_data/prelimdens_C.csv", stringsAsFactors = FALSE)
 
 #Summarize pops for treat-level means
 prelimdens_C_sum <- 
