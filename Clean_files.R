@@ -2,6 +2,7 @@
 library(dplyr)
 library(tidyr)
 library(gcplyr)
+library(ggplot2)
 
 dup_rows <- function(mydf, mut_col, from_vals, to_vals) {
   #this function takes in a data.frame
@@ -536,7 +537,7 @@ pigspectrum <- read_wides(
 pigspectrum <- trans_wide_to_tidy(pigspectrum, id_cols = c("file", "Wavelength"),
                                   values_to_numeric = FALSE)
 
-pig <- merge_dfs(pig12, pigspectrum, collapse = TRUE)
+pig <- merge_dfs(pig12, pigspectrum, collapse = TRUE, warn_morerows = FALSE)
 pig$file <- regmatches(pig$file, regexpr("\\d{4}-\\d{2}-\\d{2}", pig$file))
 
 #Read designs
