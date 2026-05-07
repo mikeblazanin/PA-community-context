@@ -1,6 +1,5 @@
 ##TODO ----
 #Top priority:
-# redo coverage
 
 #Maybe:
 # create gene_category2 which ID's type IV pilus genes more-specifically
@@ -1810,7 +1809,7 @@ mutisol <- left_join(
   mutisol,
   select(
     mutate(
-      filter(read.csv("aggregate_isolate_data.csv", stringsAsFactors = FALSE,
+      filter(read.csv("./clean_data/aggregate_isolate_data.csv", stringsAsFactors = FALSE,
                       colClasses = "character"),
              Bact_timepoint != "pilA"),
       Treat = Bact_treat, 

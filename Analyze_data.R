@@ -1715,7 +1715,7 @@ isol_data <- mutate(
     cm_day_norm > 0.7 ~ "full",
     cm_day_norm >= 0.5 & cm_day_norm <= 0.7 ~ "intermediate"))
 
-write.csv(isol_data, "aggregate_isolate_data.csv", row.names = FALSE)
+write.csv(isol_data, "./clean_data/aggregate_isolate_data.csv", row.names = FALSE)
 
 ### Plots ----
 ggpairs(data = isol_data,
