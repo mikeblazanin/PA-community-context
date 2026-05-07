@@ -528,29 +528,29 @@ ggplot(data = filter(density, Pop %in% 3:10, Strain == "PA",
   NULL
 dev.off()
 
-#Merge with population data
-density_mod <- 
-  filter(mutate(density, 
-                Bact_timepoint = Timepoint,
-                Bact_pop = Pop,
-                Bact_treat_P = treat_P,
-                Bact_treat_C = treat_C),
-         Strain == "H6",
-         Bact_pop %in% 3:10)
-change_before <- function(x) {
-  if(length(x) < 2) {return(NA)
-  } else {return(c(NA, x[2:length(x)]/x[1:(length(x)-1)]))}
-}
-change_after <- function(x) {
-  if(length(x) < 2) {return(NA)
-  } else {return(c(x[2:length(x)]/x[1:(length(x)-1)], NA))}
-}
-density_mod <- mutate(
-  group_by(density_mod, Bact_pop, Bact_treat_P, Bact_treat_C),
-  change_before = change_before(cfu_ml[order(as.numeric(Timepoint))]),
-  change_after = change_after(cfu_ml[order(as.numeric(Timepoint))]))
-
 if(FALSE) {
+  #Merge with population data
+  density_mod <- 
+    filter(mutate(density, 
+                  Bact_timepoint = Timepoint,
+                  Bact_pop = Pop,
+                  Bact_treat_P = treat_P,
+                  Bact_treat_C = treat_C),
+           Strain == "H6",
+           Bact_pop %in% 3:10)
+  change_before <- function(x) {
+    if(length(x) < 2) {return(NA)
+    } else {return(c(NA, x[2:length(x)]/x[1:(length(x)-1)]))}
+  }
+  change_after <- function(x) {
+    if(length(x) < 2) {return(NA)
+    } else {return(c(x[2:length(x)]/x[1:(length(x)-1)], NA))}
+  }
+  density_mod <- mutate(
+    group_by(density_mod, Bact_pop, Bact_treat_P, Bact_treat_C),
+    change_before = change_before(cfu_ml[order(as.numeric(Timepoint))]),
+    change_after = change_after(cfu_ml[order(as.numeric(Timepoint))]))
+  
   ggplot(data = density_mod, aes(x = Timepoint, y = change_after, group = Bact_pop)) + 
     geom_line() + 
     scale_y_log10() +
