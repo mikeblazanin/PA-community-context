@@ -1,3 +1,5 @@
+stop("all paths need to be corrected to './extraneous_files/'")
+
 library(ggplot2)
 library(dplyr)
 

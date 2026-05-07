@@ -1,3 +1,5 @@
+stop("all paths need to be corrected to './extraneous_files/'")
+
 library(ggplot2)
 
 std_cv_data <- read.csv("2020-02-18_std_curve.csv",
