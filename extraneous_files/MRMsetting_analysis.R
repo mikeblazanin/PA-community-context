@@ -56,11 +56,11 @@ mut_and_samp_cols <-
     "freq_change", "abs_freq_rate", "rel_freq_rate", "lfreq01", "freq_cat",
     "isolfreq", "everabove_010_orisolmut")
 
-muttest1 <- read.table("compare_all_test1.tsv", sep = "\t",
+muttest1 <- read.table("./extraneous_files/compare_all_test1.tsv", sep = "\t",
                         stringsAsFactors = FALSE, header = TRUE,
                         quote = '', #don't allow quotes
                         comment.char = "") #don't allow comments since we use # for isolates
-muttest2 <- read.table("compare_all_test2.tsv", sep = "\t",
+muttest2 <- read.table("./extraneous_files/compare_all_test2.tsv", sep = "\t",
                        stringsAsFactors = FALSE, header = TRUE,
                        quote = '', #don't allow quotes
                        comment.char = "") #don't allow comments since we use # for isolates
