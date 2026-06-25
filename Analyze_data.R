@@ -1422,7 +1422,7 @@ dev.off()
 
 png("./plots/max_dens_norm_nopops.png", width = 7, height = 4, units = "in",
     res = 150)
-f3e <- 
+f3d <- 
   ggplot(data = gcdat_sum,
          aes(x = Bact_timepoint, y = max_dens_norm,
              color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
@@ -1445,7 +1445,7 @@ f3e <-
         strip.text = element_text(size = 16),
         legend.title = element_text(size = 16),
         legend.text = element_text(size = 14))
-f3e
+f3d
 dev.off()
 
 png("./plots/max_percap_norm.png", width = 10, height = 4, units = "in",
@@ -1759,73 +1759,98 @@ pmotil_resis <-
 print(pmotil_resis)
 dev.off()
 
-f3d <-
+fs11a <- 
   ggplot(
     data = mutate(
-      ungroup(isol_data),
-      resis_cat = plyr::revalue(resis_cat,
-                                c("suscep" = "Susceptible", 
-                                  "part" = "Partially Susceptible", 
-                                  "resis" = "Resistant"))),
-    aes(x = resis_cat, y = lag_norm,
-        color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
-  geom_point(size = 4, alpha = 0.4, position = position_dodge(width = .75)) +
-  labs(x = "", y = "Batch-corrected\nLag time (hr)") +
-  scale_x_discrete(limits = c("Susceptible", "Partially Susceptible",
-                              "Resistant")) +
-  scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
-                     breaks = c("Anc", "NP", "P", "pilA"),
-                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
-  scale_fill_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
-                    breaks = c("Anc", "NP", "P", "pilA"),
-                    labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+      ungroup(filter(isol_data, Bact_pop != "pilA")),
+      plot_cat = case_when(
+        Bact_treat_P == "Anc" ~ "Ancestor",
+        Bact_treat_P == "NP" ~ "No-phage added",
+        TRUE ~ resis_cat),
+      plot_cat = plyr::revalue(plot_cat,
+                               c("suscep" = "Susceptible", 
+                                 "part" = "Partially Susceptible", 
+                                 "resis" = "Resistant")),
+      plot_cat = factor(
+        plot_cat,
+        levels = c("Ancestor", "No-phage added", 
+                   "Susceptible", "Partially Susceptible", "Resistant"))),
+    aes(x = Bact_timepoint, y = lag_norm,
+        color = plot_cat, fill = plot_cat, shape = Bact_treat_C,
+        group = plot_cat)) +
+  geom_point(size = 4, alpha = 0.6, position = position_dodge(width = .5)) +
+  labs(x = "Timepoint (days)", y = "Batch-corrected\nLag time (hr)") +
+  scale_color_manual(
+    values = c(my_cols[c(8, 2)], scales::pal_viridis(direction = -1)(3)), 
+    name = "Susceptibility to phage",
+    breaks = c("Ancestor", "No-phage added", 
+               "Susceptible", "Partially Susceptible", "Resistant")) +
+  scale_fill_manual(
+    values = c(my_cols[c(8, 2)], scales::pal_viridis(direction = -1)(3)), 
+    name = "Susceptibility to phage",
+    breaks = c("Ancestor", "No-phage added", 
+               "Susceptible", "Partially Susceptible", "Resistant")) +
   scale_shape_manual(values = c(25, 21, 23, 24), name = "Other Bacteria Added",
                      breaks = c("Anc", "NC", "C", "pilA"),
                      labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
   guides(shape = guide_legend(override.aes = list(fill = "black"))) +
   theme_bw() +
-  theme(axis.title = element_text(size = 16),
-        axis.text = element_text(size = 12),
-        axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
-        strip.text = element_text(size = 16),
-        legend.title = element_text(size = 16),
-        legend.text = element_text(size = 14),
-        title = element_text(size = 20))
-
-f3f <-
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 16),
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 16))
+fs11b <- 
   ggplot(
     data = mutate(
-      ungroup(isol_data),
-      resis_cat = plyr::revalue(resis_cat,
-                                c("suscep" = "Susceptible", 
-                                  "part" = "Partially Susceptible", 
-                                  "resis" = "Resistant"))),
-    aes(x = resis_cat, y = max_dens_norm,
-        color = Bact_treat_P, fill = Bact_treat_P, shape = Bact_treat_C)) +
-  geom_point(size = 4, alpha = 0.4, position = position_dodge(width = .75)) +
-  labs(x = "", y = "Batch-corrected\nMaximum Density (OD600)") +
-  scale_x_discrete(limits = c("Susceptible", "Partially Susceptible",
-                              "Resistant")) +
-  scale_color_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
-                     breaks = c("Anc", "NP", "P", "pilA"),
-                     labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
-  scale_fill_manual(values = my_cols[c(8, 2, 6, 3)], name = "Phage Added",
-                    breaks = c("Anc", "NP", "P", "pilA"),
-                    labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
+      ungroup(filter(isol_data, Bact_pop != "pilA")),
+      plot_cat = case_when(
+        Bact_treat_P == "Anc" ~ "Ancestor",
+        Bact_treat_P == "NP" ~ "No-phage added",
+        TRUE ~ resis_cat),
+      plot_cat = plyr::revalue(plot_cat,
+                               c("suscep" = "Susceptible", 
+                                 "part" = "Partially Susceptible", 
+                                 "resis" = "Resistant")),
+      plot_cat = factor(
+        plot_cat,
+        levels = c("Ancestor", "No-phage added", 
+                   "Susceptible", "Partially Susceptible", "Resistant"))),
+    aes(x = Bact_timepoint, y = max_dens_norm,
+        color = plot_cat, fill = plot_cat, shape = Bact_treat_C,
+        group = plot_cat)) +
+  geom_point(size = 4, alpha = 0.6, position = position_dodge(width = .5)) +
+  labs(x = "Timepoint (days)", y = "Batch-corrected\nMaximum Density (OD600)") +
+  scale_color_manual(
+    values = c(my_cols[c(8, 2)], scales::pal_viridis(direction = -1)(3)), 
+    name = "Susceptibility to phage",
+    breaks = c("Ancestor", "No-phage added", 
+               "Susceptible", "Partially Susceptible", "Resistant")) +
+  scale_fill_manual(
+    values = c(my_cols[c(8, 2)], scales::pal_viridis(direction = -1)(3)), 
+    name = "Susceptibility to phage",
+    breaks = c("Ancestor", "No-phage added", 
+               "Susceptible", "Partially Susceptible", "Resistant")) +
   scale_shape_manual(values = c(25, 21, 23, 24), name = "Other Bacteria Added",
                      breaks = c("Anc", "NC", "C", "pilA"),
                      labels = c("Ancestor", "No", "Yes", "pilA knockout")) +
   guides(shape = guide_legend(override.aes = list(fill = "black"))) +
   theme_bw() +
-  theme(axis.title = element_text(size = 16),
-        axis.text = element_text(size = 12),
-        axis.text.x = element_text(size = 12, angle = 45, hjust = 1),
-        strip.text = element_text(size = 16),
-        legend.title = element_text(size = 16),
-        legend.text = element_text(size = 14),
-        title = element_text(size = 20))
+  theme(axis.title = element_text(size = 20),
+        axis.text = element_text(size = 16),
+        legend.title = element_text(size = 20),
+        legend.text = element_text(size = 16))
 
-png("./plots/fig3_motility_costs_combo.png", width = 11, height = 15, units = "in",
+png("./plots/figS11_motility_costs_combo.png", width = 15, height = 6, units = "in",
+    res = 150)
+cowplot::plot_grid(
+  fs11a + guides(color = "none", fill = "none", shape = "none"),
+  fs11b + guides(color = "none", fill = "none", shape = "none"),
+  cowplot::get_legend(fs11a),
+  align = "h", axis = "tb", nrow = 1, labels = c("A", "B", ""),
+  rel_widths = c(1, 1, 0.5))
+dev.off()
+
+png("./plots/fig3_motility_costs_combo.png", width = 11, height = 10, units = "in",
     res = 150)
 cowplot::plot_grid(
   cowplot::plot_grid(
@@ -1836,11 +1861,7 @@ cowplot::plot_grid(
       theme(axis.title.y = element_text(size = 16)), 
     f3d + guides(color = "none", fill = "none", shape = "none") +
       theme(axis.title.y = element_text(size = 16)),
-    f3e + guides(color = "none", fill = "none", shape = "none") +
-      theme(axis.title.y = element_text(size = 16)),
-    f3f + guides(color = "none", fill = "none", shape = "none") +
-      theme(axis.title.y = element_text(size = 16)),
-    align = "h", axis = "tb", nrow = 3, labels = "AUTO"),
+    align = "h", axis = "tb", nrow = 2, labels = "AUTO"),
   cowplot::get_legend(ptwitching_norm2),
   rel_widths = c(1, 0.3))
 dev.off()
