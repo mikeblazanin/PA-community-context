@@ -242,214 +242,220 @@ Bacterial density and large-colony morphotype frequency estimates for preliminar
 #### File: gcdat.csv
 
 **Description:** 
+Raw and processed plate-reader measurements collected during bacterial growth-curve assays, with isolate and treatment metadata.
 
 ##### Variables
 
-* file:
-* Time:
-* Well:
-* Measurements:
-* date:
-* Time_hr:
-* block_name:
-* Bact_pop:
-* Bact_timepoint:
-* Bact_treat:
-* Bact_isol:
-* Bact_treat_C:
-* Bact_treat_P:
-* meas_blanked:
-* sm_meas:
-* deriv:
-* deriv_percap:
+* file: Name of the source data file.
+* Time: Time at which the plate-reader measurement was recorded.
+* Well: Well of the plate in which the sample was assayed.
+* Measurements: Raw plate-reader measurement (OD600).
+* date: Date the assay was performed.
+* Time_hr: Time since beginning the growth curve at which the plate-reader measurement was recorded, in hours.
+* block_name: Unique name of the assay batch.
+* Bact_pop: Bacterial replicate population.
+* Bact_timepoint: Bacterial sampling timepoint.
+* Bact_treat: Combined bacterial treatment (community and phage treatment; NC/C and NP/P).
+* Bact_isol: Bacterial isolate number.
+* Bact_treat_C: Bacterial community treatment (NC for no community, C for community).
+* Bact_treat_P: Bacterial phage treatment (NP for no phage, P for phage).
+* meas_blanked: Plate-reader measurement after blank subtraction.
+* sm_meas: Smoothed plate-reader measurement.
+* deriv: Derivative of the smoothed measurement with respect to time.
+* deriv_percap: Per-capita derivative of the smoothed measurement (derivative divided by measurement).
 
 #### File: resis_isols.csv
 
 **Description:** 
+Phage resistance assay measurements for bacterial and phage isolates, including plaque counts, efficiency of plaquing, and bacterial clearing.
 
 ##### Variables
 
-* Bact_pop:
-* Phage_pop:
-* Bact_timepoint:
-* Bact_treat_C:
-* Bact_treat_P:
-* Bact_treat:
-* Bact_isol:
-* Phage_timepoint:
-* Phage_treat_C:
-* Phage_treat_P:
-* Phage_treat:
-* Phage_isol:
-* Plaque_morphology:
-* pfu2:
-* dilution2:
-* Estimated_pfu2:
-* bd2:
-* pfu_ml2:
-* EOP2:
-* EOP2_plot:
-* clearing2:
-* run_EOP2:
-* Date:
-* clearing:
-* run_cs:
-* run_spot:
-* bd:
-* pfu_ml:
-* EOP:
-* EOP_plot:
-* run_EOP:
+* Bact_pop: Bacterial replicate population.
+* Phage_pop: Phage replicate population.
+* Bact_timepoint: Bacterial sampling timepoint.
+* Bact_treat_C: Bacterial community treatment (NC for no community, C for community).
+* Bact_treat_P: Bacterial phage treatment (NP for no phage, P for phage).
+* Bact_treat: Combined bacterial treatment (community and phage treatment; NC/C and NP/P).
+* Bact_isol: Bacterial isolate number.
+* Phage_timepoint: Phage sampling timepoint.
+* Phage_treat_C: Phage community treatment (NC for no community, C for community).
+* Phage_treat_P: Phage phage treatment (NP for no phage, P for phage).
+* Phage_treat: Combined phage treatment (community and phage treatment; NC/C and NP/P).
+* Phage_isol: Phage isolate number.
+* Plaque_morphology: Morphology of phage plaques.
+* pfu2: Number of plaques counted.
+* dilution2: Dilution where plaques were counted.
+* Estimated_pfu2: Estimated plaque-forming units.
+* bd2: Whether PFUs were below detection (i.e. 0 counted)
+* pfu_ml2: Estimated plaque-forming units per milliliter (PFU/mL).
+* EOP2: Efficiency of plaquing (EOP), relative to the most susceptible host.
+* EOP2_plot: EOP2 value formatted for plotting.
+* clearing2: Whether the bacterial isolate was cleared at all.
+* run_EOP2: Boolean indicating whether data was collected in the second run of EOP assay batches.
+* Date: Date the assay was performed.
+* clearing: Whether the bacterial isolate was cleared by the tested phage (first run of EOP assay batches)
+* run_cs: Boolean indicating whether cross-streak data was collected.
+* run_spot: Boolean indicating whether spot test data was collected
+* bd: Whether PFUs were below detection (first run of EOP assay batches)
+* pfu_ml: Estimated plaque-forming units per milliliter (PFU/mL) (first run of EOP assay batches)
+* EOP: Efficiency of plaquing (EOP) of the phage on the bacterial isolate, relative to the most susceptible host (first run of EOP assay batches).
+* EOP_plot: EOP value formatted for plotting.
+* run_EOP: Boolean indicating whether data was collected in the first run of EOP assay batches.
 
 #### File: twitching.csv
 
 **Description:** 
+Measurements from the bacterial twitching motility assay, with bacterial isolate and treatment metadata.
 
 ##### Variables
 
-* Date:
-* Bact_pop:
-* Bact_treat:
-* Bact_timepoint:
-* Bact_isol:
-* width:
-* height:
-* cm_day:
-* Bact_treat_C:
-* Bact_treat_P:
+* Date: Date the assay was performed.
+* Bact_pop: Bacterial replicate population.
+* Bact_treat: Combined bacterial treatment (community and phage treatment; NC/C and NP/P).
+* Bact_timepoint: Bacterial sampling timepoint.
+* Bact_isol: Bacterial isolate number.
+* width: Width of the twitching motility zone measured in the assay.
+* height: Height of the twitching motility zone measured in the assay.
+* cm_day: Distance of twitching motility centimeters per day, calculated from the assay measurements.
+* Bact_treat_C: Bacterial community treatment (NC for no community, C for community).
+* Bact_treat_P: Bacterial phage treatment (NP for no phage, P for phage).
 
 #### File: term2name.csv
 
 **Description:** 
+Mapping table linking GO term identifiers used in the merged GO annotation analysis to GO term names.
 
 ##### Variables
 
-* :
-* GOsmerge_ind:
-* name:
+* : rownames for table, formatted as required for clusterProfiler
+* GOsmerge_ind: GO term identifier/index used to distinguish entries in the merged GO annotation table.
+* name: Name/description associated with the GO term.
 
 #### File: term2gene.csv
 
 **Description:** 
+Mapping table linking GO term identifiers to bacterial gene locus tags for GO enrichment analysis.
 
 ##### Variables
 
-* GOsmerge:
-* Locus.Tag:
+* GOsmerge: GO term identifier used in the merged GO annotation table.
+* Locus.Tag: Locus tag identifying the annotated gene.
 
 #### File: mutations_PAseq_PA14seqid.csv
 
 **Description:** 
+Mutation calls from breseq for Pseudomonas aeruginosa PA-sequencing samples mapped to the PA14 reference sequence, merged with gene, functional, and InterPro annotations and sample metadata.
 
 ##### Variables
 
-* mut_id:
-* seqrun:
-* SeqCoastid:
-* seqtype:
-* Timepoint:
-* Pop:
-* Treat:
-* Isol:
-* title:
-* Treat_C:
-* Treat_P:
-* aa_new_seq:
-* aa_position:
-* aa_ref_seq:
-* codon_new_seq:
-* codon_number:
-* codon_position:
-* codon_ref_seq:
-* freq:
-* gene_name:
-* gene_position:
-* gene_product:
-* gene_strand:
-* genes_inactivated:
-* genes_overlapping:
-* genes_promoter:
-* insert_position:
-* locus_tag:
-* locus_tags_inactivated:
-* locus_tags_overlapping:
-* locus_tags_promoter:
-* multiple_polymorphic_SNPs_in_same_codon:
-* mutation_category:
-* new_read_count:
-* new_read_count_basis:
-* new_seq:
-* position:
-* position_end:
-* position_start:
-* ref_read_count:
-* ref_read_count_basis:
-* ref_seq:
-* repeat_length:
-* repeat_new_copies:
-* repeat_ref_copies:
-* repeat_seq:
-* seq_id:
-* size:
-* snp_type:
-* transl_table:
-* type:
-* Locus.Tag:
-* mutation_category_manual:
-* Sequence.Id:
-* Type:
-* Start:
-* Stop:
-* Strand:
-* Gene:
-* Product:
-* DbXrefs:
-* seed_ortholog:
-* evalue:
-* score:
-* eggNOG_OGs:
-* max_annot_lvl:
-* COG_category:
-* Description:
-* Preferred_name:
-* GOs:
-* EC:
-* KEGG_ko:
-* KEGG_Pathway:
-* KEGG_Module:
-* KEGG_Reaction:
-* KEGG_rclass:
-* BRITE:
-* KEGG_TC:
-* CAZy:
-* BiGG_Reaction:
-* PFAMs:
-* seqMD5:
-* seq_len:
-* analysis:
-* signat_accession:
-* signat_description:
-* start:
-* stop:
-* e-value_score:
-* match_status:
-* query_date:
-* InterPro_accession:
-* InterPro_annotations:
-* InterPro_GOs:
-* Pathways:
-* GOsmerge:
-* GOsmerge_ind:
-* mutation_category2:
-* mutation_category3:
-* gene_category:
-* gene_catpilnot:
-* pilmut_struc:
-* gene_short:
-* concise_mut:
-* rpt_hit_id:
-* rpt_bit_score:
-* rpt_match_seq:
+* mut_id: Unique mutation identifier.
+* seqrun: Sequencing run identifier.
+* SeqCoastid: Sequencing sample identifier.
+* seqtype: Type of sequencing sample (PA for bacterial, H6 for viral).
+* Timepoint: Sampling timepoint.
+* Pop: Replicate population.
+* Treat: Treatment group.
+* Isol: Isolate number.
+* title: Full name of sequencing sample (seqrun, SeqCoastid, seqtype, Timepoint, Pop, Treat, Isol)
+* Treat_C: Community treatment (NC for no community, C for community).
+* Treat_P: Phage treatment (NP for no phage, P for phage).
+* aa_new_seq: Amino acid encoded by the mutated sequence at the affected position.
+* aa_position: Position of the affected amino acid in the protein sequence.
+* aa_ref_seq: Reference amino acid at the affected position.
+* codon_new_seq: Mutant codon sequence.
+* codon_number: Number of the affected codon in the coding sequence.
+* codon_position: Position within the affected codon (1, 2, or 3).
+* codon_ref_seq: Reference codon sequence.
+* freq: Estimated frequency of the mutation in the sample.
+* gene_name: Name of the gene affected by the mutation.
+* gene_position: Position of the mutation relative to the affected gene.
+* gene_product: Annotated product/function of the affected gene.
+* gene_strand: Strand of the affected gene.
+* genes_inactivated: Gene(s) predicted to be inactivated by the mutation.
+* genes_overlapping: Gene(s) overlapping the mutation position.
+* genes_promoter: Gene(s) whose promoter region overlaps the mutation.
+* insert_position: Position at which an insertion occurs.
+* locus_tag: Locus tag of the affected gene.
+* locus_tags_inactivated: Locus tag(s) of gene(s) predicted to be inactivated by the mutation.
+* locus_tags_overlapping: Locus tag(s) of genes overlapping the mutation position.
+* locus_tags_promoter: Locus tag(s) of genes whose promoter region overlaps the mutation.
+* multiple_polymorphic_SNPs_in_same_codon: Indicator of whether multiple polymorphic single-nucleotide polymorphisms occur in the same codon.
+* mutation_category: Mutation class/category assigned by breseq.
+* new_read_count: Number of sequencing reads supporting the alternate (mutant) allele.
+* new_read_count_basis: Basis or denominator used to calculate the alternate-allele read count/frequency.
+* new_seq: Alternate (mutant) nucleotide sequence.
+* position: Reference-genome coordinate at which the mutation begins.
+* position_end: End coordinate of the affected region in the reference sequence.
+* position_start: Start coordinate of the affected region in the reference sequence.
+* ref_read_count: Number of sequencing reads supporting the reference allele.
+* ref_read_count_basis: Basis or denominator used to calculate the reference-allele read count/frequency.
+* ref_seq: Reference nucleotide sequence.
+* repeat_length: Length of the repeat region affected by the mutation.
+* repeat_new_copies: Number of repeat copies in the mutated sequence.
+* repeat_ref_copies: Number of repeat copies in the reference sequence.
+* repeat_seq: Nucleotide sequence of the repeated element.
+* seq_id: Identifier of the reference sequence/contig.
+* size: Size of the mutation or affected sequence, in base pairs.
+* snp_type: Classification of the single-nucleotide polymorphism.
+* transl_table: Genetic code/translation table used to translate the coding sequence.
+* type: Type of mutation as classified by breseq.
+* Locus.Tag: Locus tag identifying the annotated gene.
+* mutation_category_manual: Manually assigned mutation category.
+* Sequence.Id: Identifier of the sequence/contig containing the annotated feature.
+* Type: Type of annotated genomic feature.
+* Start: Start coordinate of the annotated feature on the sequence.
+* Stop: End coordinate of the annotated feature on the sequence.
+* Strand: Strand orientation of the annotated feature.
+* Gene: Gene name or identifier.
+* Product: Annotated product or function of the gene.
+* DbXrefs: Cross-references to external biological databases.
+* seed_ortholog: Best seed ortholog used by eggNOG-mapper for functional annotation.
+* evalue: E-value for the sequence similarity/orthology assignment.
+* score: Score associated with the sequence similarity/orthology assignment.
+* eggNOG_OGs: eggNOG orthologous group(s) assigned to the gene.
+* max_annot_lvl: Most specific taxonomic level at which the eggNOG annotation was assigned.
+* COG_category: Cluster of Orthologous Groups functional category.
+* Description: Functional description of the gene or protein assigned by the eggNOG functional annotation.
+* Preferred_name: Preferred gene name assigned by the functional annotation.
+* GOs: Gene Ontology terms associated with the gene.
+* EC: Enzyme Commission number(s) associated with the gene product.
+* KEGG_ko: KEGG Orthology identifier(s) assigned to the gene.
+* KEGG_Pathway: KEGG pathway identifier(s) associated with the gene.
+* KEGG_Module: KEGG module identifier(s) associated with the gene.
+* KEGG_Reaction: KEGG reaction identifier(s) associated with the gene.
+* KEGG_rclass: KEGG reaction-class identifier(s) associated with the gene.
+* BRITE: KEGG BRITE hierarchy annotation(s).
+* KEGG_TC: KEGG transporter classification identifier(s).
+* CAZy: Carbohydrate-Active enZYmes (CAZy) family annotation(s).
+* BiGG_Reaction: BiGG reaction identifier(s) associated with the gene.
+* PFAMs: Pfam protein family/domain annotation(s).
+* seqMD5: MD5 checksum of the protein sequence.
+* seq_len: Length of the protein sequence, in amino acids.
+* analysis: InterProScan analysis/member database that detected the protein signature (e.g., Pfam).
+* signat_accession: Accession identifier of the detected signature/model in the member database.
+* signat_description: Description of the detected signature/model.
+* start: Start position of the signature match on the protein sequence (1-based, inclusive).
+* stop: End position of the signature match on the protein sequence (1-based, inclusive).
+* e-value_score: E-value or score reported for the signature match by the member database analysis.
+* match_status: Status of the signature match (T indicates a true match).
+* query_date: Date on which the InterProScan query was run.
+* InterPro_accession: InterPro entry accession associated with the signature match, when available.
+* InterPro_annotations: Description/name of the InterPro entry associated with the signature match, when available.
+* InterPro_GOs: Gene Ontology annotations associated with the InterPro match, when available.
+* Pathways: Pathway cross-references associated with the InterPro match, when available.
+* GOsmerge: GO term identifier used in the merged GO annotation table.
+* GOsmerge_ind: GO term identifier/index used to distinguish entries in the merged GO annotation table.
+* mutation_category2: Additional mutation category assigned during downstream annotation.
+* mutation_category3: Additional mutation category assigned during downstream annotation.
+* gene_category: Functional/category grouping assigned to the affected gene.
+* gene_catpilnot: Gene category indicating pilus-related versus non-pilus-related genes.
+* pilmut_struc: Structural classification of the pilus-associated mutation.
+* gene_short: Shortened gene name/label.
+* concise_mut: Concise textual description of the mutation.
+* rpt_hit_id: Identifier of the repeat/sequence hit reported by the repeat annotation step.
+* rpt_bit_score: Bit score for the repeat/sequence hit.
+* rpt_match_seq: Sequence matching the repeat/sequence hit.
 
 #### File: mutationsd_PAseq_PA14seqid.csv
 
