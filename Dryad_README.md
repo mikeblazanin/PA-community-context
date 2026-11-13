@@ -61,175 +61,183 @@ Raw and batch-corrected absorbance measurements from the biofilm formation assay
 #### File: density.csv
 
 **Description:** 
+Bacterial colony-count data and derived density estimates, including small- and large-colony morphotypes, across sampling timepoints and treatments.
 
 ##### Variables
 
-* Timepoint:
-* Phage_treat:
-* Comm_treat:
-* Pop:
-* Strain:
-* Count:
-* Dilution:
-* Small_count:
-* Small_dilution:
-* Large_count:
-* Large_dilution:
-* treat_P:
-* treat_C:
-* cfu_ml:
-* S_cfu_ml:
-* L_cfu_ml:
-* L_freq:
-* bd:
-* log_cfuml:
+* Timepoint: Sampling timepoint.
+* Phage_treat: Phage treatment (NP for no phage, P for phage).
+* Comm_treat: Community treatment (NC for no community, C for community).
+* Pop: Replicate population.
+* Strain: Species counted.
+* Count: Number of colonies counted on the plate.
+* Dilution: Dilution of the sample plated (log10).
+* Small_count: Number of small-colony morphotype colonies counted.
+* Small_dilution: Dilution of the sample used to count small-colony morphotype colonies.
+* Large_count: Number of large-colony morphotype colonies counted.
+* Large_dilution: Dilution of the sample used to count large-colony morphotype colonies.
+* treat_P: Phage treatment (NP for no phage, P for phage).
+* treat_C: Community treatment (NC for no community, C for community).
+* cfu_ml: Estimated colony-forming units per milliliter (CFU/mL) in the original sample.
+* S_cfu_ml: Estimated small-colony morphotype CFU per milliliter.
+* L_cfu_ml: Estimated large-colony morphotype CFU per milliliter.
+* L_freq: Frequency of the large-colony morphotype.
+* bd: whether any counts were below detection (i.e. 0 CFUs observed)
+* log_cfuml: Log10-transformed CFU per milliliter.
 
 #### File: growth_curve_metrics.csv
 
 **Description:** 
+Growth-curve metrics calculated for bacterial isolates, including raw and batch-corrected growth characteristics.
 
 ##### Variables
 
-* date:
-* Well:
-* Bact_treat:
-* Bact_treat_C:
-* Bact_treat_P:
-* Bact_timepoint:
-* Bact_pop:
-* Bact_isol:
-* max_percap:
-* max_dens:
-* lag:
-* auc:
-* max_percap_time:
-* max_percap_dens:
-* min_dens:
-* max_percap_norm:
-* max_dens_norm:
-* auc_norm:
-* lag_norm:
+* date: Date the assay was performed.
+* Well: Well of the plate in which the sample was assayed.
+* Bact_treat: Combined bacterial treatment (community and phage treatment; NC/C and NP/P).
+* Bact_treat_C: Bacterial community treatment (NC for no community, C for community).
+* Bact_treat_P: Bacterial phage treatment (NP for no phage, P for phage).
+* Bact_timepoint: Bacterial sampling timepoint.
+* Bact_pop: Bacterial replicate population.
+* Bact_isol: Bacterial isolate number.
+* max_percap: Maximum cellular (i.e. per-capita) growth rate from growth curve.
+* max_dens: Maximum density from growth curve (OD600).
+* lag: Lag time from growth curve.
+* auc: Area under the curve from growth curve.
+* max_percap_time: Time when maximum cellular growth rate was achieved from growth curve.
+* max_percap_dens: Density when maximum cellular growth rate was achieved from growth curve.
+* min_dens: Minimum density from growth curve.
+* max_percap_norm: Maximum cellular (i.e. per-capita) growth rate from growth curve, batch corrected.
+* max_dens_norm: Maximum density from growth curve (OD600), batch corrected.
+* auc_norm: Area under the curve from growth curve, batch corrected.
+* lag_norm: Lag time from growth curve, batch corrected.
 
 #### File: GOresults.csv
 
 **Description:** 
+Results of Gene Ontology (GO) enrichment analyses, including enrichment statistics and the genes associated with each enriched GO term, as output by clusterProfiler.
 
 ##### Variables
 
-* Treat:
-* Context:
-* ID:
-* Description:
-* GeneRatio:
-* BgRatio:
-* RichFactor:
-* FoldEnrichment:
-* zScore:
-* pvalue:
-* p.adjust:
-* qvalue:
-* geneID:
-* Count:
-* FoldPlot:
-* TreatPlot:
+* Treat: Combined treatment (community and phage treatment; NC/C and NP/P).
+* Context: Context or comparison grouping used for the GO enrichment analysis.
+* ID: Gene Ontology (GO) term identifier.
+* Description: Description/name of the GO term.
+* GeneRatio: Ratio of input genes associated with the GO term to input genes represented in the enrichment analysis.
+* BgRatio: Ratio of background/universe genes associated with the GO term to background genes represented in the enrichment analysis.
+* RichFactor: Number of input genes associated with the GO term divided by the total number of background genes associated with that term.
+* FoldEnrichment: Enrichment of the GO term in the input gene set relative to the background; calculated as GeneRatio divided by BgRatio.
+* zScore: Standardized enrichment score comparing the observed number of input genes in the term with the expected number under the background distribution.
+* pvalue: Unadjusted p-value for enrichment of the GO term.
+* p.adjust: P-value adjusted for multiple hypothesis testing.
+* qvalue: Q-value estimate for false-discovery-rate control.
+* geneID: Gene identifiers from the input gene set that are associated with the GO term.
+* Count: Number of input genes associated with the GO term.
+* FoldPlot: Fold-enrichment value used for plotting.
+* TreatPlot: Treatment/grouping label used for plotting.
 
 #### File: covdat.csv
 
 **Description:** 
+Sequencing coverage statistics for reference sequences/contigs, with sequencing sample and treatment metadata.
 
 ##### Variables
 
-* seqrun:
-* SeqCoastid:
-* seqtype:
-* Timepoint:
-* Pop:
-* Treat:
-* Isol:
-* title:
-* seq_id:
-* startpos:
-* endpos:
-* numreads:
-* covbases:
-* coverage:
-* meandepth:
-* meanbaseq:
-* meanmapq:
-* Strain:
-* Treat_C:
-* Treat_P:
-* included_in_treat:
+* seqrun: Sequencing run identifier.
+* SeqCoastid: Sequencing sample identifier.
+* seqtype: Type of sequencing sample (PA for bacterial, H6 for viral).
+* Timepoint: Sampling timepoint.
+* Pop: Replicate population.
+* Treat: Combined treatment (community and phage treatment; NC/C and NP/P).
+* Isol: Isolate number.
+* title: Sample or sequencing-library title.
+* seq_id: Identifier of the reference sequence/contig.
+* startpos: Start coordinate of the reference sequence region summarized.
+* endpos: End coordinate of the reference sequence region summarized.
+* numreads: Number of reads mapped to the reference sequence region.
+* covbases: Number of bases in the reference sequence region covered by at least one read.
+* coverage: Percentage of bases in the reference sequence region covered by at least one read.
+* meandepth: Mean read depth across the reference sequence region.
+* meanbaseq: Mean base quality of bases covering the reference sequence region.
+* meanmapq: Mean mapping quality of reads covering the reference sequence region.
+* Strain: Microbial strain.
+* Treat_C: Community treatment (NC for no community, C for community).
+* Treat_P: Phage treatment (NP for no phage, P for phage).
+* included_in_treat: Boolean of whether the strain was included in the treatment (and therefore expected to have coverage).
 
 #### File: nice_isolmuts.csv
 
 **Description:** 
+Summary of bacterial isolate phenotypes and mutation-category counts or indicators, with treatment and sampling metadata.
 
 ##### Variables
 
-* Timepoint:
-* Treat:
-* Pop:
-* Isol:
-* Treat_C:
-* Treat_P:
-* clearing_avg:
-* EOP_avg:
-* Plaque_morphology:
-* resis_cat:
-* twitch_cat:
-* mut_in_other:
-* mut_in_mutator:
-* mut_in_pilus:
-* mut_in_biofilm:
+* Timepoint: Sampling timepoint.
+* Treat: Combined treatment (community and phage treatment; NC/C and NP/P).
+* Pop: Replicate population.
+* Isol: Isolate number.
+* Treat_C: Community treatment (NC for no community, C for community).
+* Treat_P: Phage treatment (NP for no phage, P for phage).
+* clearing_avg: Whether bacteria was cleared by phages, averaged across all phages tested.
+* EOP_avg: Efficiency of plaquing from phages, averaged across all phages tested.
+* Plaque_morphology: Morphology of phage plaques.
+* resis_cat: Categorical level of resistance (resistant, partial, or susceptible).
+* twitch_cat: Categorical level of twitching (full, intermediate, or none).
+* mut_in_other: List of mutations assigned to the other gene category.
+* mut_in_mutator: List of mutations in genes associated with mutator phenotypes.
+* mut_in_pilus: List of mutations in pilus-associated genes.
+* mut_in_biofilm: List of mutations in biofilm-associated genes.
 
 #### File: pig.csv
 
 **Description:** 
+Plate-reader absorbance measurements collected for the pigment assay for pyocyanin and pyoverdin, with bacterial isolate and treatment metadata.
 
 ##### Variables
 
-* file:
-* Wavelength:
-* Well:
-* Measurements:
-* Bact_pop:
-* Bact_timepoint:
-* Bact_treat:
-* Bact_isol:
-* Bact_treat_C:
-* Bact_treat_P:
-* Meas_norm:
+* file: Name of the source data file.
+* Wavelength: Wavelength used for the plate-reader absorbance measurement.
+* Well: Well of the plate in which the sample was assayed.
+* Measurements: Raw plate-reader measurement.
+* Bact_pop: Bacterial replicate population.
+* Bact_timepoint: Bacterial sampling timepoint.
+* Bact_treat: Combined bacterial treatment (community and phage treatment; NC/C and NP/P).
+* Bact_isol: Bacterial isolate number.
+* Bact_treat_C: Bacterial community treatment (NC for no community, C for community).
+* Bact_treat_P: Bacterial phage treatment (NP for no phage, P for phage).
+* Meas_norm: Plate-reader measurement after normalization.
 
 #### File: prelimdens_C.csv
 
 **Description:** 
+Bacterial density and large-colony morphotype frequency estimates for preliminary experiment in community-present condition.
 
 ##### Variables
 
-* Comm_treat:
-* Timepoint:
-* Phage_treat:
-* Population:
-* Strain:
-* freq_L:
-* dens_ml:
-* bd:
+* Comm_treat: Community treatment (NC for no community, C for community).
+* Timepoint: Sampling timepoint.
+* Phage_treat: Phage treatment (NP for no phage, P for phage).
+* Population: Replicate population.
+* Strain: Bacterial strain.
+* freq_L: Frequency of the large-colony morphotype.
+* dens_ml: Bacterial density, expressed as cells or CFU per milliliter.
+* bd: whether any counts were below detection (i.e. 0 CFUs observed)
 
 #### File: prelimdens_NC_sum.csv
 
 **Description:** 
+Bacterial density and large-colony morphotype frequency estimates for preliminary experiment in no-community (Pseudomonas-only) condition.
 
 ##### Variables
 
-* Comm_treat:
-* Timepoint:
-* Strain:
-* Phage_treat:
-* Population:
-* dens_ml:
-* freq_L:
-* bd:
+* Comm_treat: Community treatment (NC for no community, C for community).
+* Timepoint: Sampling timepoint.
+* Strain: Bacterial strain.
+* Phage_treat: Phage treatment (NP for no phage, P for phage).
+* Population: Replicate population.
+* dens_ml: Bacterial density, expressed as cells or CFU per milliliter.
+* freq_L: Frequency of the large-colony morphotype.
+* bd: whether any counts were below detection (i.e. 0 CFUs observed)
 
 #### File: gcdat.csv
 
