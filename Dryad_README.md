@@ -43,6 +43,7 @@
 #### File: biofilm.csv
 
 **Description:** 
+Raw and batch-corrected absorbance measurements from the biofilm formation assay, with bacterial isolate and treatment metadata.
 
 ##### Variables
 
